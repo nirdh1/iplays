@@ -71,3 +71,30 @@ For local development put the same two lines in `.env.local`.
 | `player_guardians` | which parent belongs to which child |
 
 Next steps: matches, trainings, carpools and the team fund move from demo data to these tables.
+
+## IFA sync (Football Association public data)
+
+Tables: `supabase/migrations/20261101000000_ifa.sql`. Job: `supabase/functions/ifa-sync`.
+
+**Status:** the page parsers in `supabase/functions/ifa-sync/parse.ts` are not written yet. They have to be written against the real football.org.il pages, which the build environment could not reach. Until then the job stops with a clear error and writes nothing.
+
+1. Run the migration in the SQL editor (after the base schema).
+2. Deploy the function: `supabase functions deploy ifa-sync --no-verify-jwt` (the function checks the service-role key itself).
+3. Schedule it (SQL editor; needs the `pg_cron` and `pg_net` extensions). Store the service-role key in Vault as `service_role_key` first:
+
+```sql
+select cron.schedule('ifa-sync', '0 */3 * * *', $$
+  select net.http_post(
+    url := 'https://<project-ref>.supabase.co/functions/v1/ifa-sync',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key'), 'Content-Type', 'application/json'),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 120000
+  );
+$$);
+```
+
+Notes:
+- **Geo-block:** football.org.il may refuse requests from servers outside Israel. Supabase functions run in the project's region. If the job gets 403s, run the same sync from an Israeli host (or the user's own machine) instead.
+- **Terms of use:** check the IFA site's terms on automated access and reuse before turning the schedule on.
+- **Minors:** squads are fetched only for IFA teams an iplays team is linked to, are readable only by that team's members, and are copied into the roster only when staff press "import".
+- iplays is independent and not on behalf of the IFA; the app shows this next to every IFA block.

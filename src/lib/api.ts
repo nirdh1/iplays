@@ -21,6 +21,7 @@ export interface Team {
   season: string;
   sport: Sport;
   league: string;
+  ifa_team_id: string | null;
 }
 
 export interface MyTeam extends Team {
@@ -60,6 +61,7 @@ export function friendlyError(e: unknown): string {
   if (msg.includes('join the team first')) return 'צריך להצטרף לקבוצה לפני הוספת ילד.';
   if (msg.includes('Token has expired') || msg.includes('otp_expired') || msg.includes('invalid')) return 'הקוד שגוי או שפג תוקפו. נסו לשלוח קוד חדש.';
   if (msg.includes('rate limit') || msg.includes('security purposes')) return 'נשלחו יותר מדי קודים. נסו שוב בעוד דקה.';
+  if (msg.includes('not linked to the IFA')) return 'הקבוצה עדיין לא מחוברת לקבוצה בהתאחדות.';
   if (msg.includes('Failed to fetch')) return 'אין חיבור לשרת. בדקו את האינטרנט ונסו שוב.';
   return 'משהו השתבש. נסו שוב.';
 }
@@ -78,7 +80,7 @@ export async function updateMyName(userId: string, fullName: string) {
 export async function getMyTeams(userId: string): Promise<MyTeam[]> {
   const { data, error } = await db()
     .from('team_members')
-    .select('role, teams (id, name, club, season, sport, league)')
+    .select('role, teams (id, name, club, season, sport, league, ifa_team_id)')
     .eq('user_id', userId)
     .order('joined_at');
   if (error) throw error;
@@ -175,4 +177,109 @@ export async function newInviteCode(teamId: string, role: 'parent' | 'coach' = '
 
 export function inviteLink(code: string) {
   return `${window.location.origin}${window.location.pathname}#join/${code}`;
+}
+
+// ------------------------------------------------------------ IFA public data
+// Filled by the server sync job (supabase/functions/ifa-sync). Read-only here.
+
+export interface IfaLeague {
+  id: string;
+  season: string;
+  age_group: string;
+  tier: string;
+  district: string;
+  name: string;
+}
+
+export interface IfaTeam {
+  id: string;
+  league_id: string | null;
+  name: string;
+  club: string;
+}
+
+export interface IfaMatch {
+  id: string;
+  league_id: string;
+  round: number | null;
+  kickoff: string | null;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_name: string;
+  away_name: string;
+  venue: string;
+  venue_address: string;
+  home_score: number | null;
+  away_score: number | null;
+  status: 'scheduled' | 'played' | 'postponed' | 'cancelled';
+}
+
+export interface IfaStanding {
+  team_id: string;
+  team_name: string;
+  position: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goals_for: number;
+  goals_against: number;
+  points: number;
+}
+
+export async function getIfaLeagues(season?: string): Promise<IfaLeague[]> {
+  let q = db().from('ifa_leagues').select('id, season, age_group, tier, district, name');
+  if (season) q = q.eq('season', season);
+  const { data, error } = await q.order('age_group').order('tier').order('district').order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getIfaTeams(leagueId: string): Promise<IfaTeam[]> {
+  const { data, error } = await db().from('ifa_teams').select('id, league_id, name, club').eq('league_id', leagueId).order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getIfaTeam(id: string): Promise<IfaTeam | null> {
+  const { data, error } = await db().from('ifa_teams').select('id, league_id, name, club').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function linkIfaTeam(teamId: string, ifaTeamId: string | null) {
+  const { error } = await db().from('teams').update({ ifa_team_id: ifaTeamId }).eq('id', teamId);
+  if (error) throw error;
+}
+
+export async function getIfaMatches(ifaTeamId: string): Promise<IfaMatch[]> {
+  const { data, error } = await db()
+    .from('ifa_matches')
+    .select('id, league_id, round, kickoff, home_team_id, away_team_id, home_name, away_name, venue, venue_address, home_score, away_score, status')
+    .or(`home_team_id.eq.${ifaTeamId},away_team_id.eq.${ifaTeamId}`)
+    .order('kickoff', { nullsFirst: false });
+  if (error) throw error;
+  return (data ?? []) as IfaMatch[];
+}
+
+export async function getIfaStandings(leagueId: string): Promise<IfaStanding[]> {
+  const { data, error } = await db()
+    .from('ifa_standings')
+    .select('team_id, team_name, position, played, won, drawn, lost, goals_for, goals_against, points')
+    .eq('league_id', leagueId)
+    .order('position');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getIfaRosterCount(ifaTeamId: string): Promise<number> {
+  const { count, error } = await db().from('ifa_players').select('player_id', { count: 'exact', head: true }).eq('team_id', ifaTeamId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function importIfaRoster(teamId: string): Promise<number> {
+  const { data, error } = await db().rpc('import_ifa_roster', { p_team: teamId });
+  if (error) throw error;
+  return data as number;
 }

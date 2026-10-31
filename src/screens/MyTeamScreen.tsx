@@ -24,6 +24,7 @@ import {
 } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
 import { Err, Field } from '../components/form';
+import { IfaSection } from './IfaSection';
 
 export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
   const { session, teams, refresh } = useAuth();
@@ -80,6 +81,15 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
       </Card>
 
       {error && <p className="ip-error" role="alert">{error}</p>}
+
+      <IfaSection
+        team={team}
+        staff={staff}
+        onChanged={async () => {
+          await refresh();
+          await load();
+        }}
+      />
 
       {staff && code && (
         <section>
