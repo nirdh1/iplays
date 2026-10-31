@@ -159,3 +159,37 @@ export function EmptyState({ icon, title, text }: { icon: IconName; title: strin
     </div>
   );
 }
+
+/* ---------- Segmented control ---------- */
+export function Segmented<T extends string>({ items, value, onChange, label }: { items: { id: T; label: string }[]; value: T; onChange: (id: T) => void; label: string }) {
+  return (
+    <div className="ip-segmented" role="tablist" aria-label={label}>
+      {items.map((it) => (
+        <button key={it.id} type="button" role="tab" aria-selected={value === it.id} className={value === it.id ? 'is-active' : ''} onClick={() => onChange(it.id)}>
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Large score line used by the live card and the match center. Home team sits on the start (right) side. */
+export function Scoreline({ home, away, homeScore, awayScore, size = 'md' }: { home: string; away: string; homeScore: number; awayScore: number; size?: 'md' | 'lg' }) {
+  return (
+    <div className={`ip-score ip-score--${size}`}>
+      <span className="ip-score-team">
+        <TeamCrest name={home} tone="blue" size={size === 'lg' ? 52 : 40} />
+        {home}
+      </span>
+      <span className="ip-score-num" aria-label={`${home} ${homeScore}, ${away} ${awayScore}`}>
+        <span>{homeScore}</span>
+        <span className="ip-score-sep">:</span>
+        <span>{awayScore}</span>
+      </span>
+      <span className="ip-score-team">
+        <TeamCrest name={away} tone="neutral" size={size === 'lg' ? 52 : 40} />
+        {away}
+      </span>
+    </div>
+  );
+}

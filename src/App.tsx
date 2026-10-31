@@ -3,11 +3,13 @@ import { AppHeader, BottomNav, ChildSwitcherSheet, type TabId } from './componen
 import { children, parent } from './data/demo';
 import { HomeScreen } from './screens/HomeScreen';
 import { CareerScreen } from './screens/CareerScreen';
-import { CalendarScreen, FamilyScreen, TeamScreen } from './screens/OtherScreens';
+import { CalendarScreen, FamilyScreen } from './screens/OtherScreens';
+import { TeamScreen } from './screens/TeamScreen';
+import { MatchCenterScreen } from './screens/MatchCenterScreen';
 import { BrandScreen } from './screens/BrandScreen';
 
-type Route = TabId | 'brand';
-const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand'];
+type Route = TabId | 'brand' | 'match';
+const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match'];
 
 function readHash(): { route: Route; child?: string } {
   const [r, c] = window.location.hash.replace('#', '').split('/');
@@ -61,13 +63,14 @@ export function App() {
     <div className="ip-app">
       <AppHeader parentName={`${parent.firstName} ${parent.lastName}`} unread={parent.unread} child={child} onOpenSwitcher={openSwitcher} />
       <main className="ip-main">
-        {route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} />}
-        {route === 'team' && <TeamScreen child={child} />}
+        {route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}
+        {route === 'team' && <TeamScreen child={child} onOpenMatch={() => go('match')} />}
+        {route === 'match' && <MatchCenterScreen child={child} onBack={() => (history.length > 1 ? history.back() : go('team'))} />}
         {route === 'calendar' && <CalendarScreen child={child} />}
         {route === 'career' && <CareerScreen child={child} onSwitchChild={openSwitcher} />}
         {route === 'family' && <FamilyScreen />}
       </main>
-      <BottomNav active={route} onChange={go} />
+      <BottomNav active={route === 'match' ? 'team' : route} onChange={go} />
       <ChildSwitcherSheet open={switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );

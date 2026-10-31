@@ -6,20 +6,21 @@
 import { useState } from 'react';
 import { Avatar, InitialsAvatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
-import { Button, Card, ListRow, LiveBadge, MetaRow, ProgressBar, SectionHeader, StatTile, Tag, TeamCrest } from '../components/ui';
+import { Button, Card, ListRow, LiveBadge, MetaRow, ProgressBar, Scoreline, SectionHeader, StatTile, Tag, TeamCrest } from '../components/ui';
 import { today, weekDays, type Child, type EventKind } from '../data/demo';
+import { useLive } from '../data/liveStore';
 import type { TabId } from '../components/shell';
 
 const kindLabel: Record<EventKind, string> = { match: 'משחק', team: 'אימון קבוצתי', private: 'אימון אישי' };
 const kindTone: Record<EventKind, 'navy' | 'blue' | 'lime'> = { match: 'navy', team: 'blue', private: 'lime' };
 
-export function HomeScreen({ child, onNavigate, onSwitchChild }: { child: Child; onNavigate: (t: TabId) => void; onSwitchChild: () => void }) {
+export function HomeScreen({ child, onNavigate, onSwitchChild, onOpenMatch }: { child: Child; onNavigate: (t: TabId) => void; onSwitchChild: () => void; onOpenMatch: () => void }) {
   return (
     <div className="ip-stack" key={child.id}>
       <ChildCard child={child} onCareer={() => onNavigate('career')} onSwitch={onSwitchChild} />
       <NextMatchCard child={child} />
       <NextTrainingCard child={child} />
-      {child.live && <LiveCard child={child} onOpen={() => onNavigate('team')} />}
+      <LiveCard child={child} onOpen={onOpenMatch} />
       <WeekCard child={child} onOpen={() => onNavigate('calendar')} />
       <CarpoolCard child={child} onOpen={() => onNavigate('family')} />
       <CommunityCard child={child} onOpen={() => onNavigate('team')} />
@@ -156,34 +157,27 @@ function NextTrainingCard({ child }: { child: Child }) {
 
 /* 3 — Live match / goal notifications */
 function LiveCard({ child, onOpen }: { child: Child; onOpen: () => void }) {
-  const l = child.live!;
+  const { live: l } = useLive(child.id);
+  if (!l) return null;
   const live = l.status === 'live';
   return (
     <section>
       <SectionHeader title={live ? 'משחק חי' : 'עדכוני משחק'} icon="live" action="מרכז המשחק" onAction={onOpen} />
       <Card tone={live ? 'live' : 'default'}>
-        <div className="ip-score">
-          <span className="ip-score-team">{l.home}</span>
-          <span className="ip-score-num" aria-label={`${l.homeScore} : ${l.awayScore}`}>
-            <span>{l.homeScore}</span>
-            <span className="ip-score-sep">:</span>
-            <span>{l.awayScore}</span>
-          </span>
-          <span className="ip-score-team">{l.away}</span>
-        </div>
+        <Scoreline home={l.home} away={l.away} homeScore={l.homeScore} awayScore={l.awayScore} />
         <div className="ip-score-status">{live ? <LiveBadge label={`LIVE · ${l.period}`} /> : <Tag>{l.period}</Tag>}</div>
         <ul className="ip-feed">
           {l.updates.slice(0, 3).map((u, i) => (
             <li key={i} className={u.mine ? 'is-mine' : ''}>
               <span className="ip-feed-min">{u.minute}</span>
-              <Icon name={u.kind === 'goal' ? 'goal' : 'whistle'} size={18} />
+              <Icon name={u.kind === 'goal' ? 'goal' : u.kind === 'card' ? 'card' : 'whistle'} size={18} />
               <span>{u.text}</span>
             </li>
           ))}
         </ul>
         {live && (
           <Button variant="secondary" block icon="goal" onClick={onOpen}>
-            דיווח על סל / שער
+            דיווח על {child.sport === 'כדורסל' ? 'סל' : 'שער'}
           </Button>
         )}
       </Card>

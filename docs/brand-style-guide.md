@@ -126,6 +126,13 @@ All in `src/components/` and styled in `src/theme/components.css`:
 | `AppHeader`, `ChildSwitcherPill`, `ChildSwitcherSheet`, `BottomSheet` | Shell & child switching |
 | `BottomNav` | בית · קבוצה · יומן · קריירה · משפחה |
 | `CareerChart` | Goals/assists by month (CVD-validated colors, direct labels, tooltip) |
+| `Segmented` | In-screen section switcher (Team tab), sticky under the header |
+| `Scoreline` | Crest + score + crest; home team always on the start (right) side |
+
+**Live & reporting patterns** (match center): LIVE red is reserved for the badge and the
+live card ring. Goal events use blue dots, the selected child's own events use a lime dot,
+opponent events stay neutral. Every report from the stands shows the reporter's name and
+can be undone by its author; a toast confirms that all parents were notified.
 
 ## 10. Content & tone
 

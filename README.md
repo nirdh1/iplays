@@ -19,7 +19,8 @@ Routes (hash based, add `/<childId>` to pick a child, e.g. `#home/maya`):
 | Route | Screen |
 |---|---|
 | `#home` | Home — child-first dashboard |
-| `#team` | Team (LIVE match center, goal reporting, team fund, community…) |
+| `#team` | Team: overview, matches & standings, training RSVP, team fund, roster |
+| `#match` | LIVE match center with goal / basket reporting |
 | `#calendar` | Weekly calendar for all children |
 | `#career` | Career overview preview |
 | `#family` | Children, family permissions, carpools |

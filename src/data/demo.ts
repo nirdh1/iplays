@@ -32,6 +32,12 @@ export interface LiveUpdate {
   text: string;
   kind: 'goal' | 'card' | 'info';
   mine?: boolean;
+  /** Set on updates reported from the stands in this session (can be undone). */
+  reported?: boolean;
+  side?: 'home' | 'away';
+  points?: number;
+  reporter?: string;
+  prevStats?: { label: string; value: string }[];
 }
 
 export interface Live {
@@ -42,6 +48,9 @@ export interface Live {
   homeScore: number;
   awayScore: number;
   updates: LiveUpdate[];
+  /** The selected child's own numbers in this match */
+  myStats?: { label: string; value: string }[];
+  watching?: number;
 }
 
 export interface Carpool {
@@ -93,6 +102,7 @@ export interface Child {
   firstName: string;
   lastName: string;
   age: number;
+  gender: 'm' | 'f';
   sport: string;
   sportIcon: 'ball' | 'whistle';
   club: string;
@@ -135,6 +145,7 @@ export const weekDays = [
 export const children: Child[] = [
   {
     id: 'noam',
+    gender: 'm',
     firstName: 'נועם',
     lastName: 'לוי',
     age: 11,
@@ -181,10 +192,18 @@ export const children: Child[] = [
       homeScore: 3,
       awayScore: 1,
       updates: [
-        { minute: "52'", text: 'שער! נועם לוי כובש מבעיטה מחוץ לרחבה', kind: 'goal', mine: true },
-        { minute: "38'", text: 'שער! עידו שמש מקביעה אחרי מסירה של נועם', kind: 'goal' },
-        { minute: "21'", text: 'שער לצור יגאל', kind: 'goal' },
-        { minute: "9'", text: 'שער! איתן בן דוד בנגיחה', kind: 'goal' },
+        { minute: "60'", text: 'שריקת סיום · 3:1 להכוכבים', kind: 'info' },
+        { minute: "52'", text: 'שער! נועם לוי כובש מבעיטה מחוץ לרחבה', kind: 'goal', mine: true, side: 'home', reporter: 'דיווח: רונית לוי' },
+        { minute: "44'", text: 'כרטיס צהוב לצור יגאל', kind: 'card', side: 'away' },
+        { minute: "38'", text: 'שער! עידו שמש · בישול: נועם לוי', kind: 'goal', side: 'home', reporter: 'דיווח: משה שמש' },
+        { minute: "30'", text: 'מחצית · 1:1', kind: 'info' },
+        { minute: "21'", text: 'שער לצור יגאל', kind: 'goal', side: 'away' },
+        { minute: "9'", text: 'שער! איתן בן דוד בנגיחה', kind: 'goal', side: 'home', reporter: 'דיווח: המאמן אורי' },
+      ],
+      myStats: [
+        { label: 'שערים', value: '1' },
+        { label: 'בישולים', value: '1' },
+        { label: 'דקות', value: '60' },
       ],
     },
     week: [
@@ -249,6 +268,7 @@ export const children: Child[] = [
   },
   {
     id: 'maya',
+    gender: 'f',
     firstName: 'מאיה',
     lastName: 'לוי',
     age: 9,
@@ -294,10 +314,18 @@ export const children: Child[] = [
       homeScore: 34,
       awayScore: 28,
       updates: [
-        { minute: 'רבע 3', text: 'מאיה לוי · שלשה!', kind: 'goal', mine: true },
+        { minute: 'רבע 3', text: 'שלשה! מאיה לוי', kind: 'goal', mine: true, side: 'home', points: 3, reporter: 'דיווח: אבי לוי' },
         { minute: 'רבע 3', text: 'פסק זמן לגלבוע הצפון', kind: 'info' },
-        { minute: 'רבע 2', text: 'מחצית: ברקים 26 · גלבוע 24', kind: 'info' },
+        { minute: 'רבע 3', text: 'סל! נגה כהן · אסיסט: מאיה לוי', kind: 'goal', side: 'home', points: 2, reporter: 'דיווח: ענבל כהן' },
+        { minute: 'רבע 2', text: 'מחצית · ברקים 26 · גלבוע 24', kind: 'info' },
+        { minute: 'רבע 2', text: 'סל! מאיה לוי מחדירה', kind: 'goal', mine: true, side: 'home', points: 2, reporter: 'דיווח: רונית לוי' },
       ],
+      myStats: [
+        { label: 'נקודות', value: '9' },
+        { label: 'אסיסטים', value: '3' },
+        { label: 'ריבאונדים', value: '2' },
+      ],
+      watching: 23,
     },
     week: [
       { id: 'm1', day: 1, time: '16:00', kind: 'team', title: 'אימון קבוצתי', place: 'אולם אופק' },
@@ -350,6 +378,7 @@ export const children: Child[] = [
   },
   {
     id: 'itay',
+    gender: 'm',
     firstName: 'איתי',
     lastName: 'לוי',
     age: 7,

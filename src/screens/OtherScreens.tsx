@@ -1,35 +1,15 @@
 /**
- * Team, Calendar and Family tabs. These are NOT redesigned yet — this pass
- * only rebrands them with the shared components and keeps an entry point for
- * every existing TeamUp capability (LIVE match center, goal reporting,
- * carpools, team funds, training events, family permissions) so nothing is lost.
+ * Calendar and Family tabs. These are NOT redesigned yet — this pass only
+ * rebrands them with the shared components and keeps an entry point for the
+ * existing capabilities (training events, carpools, family permissions).
  */
-import { Card, ListRow, LiveBadge, SectionHeader, Tag } from '../components/ui';
+import { Card, ListRow, SectionHeader, Tag } from '../components/ui';
 import { ScreenTitle } from '../components/shell';
 import { Avatar, InitialsAvatar } from '../components/Avatar';
 import { children, parent, weekDays, type Child } from '../data/demo';
 
 function NextPassNote() {
   return <p className="ip-footnote">המסך הזה יעוצב מחדש בשלב הבא · כל היכולות הקיימות נשמרות</p>;
-}
-
-export function TeamScreen({ child }: { child: Child }) {
-  const live = child.live?.status === 'live';
-  return (
-    <div className="ip-stack">
-      <ScreenTitle title={child.team} subtitle={`${child.club} · עונת ${child.season}`} />
-      <Card padded={false}>
-        <ListRow icon="live" iconTone="live" title="מרכז המשחק LIVE" subtitle={live ? `${child.live!.home} ${child.live!.homeScore}:${child.live!.awayScore} ${child.live!.away}` : 'עדכונים חיים בזמן משחק'} trailing={live ? <LiveBadge /> : undefined} />
-        <ListRow icon="goal" title="דיווח שער / סל" subtitle="דיווח מהיר מהיציע לכל ההורים" />
-        <ListRow icon="ball" title="משחקים ותוצאות" subtitle="לוח המשחקים והטבלה" />
-        <ListRow icon="whistle" title="אימונים" subtitle="אימונים קבוצתיים ואישורי הגעה" />
-        <ListRow icon="wallet" iconTone="lime" title="קופת הקבוצה" subtitle="2,400 ₪ מתוך 3,000 ₪ · מתנה למאמנים" />
-        <ListRow icon="chat" title="קהילה והודעות" subtitle="עדכונים מהמאמנים וההורים" />
-        <ListRow icon="team" iconTone="navy" title="סגל השחקנים" subtitle="שחקנים, מאמנים ואנשי קשר" />
-      </Card>
-      <NextPassNote />
-    </div>
-  );
 }
 
 export function CalendarScreen({ child }: { child: Child }) {
