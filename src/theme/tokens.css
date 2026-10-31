@@ -1,0 +1,70 @@
+/*
+ * iplays design tokens — single source of truth for color, type, spacing,
+ * radius, elevation and motion. See docs/brand-style-guide.md.
+ */
+:root {
+  /* Brand */
+  --ip-navy: #0b1f3b;
+  --ip-navy-700: #163057;
+  --ip-navy-500: #3a5275;
+  --ip-lime: #7cf23d;
+  --ip-lime-600: #5fcf22;
+  --ip-lime-100: #ebfddf;
+  --ip-blue: #3da5ff;
+  --ip-blue-700: #1477d6;
+  --ip-blue-100: #e3f2ff;
+  --ip-bg: #f4f7fb;
+  --ip-white: #ffffff;
+
+  /* Neutrals & semantic */
+  --ip-text: var(--ip-navy);
+  --ip-text-2: #51627d;
+  --ip-text-3: #8392a8;
+  --ip-border: #e3eaf3;
+  --ip-surface: var(--ip-white);
+  --ip-surface-2: #f8fafd;
+  --ip-live: #ff3b4e;
+  --ip-live-100: #ffe8ea;
+  --ip-warning: #ffb020;
+  --ip-success: var(--ip-lime-600);
+
+  /* Event types (calendar) */
+  --ip-ev-match: var(--ip-navy);
+  --ip-ev-team: var(--ip-blue);
+  --ip-ev-private: var(--ip-lime-600);
+
+  /* Typography */
+  --ip-font: 'Heebo', 'Rubik', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --ip-fs-display: 28px;
+  --ip-fs-title: 22px;
+  --ip-fs-h: 18px;
+  --ip-fs-body: 16px;
+  --ip-fs-sm: 14px;
+  --ip-fs-xs: 12px;
+
+  /* Spacing (4pt grid) */
+  --ip-s1: 4px;
+  --ip-s2: 8px;
+  --ip-s3: 12px;
+  --ip-s4: 16px;
+  --ip-s5: 20px;
+  --ip-s6: 24px;
+  --ip-s8: 32px;
+
+  /* Radius */
+  --ip-r-sm: 10px;
+  --ip-r-md: 16px;
+  --ip-r-lg: 22px;
+  --ip-r-pill: 999px;
+
+  /* Elevation */
+  --ip-shadow-1: 0 1px 2px rgba(11, 31, 59, 0.04), 0 4px 14px rgba(11, 31, 59, 0.06);
+  --ip-shadow-2: 0 2px 6px rgba(11, 31, 59, 0.06), 0 12px 32px rgba(11, 31, 59, 0.12);
+
+  /* Touch */
+  --ip-touch: 48px;
+
+  /* Motion */
+  --ip-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ip-dur: 220ms;
+}

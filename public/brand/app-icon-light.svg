@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="iplays app icon (light)">
+  <rect width="1024" height="1024" rx="228" fill="#FFFFFF"/>
+  <rect x="1" y="1" width="1022" height="1022" rx="227" fill="none" stroke="#E3EAF3" stroke-width="2"/>
+  <!-- "i" stem + ball in motion -->
+  <g transform="translate(36 0)">
+  <path d="M512 470v300" stroke="#0B1F3B" stroke-width="112" stroke-linecap="round"/>
+  <path d="M250 268h150M318 380h82" stroke="#3DA5FF" stroke-width="56" stroke-linecap="round"/>
+  <circle cx="530" cy="318" r="98" fill="#7CF23D"/>
+  </g>
+</svg>
