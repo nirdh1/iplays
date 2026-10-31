@@ -28,6 +28,12 @@ Routes (hash based, add `/<childId>` to pick a child, e.g. `#home/maya`):
 
 Demo children: `noam` (football), `maya` (basketball, live game now), `itay` (football).
 
+## Accounts & backend
+
+Sign-up, teams, invite links and rosters run on Supabase. Without the two
+`VITE_SUPABASE_*` environment variables the app opens in demo mode.
+Setup steps: [docs/backend-setup.md](docs/backend-setup.md).
+
 ## Structure
 
 ```
@@ -37,6 +43,8 @@ src/theme/             design tokens, base and component styles
 src/components/        reusable components (Logo, Icon, Avatar, ui, shell, CareerChart)
 src/screens/           Home, Career, Team/Calendar/Family, Brand
 src/data/demo.ts       fictional Hebrew demo content
+src/lib/, src/auth/    Supabase client, data access, session
+supabase/migrations/   database schema + Row Level Security
 ```
 
 See [docs/brand-style-guide.md](docs/brand-style-guide.md) for the brand rules.
