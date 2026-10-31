@@ -1,0 +1,153 @@
+/* Coach board (screens/CoachScreen.tsx) */
+.ip-coach-next {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--ip-s4);
+  padding-top: var(--ip-s4);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.ip-coach-next strong {
+  font-size: var(--ip-fs-h);
+  font-weight: 800;
+  color: var(--ip-lime);
+}
+.ip-coach-demo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+}
+.ip-coach-demo p {
+  font-size: var(--ip-fs-xs);
+}
+.ip-coach-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--ip-s2);
+}
+.ip-coach-actions .ip-btn {
+  min-width: 0;
+  padding: 6px var(--ip-s3);
+  white-space: normal;
+  line-height: 1.2;
+}
+.ip-coach-mine .ip-btn,
+.ip-absence-foot .ip-btn {
+  flex: none;
+}
+.ip-coach-mine > span {
+  min-width: 0;
+}
+.ip-news.is-pinned {
+  box-shadow: inset 0 0 0 2px var(--ip-lime-600), var(--ip-shadow-1);
+}
+.ip-news .ip-post-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+}
+.ip-news .ip-post-head > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.ip-news-title {
+  margin-top: var(--ip-s3);
+  font-size: var(--ip-fs-h);
+  font-weight: 800;
+}
+.ip-news-body {
+  margin-top: var(--ip-s1);
+  white-space: pre-line;
+  color: var(--ip-text-2);
+}
+.ip-training-event.is-canceled > :not(.ip-btn-row) {
+  opacity: 0.55;
+}
+.ip-training-event.is-canceled .ip-carpool-head strong {
+  text-decoration: line-through;
+}
+.ip-coach-note {
+  margin-top: var(--ip-s2);
+  padding: var(--ip-s2) var(--ip-s3);
+  border-radius: var(--ip-r-sm);
+  background: var(--ip-surface-2);
+  font-size: var(--ip-fs-sm);
+  color: var(--ip-text-2);
+}
+.ip-coach-count {
+  margin-top: var(--ip-s3);
+  font-weight: 700;
+  font-size: var(--ip-fs-sm);
+}
+.ip-coach-reports {
+  list-style: none;
+  margin: var(--ip-s2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--ip-fs-sm);
+}
+.ip-coach-mine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-s2);
+  margin-top: var(--ip-s3);
+  padding-top: var(--ip-s3);
+  border-top: 1px solid var(--ip-border);
+  font-weight: 600;
+}
+.ip-absence .ip-tag-row {
+  margin-top: var(--ip-s2);
+}
+.ip-absence-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-s2);
+  margin-top: var(--ip-s2);
+  font-size: var(--ip-fs-xs);
+}
+.ip-rsvp--flush {
+  margin-top: 0;
+}
+.ip-rsvp button.is-late {
+  background: var(--ip-warning);
+  color: var(--ip-navy);
+  box-shadow: none;
+}
+.ip-textarea {
+  min-height: 120px;
+  padding-top: var(--ip-s3);
+  padding-bottom: var(--ip-s3);
+  resize: vertical;
+  line-height: 1.5;
+}
+.ip-check {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s2);
+  min-height: var(--ip-touch);
+  font-weight: 600;
+}
+.ip-check input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--ip-navy);
+}
+.ip-coach-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+  width: 100%;
+  text-align: start;
+}
+.ip-coach-entry .ip-list-row-text {
+  flex: 1;
+}
+.ip-choice-row button:disabled {
+  opacity: 0.4;
+}
