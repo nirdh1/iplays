@@ -2330,3 +2330,9 @@ select.ip-input {
   color: #fff;
   box-shadow: none;
 }
+
+.ip-ifa-team-label {
+  margin: 0;
+  padding: 10px 16px 0;
+  font-size: 12px;
+}

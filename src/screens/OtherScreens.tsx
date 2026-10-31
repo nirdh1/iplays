@@ -8,6 +8,7 @@ import { ScreenTitle } from '../components/shell';
 import { Avatar, InitialsAvatar } from '../components/Avatar';
 import { children, parent, weekDays, type Child } from '../data/demo';
 import { AccountSection } from './AccountSection';
+import { IfaFixturesCard } from './IfaFixturesCard';
 
 function NextPassNote() {
   return <p className="ip-footnote">המסך הזה יעוצב מחדש בשלב הבא · כל היכולות הקיימות נשמרות</p>;
@@ -17,6 +18,7 @@ export function CalendarScreen({ child }: { child: Child }) {
   return (
     <div className="ip-stack">
       <ScreenTitle title="יומן" subtitle="אימונים, אימונים אישיים ומשחקים של כל הילדים" />
+      <IfaFixturesCard title="משחקי הליגה הקרובים" />
       {weekDays.map((d, i) => {
         const items = children
           .flatMap((c) => c.week.filter((w) => w.day === i).map((w) => ({ ...w, c })))

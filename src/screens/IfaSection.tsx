@@ -220,7 +220,7 @@ function signed(n: number) {
 const dateFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric', timeZone: 'Asia/Jerusalem' });
 const timeFmt = new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
 
-function IfaFixture({ m, ours }: { m: IfaMatch; ours: string }) {
+export function IfaFixture({ m, ours }: { m: IfaMatch; ours: string }) {
   const k = m.kickoff ? new Date(m.kickoff) : null;
   const usHome = m.home_team_id === ours;
   const played = m.status === 'played' && m.home_score !== null && m.away_score !== null;
