@@ -122,3 +122,36 @@ export function passwordError(e: unknown): string {
   if (msg.includes('failed to fetch')) return 'אין חיבור לשרת. בדקו את האינטרנט ונסו שוב.';
   return 'משהו השתבש. נסו שוב.';
 }
+
+/** After a code sign-in (forgot / no password): ask for a password right away. */
+const PW_NEXT_KEY = 'iplays.setPasswordNext';
+export function askForPasswordNext(on: boolean) {
+  try {
+    if (on) localStorage.setItem(PW_NEXT_KEY, '1');
+    else localStorage.removeItem(PW_NEXT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+export function passwordNext(): boolean {
+  try {
+    return localStorage.getItem(PW_NEXT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Hand the credentials to the browser's password manager where the Credential
+ * Management API exists (Chrome / Android). Safari offers to save on its own
+ * from the form's autocomplete attributes.
+ */
+export function storeCredential(email: string, password: string) {
+  try {
+    const PC = (window as unknown as { PasswordCredential?: new (d: { id: string; password: string; name?: string }) => Credential })
+      .PasswordCredential;
+    if (PC && navigator.credentials?.store) void navigator.credentials.store(new PC({ id: email, password, name: email })).catch(() => undefined);
+  } catch {
+    /* unsupported */
+  }
+}

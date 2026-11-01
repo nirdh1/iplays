@@ -41,7 +41,15 @@ Use a **separate project for iplays** (don't reuse a project that belongs to ano
   below; otherwise Supabase uses the Site URL). The app reads `token_hash` from the address and
   signs in, in any browser.
 
-  **Password (optional)**: parents can set a password in the Family tab (or the one-time popup
+  **Email + password is the main sign-in** (sign-up and sign-in screens). The fields use
+  `autocomplete="username"` / `current-password` / `new-password`, so iCloud Keychain and Google
+  Password Manager offer to save and autofill the password, also in the home-screen app.
+  **Authentication → Sign In / Providers → Email → Confirm email**: on (default) means one code by
+  email at sign-up (from the *Confirm signup* template, which must include `{{ .Token }}`); off means
+  sign-up signs in immediately, without any email. "Forgot password" sends a code, and the app asks
+  for a new password right after.
+
+  **Password (older note)**: parents can set a password in the Family tab (or the one-time popup
   after sign-up) and then sign in with email + password on any other device. Keep **Email** provider
   password sign-in enabled (the default). The app stores `has_password` in the user's metadata.
 
