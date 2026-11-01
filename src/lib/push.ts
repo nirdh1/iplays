@@ -63,10 +63,18 @@ export async function disablePush(): Promise<PushState> {
 export interface NotificationPrefs {
   match_changes: boolean;
   match_results: boolean;
+  /** trainings, team announcements, absence reports. Missing until the inbox migration ran. */
+  team_updates?: boolean;
 }
 
 export async function getPrefs(): Promise<NotificationPrefs> {
-  const { data } = (await supabase?.from('notification_prefs').select('match_changes, match_results').maybeSingle()) ?? { data: null };
+  if (!supabase) return { match_changes: true, match_results: true };
+  const full = await supabase.from('notification_prefs').select('match_changes, match_results, team_updates').maybeSingle();
+  if (!full.error) {
+    const d = full.data;
+    return { match_changes: d?.match_changes ?? true, match_results: d?.match_results ?? true, team_updates: d?.team_updates ?? true };
+  }
+  const { data } = await supabase.from('notification_prefs').select('match_changes, match_results').maybeSingle();
   return { match_changes: data?.match_changes ?? true, match_results: data?.match_results ?? true };
 }
 

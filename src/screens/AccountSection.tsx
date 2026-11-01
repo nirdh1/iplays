@@ -21,7 +21,7 @@ import '../theme/coach.css';
 import { PasswordCard } from '../components/PasswordSetup';
 import { disablePush, enablePush, getPrefs, pushState, savePrefs, type NotificationPrefs, type PushState } from '../lib/push';
 
-/** Game-change notifications: this device on/off, and what to get. */
+/** Notifications: push on this device on/off, and what to get (bell and push alike). */
 function NotificationsSection() {
   const [state, setState] = useState<PushState | null>(null);
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
@@ -54,13 +54,13 @@ function NotificationsSection() {
     unsupported: 'הדפדפן הזה לא תומך בהתראות. באייפון: קודם "הוספה למסך הבית", ואז פותחים את iplays מהאייקון.',
     'not-configured': 'התראות למכשיר עוד לא הופעלו בשרת. העדכונים מופיעים בינתיים באפליקציה.',
     denied: 'ההתראות חסומות בהגדרות הדפדפן של המכשיר.',
-    off: 'נשלח התראה רק כשמשהו באמת משתנה: תאריך, שעה, מגרש או תוצאה.',
+    off: 'ההתראות מופיעות בפעמון למעלה. אפשר לקבל אותן גם כהודעה במכשיר.',
     on: 'ההתראות פעילות במכשיר הזה.',
   };
 
   return (
     <section>
-      <SectionHeader title="התראות על משחקים" icon="bell" />
+      <SectionHeader title="התראות" icon="bell" />
       <Card>
         <div className="ip-form">
           {state && <p className="ip-muted">{note[state]}</p>}
@@ -79,6 +79,12 @@ function NotificationsSection() {
                 <input type="checkbox" checked={prefs.match_results} onChange={(e) => void change({ ...prefs, match_results: e.target.checked })} />
                 <span>תוצאות משחקים</span>
               </label>
+              {prefs.team_updates !== undefined && (
+                <label className="ip-check">
+                  <input type="checkbox" checked={prefs.team_updates} onChange={(e) => void change({ ...prefs, team_updates: e.target.checked })} />
+                  <span>עדכוני קבוצה: אימונים, הודעות והיעדרויות</span>
+                </label>
+              )}
             </>
           )}
           {error && <p className="ip-error">{error}</p>}
