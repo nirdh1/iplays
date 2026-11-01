@@ -82,6 +82,7 @@ export function clubError(e: unknown): string | null {
   if (msg.includes('clubs_verified_name_idx')) return 'כבר קיים מועדון מאומת בשם הזה.';
   if (msg.includes('invalid or expired invite')) return 'קישור ההזמנה לא תקין, כבר נוצל או שפג תוקפו. בקשו קישור חדש ממנהל המועדון.';
   if (msg.includes('only the club owner')) return 'רק בעלי המועדון יכולים להזמין מנהלי מועדון.';
+  if (msg.includes('team already has staff')) return 'לקבוצה הזו כבר יש מאמן או מועדון.';
   if (msg.includes('not on the club staff')) return 'אפשר לתת הרשאות רק לאנשי צוות של המועדון.';
   return null;
 }
@@ -112,6 +113,12 @@ export async function requestVerification(clubId: string, message: string) {
 
 export async function addProgram(clubId: string, kind: ProgramKind, name: string) {
   const { error } = await db().rpc('add_program', { p_club: clubId, p_kind: kind, p_name: name });
+  if (error) throw error;
+}
+
+/** A club admin takes a team that parents opened (no coach, no club) into the club. */
+export async function adoptTeam(teamId: string, clubId: string, programId: string | null) {
+  const { error } = await db().rpc('adopt_team', { p_team: teamId, p_club: clubId, p_program: programId });
   if (error) throw error;
 }
 

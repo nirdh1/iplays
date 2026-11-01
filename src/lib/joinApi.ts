@@ -158,6 +158,9 @@ export function joinError(e: unknown): string | null {
   if (msg.includes('shirt number must be')) return 'מספר חולצה בין 0 ל-99.';
   if (msg.includes('request not found')) return 'הבקשה כבר טופלה.';
   if (msg.includes('team not found')) return 'הקבוצה לא נמצאה.';
+  if (msg.includes('team_claims_pending_idx')) return 'כבר שלחת בקשה לנהל את הקבוצה. היא ממתינה לאישור.';
+  if (msg.includes('already staff')) return 'את/ה כבר בצוות של הקבוצה.';
+  if (msg.includes('not allowed to approve coaches')) return 'רק מנהל המועדון או מנהל המערכת מאשרים מאמנים.';
   if (msg.includes('team already exists')) return 'קבוצה עם אותו שם, מועדון ושנתון כבר קיימת. חפשו אותה ובקשו להצטרף.';
   if (msg.includes('birth year required')) return 'צריך לבחור שנתון.';
   if (msg.includes('team name must be')) return 'שם הקבוצה צריך להיות בין 2 ל-60 תווים.';
@@ -332,4 +335,46 @@ export function wasOnboarded(): boolean {
   } catch {
     return false;
   }
+}
+
+// ------------------------------------------------ coach asks to manage a team
+// Server side: supabase/migrations/20261101700000_team_claims.sql
+
+export interface TeamClaim {
+  id: string;
+  team_id: string;
+  team_name: string;
+  club_name: string | null;
+  requester: string;
+  message: string;
+  created_at: string;
+}
+
+export async function requestTeamClaim(teamId: string, message: string) {
+  const { error } = await db().rpc('request_team_claim', { p_team: teamId, p_message: message });
+  if (error) throw error;
+}
+
+export async function reviewTeamClaim(id: string, approve: boolean) {
+  const { error } = await db().rpc('review_team_claim', { p_id: id, p_approve: approve });
+  if (error) throw error;
+}
+
+/** Claims the caller can approve (club admin of the team's club, or Super Admin). */
+export async function pendingTeamClaims(): Promise<TeamClaim[]> {
+  const { data, error } = await db().rpc('pending_team_claims');
+  if (error) throw error;
+  return (data ?? []) as TeamClaim[];
+}
+
+/** My own pending coach request for a team, if any. */
+export async function myTeamClaim(teamId: string): Promise<{ id: string; status: string } | null> {
+  const { data, error } = await db()
+    .from('team_claims')
+    .select('id, status')
+    .eq('team_id', teamId)
+    .eq('status', 'pending')
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }

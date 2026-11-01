@@ -120,6 +120,20 @@ export async function addMatch(input: {
   if (error) throw error;
 }
 
+/** Matches of several teams (club dashboard), between two dates (YYYY-MM-DD). */
+export async function getClubMatches(teamIds: string[], from: string, to: string): Promise<Match[]> {
+  const { data, error } = await db()
+    .from('team_matches')
+    .select(matchCols)
+    .in('team_id', teamIds)
+    .gte('starts_at', from)
+    .lt('starts_at', to)
+    .neq('status', 'canceled')
+    .order('starts_at');
+  if (error) throw error;
+  return (data ?? []) as Match[];
+}
+
 export async function updateMatch(id: string, patch: Partial<Pick<Match, 'status' | 'score_for' | 'score_against' | 'venue' | 'starts_at' | 'note'>>) {
   const { error } = await db().from('team_matches').update(patch).eq('id', id);
   if (error) throw error;

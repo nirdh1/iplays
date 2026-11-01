@@ -226,3 +226,15 @@ Run after the M4 migration. Rollback: `supabase/rollback/20261101600000_open_tea
 - **A parent opens a team.** `open_team(...)` creates the team (`opened_by = 'parent'`) with the parent's child. The parent is a regular parent member, not staff, and needs the parent declaration. The same name, club and birth year can't be opened twice.
 - **Auto-approval while nobody manages the team.** `team_has_staff(team)` is true when the team has an admin / coach, its club has an owner / admin, or a staff grant covers it. While it is false, `request_join` approves a declared parent right away. An existing child that already has a declared parent still waits, and follow requests still go to the parent. Once the team has staff, requests wait for staff as before.
 - **A club adopts the team.** `adopt_team(team, club, program)` lets a club admin take a team with no staff and no club into the club.
+
+## A coach takes over a team (migration `20261101700000_team_claims.sql`)
+
+Run after `20261101600000_open_teams.sql`. Rollback keeps the `team_claims` table and every membership approved through it.
+
+- League teams can exist before anyone manages them (catalog / import). Parents join them right away while they have no staff.
+- A coach opens the team page and taps "אני המאמן של הקבוצה" (`request_team_claim`).
+- The team's club admin approves (`review_team_claim`). If the team has no club, a platform admin (Super Admin, a row in `platform_admins`) approves. Pending claims show at the top of the Family tab for whoever can approve them.
+- The approved coach becomes the team admin if the team has none, otherwise a coach. From then on parent requests wait for the staff.
+
+To make yourself Super Admin, run once in the SQL Editor:
+`insert into public.platform_admins (user_id) select id from auth.users where email = '<your email>';`

@@ -345,3 +345,12 @@
 .ip-att-rate.is-low {
   color: var(--ip-live, #e5484d);
 }
+
+/* club dashboard */
+a.ip-dash-match {
+  color: inherit;
+  text-decoration: none;
+}
+a.ip-dash-match:hover {
+  background: var(--ip-bg, #f4f7fb);
+}

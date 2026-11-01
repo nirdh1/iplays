@@ -11,7 +11,9 @@ import { Icon } from '../components/Icon';
 import { Err, Field } from '../components/form';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError } from '../lib/api';
+import { birthYearsLabel, searchTeams, type TeamHit } from '../lib/joinApi';
 import {
+  adoptTeam,
   clubError,
   clubRoleLabel,
   clubStatusLabel,
@@ -28,7 +30,9 @@ import {
   type Club,
   type ClubData,
   type ClubTeam,
+  type Program,
 } from '../lib/clubApi';
+import { ClubDashboard } from './ClubDashboard';
 import { ClubStaffSection } from './ClubStaffSection';
 import '../theme/club.css';
 
@@ -254,6 +258,7 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
             <StatTile value={academyPlayers.length} label="באקדמיה" />
             <StatTile value={both.length} label="בשתי המסגרות" />
           </div>
+          <ClubDashboard programs={data.programs} teams={data.teams} />
           <SectionHeader title="מעברים אחרונים" icon="arrow" action={data.transfers.length ? 'הכול' : undefined} onAction={() => setTab('transfers')} />
           <TransferList transfers={data.transfers.slice(0, 5)} teamName={(id) => teamById.get(id ?? '')?.name} />
         </section>
@@ -283,6 +288,7 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
               </div>
             );
           })}
+          {manage && <AdoptSection clubId={club.id} programs={data.programs} onAdopted={load} />}
           {manage && myAdminTeams.length > 0 && (
             <div>
               <SectionHeader title="הקבוצות שלי מחוץ למועדון" icon="plus" />
@@ -360,6 +366,77 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
         />
       )}
     </>
+  );
+}
+
+/** Teams that parents opened with no coach or club yet: the club can take them in. */
+function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; programs: Program[]; onAdopted: () => Promise<void> }) {
+  const [q, setQ] = useState('');
+  const [year, setYear] = useState('');
+  const [hits, setHits] = useState<TeamHit[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const by = year.length === 4 ? Number(year) : null;
+
+  async function search(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      const all = await searchTeams(q.trim().length >= 2 ? q : '', by);
+      setHits(all.filter((t) => !t.club_id && !t.has_staff));
+    } catch (err) {
+      setError(errText(err));
+    }
+  }
+
+  async function adopt(t: TeamHit, programId: string) {
+    setError(null);
+    try {
+      await adoptTeam(t.team_id, clubId, programId);
+      setHits((h) => h?.filter((x) => x.team_id !== t.team_id) ?? null);
+      await onAdopted();
+    } catch (err) {
+      setError(errText(err));
+    }
+  }
+
+  return (
+    <div>
+      <SectionHeader title="קבוצות שהורים פתחו" icon="plus" />
+      <Card>
+        <form className="ip-form" onSubmit={search}>
+          <p className="ip-muted">קבוצות שנפתחו על ידי הורים, בלי מאמן ובלי מועדון. אחרי הצירוף המועדון מנהל אותן ומאשר הצטרפות.</p>
+          <div className="ip-field-row">
+            <Field label="שם קבוצה או מועדון">
+              <input id="adopt-q" className="ip-input" value={q} onChange={(e) => setQ(e.target.value)} />
+            </Field>
+            <Field label="שנתון">
+              <input id="adopt-year" className="ip-input" inputMode="numeric" dir="ltr" value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="2016" />
+            </Field>
+          </div>
+          <Button type="submit" variant="secondary" icon="eye" disabled={q.trim().length < 2 && by === null}>
+            חיפוש
+          </Button>
+          <Err error={error} />
+        </form>
+        {hits && (hits.length === 0 ? (
+          <p className="ip-muted">לא נמצאו קבוצות פתוחות בלי מאמן.</p>
+        ) : (
+          hits.map((t) => (
+            <div key={t.team_id} className="ip-club-row">
+              <span className="ip-list-row-text">
+                <span className="ip-list-row-title">{t.name}</span>
+                <span className="ip-list-row-sub">{[t.club_name, birthYearsLabel(t.birth_year_from, t.birth_year_to), `${t.players} שחקנים`].filter(Boolean).join(' · ')}</span>
+              </span>
+              {programs.map((p) => (
+                <Button key={p.id} variant="secondary" size="sm" onClick={() => void adopt(t, p.id)}>
+                  ל{p.name}
+                </Button>
+              ))}
+            </div>
+          ))
+        ))}
+      </Card>
+    </div>
   );
 }
 
