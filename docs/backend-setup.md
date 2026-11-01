@@ -238,3 +238,7 @@ Run after `20261101600000_open_teams.sql`. Rollback keeps the `team_claims` tabl
 
 To make yourself Super Admin, run once in the SQL Editor:
 `insert into public.platform_admins (user_id) select id from auth.users where email = '<your email>';`
+
+## IFA import (migration `20261101800000_ifa_import.sql`)
+
+Run after `20261101700000_team_claims.sql`. See `docs/ifa-integration.md` for what is verified and what isn't. Super Admin screen: `#ifa`.

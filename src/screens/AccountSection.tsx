@@ -15,6 +15,7 @@ import {
   type MyRequest,
   type TeamClaim,
 } from '../lib/joinApi';
+import { isPlatformAdmin } from '../lib/ifaApi';
 
 /** Follow requests waiting for me (as the child's parent) and my own pending requests. */
 function RequestsSection() {
@@ -122,6 +123,10 @@ function RequestsSection() {
 
 export function AccountSection() {
   const auth = useAuth();
+  const [superAdmin, setSuperAdmin] = useState(false);
+  useEffect(() => {
+    if (auth.session) void isPlatformAdmin().then(setSuperAdmin);
+  }, [auth.session]);
 
   if (!auth.enabled) {
     return (
@@ -199,6 +204,15 @@ export function AccountSection() {
             subtitle="קבוצות ליגה ואקדמיה, שחקנים ומעברים"
             onClick={() => (window.location.hash = 'club')}
           />
+          {superAdmin && (
+            <ListRow
+              icon="shield"
+              iconTone="lime"
+              title="נתוני ההתאחדות"
+              subtitle="מנהל מערכת: ייבוא סגלים ויומן סנכרונים"
+              onClick={() => (window.location.hash = 'ifa')}
+            />
+          )}
         </Card>
       </section>
     </>
