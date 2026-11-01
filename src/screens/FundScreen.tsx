@@ -12,6 +12,7 @@ import { friendlyError, getMembers, getRoster, roleLabel, type Member, type Play
 import {
   addExpense,
   appointTreasurer,
+  collectionPresets,
   collectionTarget,
   createCollection,
   deleteExpense,
@@ -107,6 +108,16 @@ export function FundScreen({ teamId, onBack }: { teamId: string; onBack: () => v
               </div>
             )}
           </div>
+
+          {myKids.length > 0 && (
+            <div className="ip-btn-row">
+              {myKids.map((k) => (
+                <Button key={k.id} variant="ghost" size="sm" icon="wallet" onClick={() => (window.location.hash = `costs/${k.id}`)}>
+                  ההוצאות שלנו על {k.first_name}
+                </Button>
+              ))}
+            </div>
+          )}
 
           {!data.hasManager && (
             <Card>
@@ -506,6 +517,13 @@ function CollectionSheet({ open, onClose, onSave }: { open: boolean; onClose: ()
         <Field label="על מה גובים">
           <input className="ip-input" value={title} onChange={(e) => setTitle(e.target.value.slice(0, 80))} placeholder="לדוגמה: מתנה למאמן" />
         </Field>
+        <div className="ip-btn-row">
+          {collectionPresets.map((t) => (
+            <Button key={t} type="button" variant={title === t ? 'secondary' : 'ghost'} size="sm" onClick={() => setTitle(t)}>
+              {t}
+            </Button>
+          ))}
+        </div>
         <div className="ip-field-row">
           <Field label="סכום לילד (₪)">
             <input className="ip-input" inputMode="decimal" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} placeholder="50" />
@@ -520,6 +538,7 @@ function CollectionSheet({ open, onClose, onSave }: { open: boolean; onClose: ()
         <Field label="איך משלמים">
           <input className="ip-input" dir="auto" value={link} onChange={(e) => setLink(e.target.value.slice(0, 300))} placeholder="קישור ביט / פייבוקס, טלפון או פרטי חשבון" />
         </Field>
+        <p className="ip-footnote">פותחים קבוצת פייבוקס או בקשת תשלום בביט באפליקציה שלהם, ומדביקים כאן את הקישור. ההורים יקבלו כפתור שפותח אותו.</p>
         <Field label="פרטים">
           <input className="ip-input" value={details} onChange={(e) => setDetails(e.target.value.slice(0, 500))} placeholder="לא חובה" />
         </Field>

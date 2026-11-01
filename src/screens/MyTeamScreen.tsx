@@ -169,6 +169,9 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                     <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
                       חולצה וציוד
                     </Button>
+                    <Button variant="ghost" size="sm" icon="wallet" onClick={() => (window.location.hash = `costs/${p.id}`)}>
+                      הוצאות
+                    </Button>
                   </li>
                 ))}
               </ul>

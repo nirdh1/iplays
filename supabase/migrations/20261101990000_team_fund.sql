@@ -1,8 +1,8 @@
 -- iplays — team fund and payments (real, replaces the demo-only "קופה").
 --
--- Run after 20261101960000_parent_trainings.sql.
--- Rollback: supabase/rollback/20261101970000_team_fund.down.sql
--- Additive only: four new tables, helper functions, RPCs and policies.
+-- Run after 20261101980000_account_types.sql.
+-- Rollback: supabase/rollback/20261101990000_team_fund.down.sql
+-- Additive only: five new tables, helper functions, RPCs and policies.
 -- No existing table or row changes.
 --
 -- Model
@@ -12,6 +12,9 @@
 --   fund_payments     one row per child per collection: the parent reports
 --                     "paid", a treasurer confirms (or records cash directly)
 --   fund_expenses     money spent from the fund, visible to every member
+--   child_costs       a family's own costs per child: the program's annual
+--                     fee and payments toward it, kit, tournaments, rides…
+--                     visible to that child's parents only
 --
 -- Money never moves through iplays: parents pay by the link/details the
 -- treasurer gave, and the app tracks who paid.
@@ -89,6 +92,24 @@ create table public.fund_expenses (
   created_at timestamptz not null default now()
 );
 create index fund_expenses_team_idx on public.fund_expenses (team_id, spent_on desc);
+
+-- A family's own costs for one child (private to the child's parents).
+-- annual_fee = what the program costs for the season; fee_payment = a payment
+-- toward it; the rest are one-off expenses.
+create table public.child_costs (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references public.players (id) on delete restrict,
+  team_id uuid references public.teams (id) on delete restrict,
+  season text not null default '' check (char_length(season) <= 20),
+  kind text not null check (kind in ('annual_fee', 'fee_payment', 'kit', 'tournament', 'transport', 'medical', 'other')),
+  title text not null default '' check (char_length(title) <= 80),
+  amount numeric(10, 2) not null check (amount > 0 and amount <= 1000000),
+  spent_on date not null default current_date,
+  note text not null default '' check (char_length(note) <= 200),
+  created_by uuid references auth.users (id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now()
+);
+create index child_costs_player_idx on public.child_costs (player_id, spent_on desc);
 
 -- --------------------------------------------------------------- helpers
 
@@ -212,6 +233,7 @@ alter table public.fund_treasurers enable row level security;
 alter table public.fund_collections enable row level security;
 alter table public.fund_payments enable row level security;
 alter table public.fund_expenses enable row level security;
+alter table public.child_costs enable row level security;
 
 create policy fund_treasurers_select on public.fund_treasurers for select to authenticated
   using (is_team_member(team_id) or can_manage_fund(team_id));
@@ -238,7 +260,17 @@ create policy fund_expenses_update on public.fund_expenses for update to authent
 create policy fund_expenses_delete on public.fund_expenses for delete to authenticated
   using (can_manage_fund(team_id));
 
+create policy child_costs_select on public.child_costs for select to authenticated
+  using (is_my_child(player_id));
+create policy child_costs_insert on public.child_costs for insert to authenticated
+  with check (is_my_child(player_id) and created_by = auth.uid());
+create policy child_costs_update on public.child_costs for update to authenticated
+  using (is_my_child(player_id)) with check (is_my_child(player_id));
+create policy child_costs_delete on public.child_costs for delete to authenticated
+  using (is_my_child(player_id));
+
 grant select on public.fund_treasurers, public.fund_payments to authenticated;
+grant select, insert, update, delete on public.child_costs to authenticated;
 grant select, insert, update on public.fund_collections to authenticated;
 grant select, insert, update, delete on public.fund_expenses to authenticated;
 

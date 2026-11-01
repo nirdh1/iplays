@@ -175,12 +175,12 @@ export async function removeTreasurer(teamId: string, userId: string) {
 
 export function fundError(e: unknown): string | null {
   const msg = (e as { message?: string })?.message ?? String(e);
-  if (/fund_collections|fund_summary|can_manage_fund|PGRST202|PGRST205|42P01/.test(msg)) return 'הקופה עוד לא הופעלה בשרת. צריך להריץ את קובץ ה-SQL של הקופה ב-Supabase.';
+  if (msg.includes('not_allowed') || msg.includes('row-level security')) return 'אין לך הרשאה לפעולה הזו.';
+  if (/Could not find the (table|function)|does not exist|PGRST202|PGRST205|42P01/.test(msg)) return 'הקופה עוד לא הופעלה בשרת. צריך להריץ את קובץ ה-SQL של הקופה ב-Supabase.';
   if (msg.includes('collection_closed')) return 'הגבייה הזו כבר נסגרה.';
   if (msg.includes('not_your_child')) return 'אפשר לדווח תשלום רק על הילדים שלך.';
   if (msg.includes('not_in_team')) return 'הילד לא בסגל הקבוצה.';
   if (msg.includes('not_a_member')) return 'רק חברי הקבוצה יכולים להיות גזברים.';
-  if (msg.includes('not_allowed') || msg.includes('row-level security')) return 'אין לך הרשאה לפעולה הזו.';
   return null;
 }
 
@@ -188,3 +188,67 @@ export const shekel = (n: number) => `₪${n.toLocaleString('he-IL', { maximumFr
 
 /** What a collection aims to raise: its goal, or amount × children in the team. */
 export const collectionTarget = (c: Collection, s?: Summary) => c.goal ?? c.amount_per_child * (s?.children ?? 0);
+
+/* ------------------------------------------------- a family's own costs */
+
+export type CostKind = 'annual_fee' | 'fee_payment' | 'kit' | 'tournament' | 'transport' | 'medical' | 'other';
+
+export const costKindLabel: Record<CostKind, string> = {
+  annual_fee: 'עלות שנתית למסגרת',
+  fee_payment: 'תשלום על חשבון העלות השנתית',
+  kit: 'ציוד ובגדים',
+  tournament: 'טורנירים ומחנות',
+  transport: 'נסיעות',
+  medical: 'בדיקות ואישור רפואי',
+  other: 'אחר',
+};
+
+export interface ChildCost {
+  id: string;
+  player_id: string;
+  team_id: string | null;
+  season: string;
+  kind: CostKind;
+  title: string;
+  amount: number;
+  spent_on: string;
+  note: string;
+}
+
+/** A confirmed team-fund payment for one of my children, shown in the family costs. */
+export interface FundPaid {
+  id: string;
+  title: string;
+  amount: number;
+  team_id: string;
+  at: string | null;
+}
+
+export async function loadChildCosts(playerId: string): Promise<{ costs: ChildCost[]; fund: FundPaid[] }> {
+  const [c, f] = await Promise.all([
+    db().from('child_costs').select('id, player_id, team_id, season, kind, title, amount, spent_on, note').eq('player_id', playerId).order('spent_on', { ascending: false }),
+    db().from('fund_payments').select('id, amount, status, reviewed_at, fund_collections (title, team_id)').eq('player_id', playerId).eq('status', 'confirmed'),
+  ]);
+  if (c.error) throw c.error;
+  if (f.error) throw f.error;
+  return {
+    costs: ((c.data ?? []) as ChildCost[]).map((x) => ({ ...x, amount: num(x.amount) })),
+    fund: (f.data ?? []).map((x) => {
+      const col = x.fund_collections as unknown as { title: string; team_id: string } | null;
+      return { id: x.id as string, title: col?.title ?? 'קופת הקבוצה', team_id: col?.team_id ?? '', amount: num(x.amount), at: (x.reviewed_at as string | null) ?? null };
+    }),
+  };
+}
+
+export async function addChildCost(userId: string, c: Omit<ChildCost, 'id'>) {
+  const { error } = await db().from('child_costs').insert({ ...c, created_by: userId });
+  if (error) throw error;
+}
+
+export async function deleteChildCost(id: string) {
+  const { error } = await db().from('child_costs').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Ready-made titles for a shared collection. */
+export const collectionPresets = ['אוכל אחרי משחק', 'מתנה למאמנים', 'אירוע סוף עונה', 'טורניר', 'חולצות / ציוד לקבוצה'];
