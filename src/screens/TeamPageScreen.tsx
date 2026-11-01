@@ -61,6 +61,10 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
   }, [load]);
 
   if (team === undefined) return <p className="ip-muted ip-pad">טוען…</p>;
+  // Who approves a parent's request: nobody when the team has no staff and the
+  // child has no declared parent yet (the parent joins right away).
+  const approverFor = (player?: RosterName): string | null =>
+    team?.has_staff ? 'מאמן הקבוצה או מנהל המועדון' : player?.has_parent ? 'ההורה שכבר רשום לילד' : null;
   if (team === null) {
     return (
       <div className="ip-stack">
@@ -105,17 +109,17 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
       {error && <p className="ip-error" role="alert">{error}</p>}
       {sent && (
         <Card className="ip-find-sent">
-          <Tag tone="lime" icon="check">נשלח</Tag>
+          <Tag tone="lime" icon="check">{sent.startsWith('נכנסת') ? 'נוספת לקבוצה' : 'נשלח'}</Tag>
           <p>{sent}</p>
         </Card>
       )}
 
       {team.is_member ? (
         <Card>
-          <p className="ip-muted">את/ה כבר בקבוצה הזו.</p>
+          <p className="ip-muted">את/ה כבר בקבוצה הזו. בדף הקבוצה רואים את הילד שמקושר אליך (מסומן בירוק), ואפשר לסמן "זה הילד שלי" או להוסיף ילד נוסף.</p>
           <div className="ip-btn-row">
             <Button variant="primary" icon="team" onClick={() => (window.location.hash = `myteam/${team.team_id}`)}>
-              לדף הקבוצה שלי
+              לדף הקבוצה: הילדים שלי
             </Button>
           </div>
         </Card>
@@ -129,7 +133,9 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
                   <div key={r.id} className="ip-member">
                     <span className="ip-list-row-text">
                       <span className="ip-list-row-title">{r.child_name}</span>
-                      <span className="ip-list-row-sub">{r.relation === 'parent' ? 'בקשת הורה · ממתינה לאישור הצוות' : 'בקשת מעקב · ממתינה לאישור ההורה'}</span>
+                      <span className="ip-list-row-sub">
+                        {r.relation === 'parent' ? `בקשת הורה · ממתינה לאישור ${team.has_staff ? 'מאמן הקבוצה או מנהל המועדון' : 'ההורה שכבר רשום לילד'}` : 'בקשת מעקב · ממתינה לאישור ההורה'}
+                      </span>
                     </span>
                     <Tag tone="warning">ממתין</Tag>
                   </div>
@@ -178,7 +184,10 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
               </Button>
             </div>
             <p className="ip-footnote">
-              הורה מצהיר שהוא ההורה, וצוות הקבוצה מאשר. בני משפחה אחרים (סבא, סבתא, דודים) מבקשים לעקוב, וההורה הרשום מאשר.
+              {team.has_staff
+                ? 'הורה מצהיר שהוא ההורה, ומאמן הקבוצה (או מנהל המועדון) מאשר. '
+                : 'לקבוצה אין עדיין מאמן: הורה שמצהיר שהוא ההורה מתווסף מיד, בלי בקשה ובלי אישור. אם לילד כבר רשום הורה, ההורה הרשום מאשר. '}
+              בני משפחה אחרים (סבא, סבתא, דודים) מבקשים לעקוב, וההורה הרשום מאשר.
             </p>
           </section>
         </>
@@ -224,6 +233,7 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
         open={sheet !== null}
         relation={sheet?.relation ?? 'parent'}
         player={sheet?.player}
+        approver={approverFor(sheet?.player)}
         teamName={team.name}
         onClose={() => setSheet(null)}
         onSend={async (input) => {
@@ -236,7 +246,7 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
               ? 'נכנסת לקבוצה. אפשר כבר למלא מספר חולצה וציוד ולשלוח את הקישור להורים נוספים.'
               : sheet?.relation === 'family'
               ? 'בקשת המעקב נשלחה להורה של הילד. אחרי האישור הקבוצה תופיע אצלך.'
-              : 'הבקשה נשלחה לצוות הקבוצה. אחרי האישור הקבוצה תופיע אצלך, ואפשר יהיה למלא מספר חולצה וציוד.',
+              : `הבקשה נשלחה ל${approverFor(sheet?.player) ?? 'צוות הקבוצה'}. אחרי האישור הקבוצה תופיע אצלך, ואפשר יהיה למלא מספר חולצה וציוד.`,
           );
           setSheet(null);
           await load();
@@ -262,6 +272,7 @@ export function RequestSheet({
   open,
   relation,
   player,
+  approver,
   teamName,
   onClose,
   onSend,
@@ -269,6 +280,8 @@ export function RequestSheet({
   open: boolean;
   relation: Relation;
   player?: { first_name: string; last_name: string };
+  /** Who approves a parent request; null = the parent is added right away. */
+  approver?: string | null;
   teamName: string;
   onClose: () => void;
   onSend: (input: { first?: string; last?: string; birthYear?: number | null; message: string; declareParent: boolean }) => Promise<void>;
@@ -278,6 +291,7 @@ export function RequestSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isNew = !player;
+  const autoJoin = relation === 'parent' && !approver;
 
   useEffect(() => {
     if (open) {
@@ -330,19 +344,28 @@ export function RequestSheet({
             </Field>
           </>
         )}
-        <Field label={relation === 'family' ? 'מי את/ה לילד? (יוצג להורה)' : 'הודעה לצוות (לא חובה)'}>
-          <input id="rq-msg" className="ip-input" value={f.message} onChange={(e) => setF({ ...f, message: e.target.value.slice(0, 300) })} placeholder={relation === 'family' ? 'לדוגמה: סבתא של נועם' : ''} required={relation === 'family'} />
-        </Field>
+        {!autoJoin && (
+          <Field label={relation === 'family' ? 'מי את/ה לילד? (יוצג להורה)' : `הודעה ל${approver} (לא חובה)`}>
+            <input id="rq-msg" className="ip-input" value={f.message} onChange={(e) => setF({ ...f, message: e.target.value.slice(0, 300) })} placeholder={relation === 'family' ? 'לדוגמה: סבתא של נועם' : ''} required={relation === 'family'} />
+          </Field>
+        )}
         {relation === 'parent' && (
           <label className="ip-declare">
             <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
             <span>{PARENT_DECLARATION}</span>
           </label>
         )}
+        {relation === 'parent' && (
+          <p className="ip-footnote">
+            {autoJoin
+              ? 'לקבוצה אין עדיין מאמן, ולכן אחרי ההצהרה תתווספו לקבוצה מיד, בלי לחכות לאישור.'
+              : `הבקשה תגיע ל${approver}. אחרי האישור הקבוצה תופיע אצלך.`}
+          </p>
+        )}
         {relation === 'family' && <p className="ip-footnote">ההורה הרשום של הילד יקבל את הבקשה ויאשר אותה. עוקבים רואים את הילד ואת לוח הקבוצה, בלי לערוך ובלי לדווח היעדרות.</p>}
         <Err error={error} />
         <Button type="submit" variant="primary" block disabled={busy || (relation === 'parent' && !declared) || (isNew && !f.first.trim())}>
-          {busy ? 'שולחים…' : 'שליחת בקשה'}
+          {busy ? (autoJoin ? 'מצטרפים…' : 'שולחים…') : autoJoin ? 'הצטרפות לקבוצה' : 'שליחת בקשה'}
         </Button>
       </form>
     </BottomSheet>

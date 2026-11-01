@@ -261,3 +261,15 @@ To make yourself Super Admin, run once in the SQL Editor:
 ## IFA import (migration `20261101800000_ifa_import.sql`)
 
 Run after `20261101700000_team_claims.sql`. See `docs/ifa-integration.md` for what is verified and what isn't. Super Admin screen: `#ifa`.
+
+## Parent requests on a team with no staff (migration `20261101950000_join_no_staff_parent.sql`)
+
+Run after `20261101900000_ifa_games_sync.sql`. Replaces two functions; no tables or data change. Rollback restores them.
+
+- A declared parent on a team with no staff is still added right away (no request), as before.
+- If the child already has a declared parent, the request used to wait for "the staff", which a team with no staff doesn't have. It now goes to the child's declared parent: it shows with the follow requests at the top of the Family / Home tab, and that parent approves (`review_join_request`). A platform admin can also approve it.
+- Teams with staff are unchanged: the coach / club admin approves.
+
+## Empty state instead of sample data
+
+Signed-in users see only their own data: their teams, their linked children and the teams' upcoming matches. A user without a team sees an empty state with a search button and a "הצגה לדוגמה" link that shows the sample screens; the choice is remembered on the device and ends as soon as the user belongs to a real team. Signed-out visitors who tap "browse the demo" on the login screen still see the sample data.

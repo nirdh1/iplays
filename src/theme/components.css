@@ -2368,6 +2368,52 @@ select.ip-input {
   padding: 6px 10px;
   cursor: pointer;
 }
+
+/* Onboarding: pick the child from the team roster */
+.ip-pick-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ip-s2);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.ip-choice-chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ip-border);
+  background: var(--ip-surface);
+  color: var(--ip-text-1, inherit);
+  font-size: var(--ip-fs-sm);
+}
+.ip-choice-chip.is-on {
+  background: var(--ip-lime-100);
+  border-color: #2f5c12;
+  font-weight: 700;
+}
+
+/* Home: next training / next match */
+.ip-next-event {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+}
+.ip-next-event-head {
+  display: flex;
+  gap: var(--ip-s2);
+  flex-wrap: wrap;
+}
+.ip-next-event-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: start;
+}
+.ip-next-event-body strong {
+  font-size: var(--ip-fs-h, 1.1rem);
+}
+
 @keyframes ip-a2hs-in {
   from {
     opacity: 0;

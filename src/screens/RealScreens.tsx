@@ -1,0 +1,400 @@
+/**
+ * Main tabs for a signed-in user who is NOT viewing the sample data.
+ * They show only the user's own data: their teams and the children linked to
+ * them. A user without a team sees an empty state with a search button and,
+ * until they belong to a real team, a link to the sample view.
+ */
+import { useEffect, useState } from 'react';
+import { InitialsAvatar } from '../components/Avatar';
+import { Icon } from '../components/Icon';
+import { Button, Card, EmptyState, ListRow, SectionHeader, Tag, TeamCrest } from '../components/ui';
+import { ScreenTitle } from '../components/shell';
+import { useAuth } from '../auth/AuthContext';
+import { getRoster, isStaffRole, roleLabel, sportLabel, type MyTeam, type Player } from '../lib/api';
+import { competitionLabel, getMatches, matchEndsAt, matchTimeLabel, matchVenueLabel, matchVenueName, wazeUrl, type Match } from '../lib/matchApi';
+import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
+import { AccountSection, RequestsSection } from './AccountSection';
+
+const goFind = () => (window.location.hash = 'find');
+const goTeam = (id: string) => (window.location.hash = `myteam/${id}`);
+
+/** The children linked to me, across all my teams. */
+function useMyKids(): (Player & { team: MyTeam })[] | null {
+  const { session, teams } = useAuth();
+  const me = session?.user.id;
+  const [kids, setKids] = useState<(Player & { team: MyTeam })[] | null>(null);
+  const key = teams.map((t) => t.id).join(',');
+  useEffect(() => {
+    let alive = true;
+    if (!me || !teams.length) {
+      setKids([]);
+      return;
+    }
+    Promise.all(teams.map((t) => getRoster(t.id).then((r) => r.filter((p) => p.guardians.includes(me)).map((p) => ({ ...p, team: t }))).catch(() => [])))
+      .then((all) => alive && setKids(all.flat()))
+      .catch(() => alive && setKids([]));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, key]);
+  return kids;
+}
+
+/**
+ * Top-bar pill for a signed-in user: their own child (tap: the child's team),
+ * or "הוספת ילד" when no child is linked yet.
+ */
+export function RealChildPill() {
+  const kids = useMyKids();
+  if (kids === null) return null;
+  if (!kids.length) {
+    return (
+      <button type="button" className="ip-child-pill ip-child-pill--compact" onClick={goFind} aria-label="הוספת הילד שלי">
+        <Icon name="plus" size={18} />
+        <span className="ip-child-pill-name">הוספת ילד</span>
+      </button>
+    );
+  }
+  const k = kids[0];
+  const more = kids.length > 1;
+  return (
+    <button
+      type="button"
+      className="ip-child-pill ip-child-pill--compact"
+      onClick={() => (more ? (window.location.hash = 'family') : goTeam(k.team.id))}
+      aria-label={more ? 'הילדים שלי' : `${k.first_name}: דף הקבוצה`}
+    >
+      <InitialsAvatar name={`${k.first_name} ${k.last_name}`} size={32} tone="lime" />
+      <span className="ip-child-pill-name">
+        {k.first_name.split(' ')[0]}
+        {more ? ` +${kids.length - 1}` : ''}
+      </span>
+    </button>
+  );
+}
+
+/** Top-bar button for a signed-out visitor browsing the sample data. */
+export function SignInPill({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="ip-child-pill ip-child-pill--compact" onClick={onClick}>
+      <Icon name="user" size={18} />
+      <span className="ip-child-pill-name">כניסה</span>
+    </button>
+  );
+}
+
+function teamSub(t: MyTeam) {
+  return [t.league, t.club, sportLabel[t.sport], roleLabel[t.role]].filter(Boolean).join(' · ');
+}
+
+/** No team yet: search first; the sample view is offered only here. */
+function NoTeam({ onShowSample }: { onShowSample: () => void }) {
+  return (
+    <Card>
+      <EmptyState icon="team" title="עוד לא הצטרפת לקבוצה" text="חפשו את הקבוצה של הילד (לפי שם או שנתון) והצהירו שזה הילד שלכם. כאן יופיעו האימונים, המשחקים וההודעות של הקבוצה." />
+      <div className="ip-btn-row">
+        <Button variant="primary" icon="eye" onClick={goFind}>
+          חיפוש הקבוצה או הילד
+        </Button>
+      </div>
+      <p className="ip-footnote ip-center">
+        <button type="button" className="ip-link" onClick={onShowSample}>
+          הצגה לדוגמה: איך האפליקציה נראית עם נתונים
+        </button>
+      </p>
+    </Card>
+  );
+}
+
+function TeamsList({ teams }: { teams: MyTeam[] }) {
+  return (
+    <Card padded={false}>
+      {teams.map((t) => (
+        <ListRow key={t.id} icon="team" iconTone={isStaffRole(t.role) ? 'navy' : 'blue'} title={t.name} subtitle={teamSub(t)} trailing={<TeamCrest name={t.club || t.name} size={36} />} onClick={() => goTeam(t.id)} />
+      ))}
+    </Card>
+  );
+}
+
+export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
+  const { profile, teams } = useAuth();
+  const kids = useMyKids();
+  const first = profile?.full_name?.split(' ')[0];
+  return (
+    <div className="ip-stack">
+      <ScreenTitle title={first ? `שלום ${first}` : 'שלום'} subtitle={teams.length ? 'הקבוצות והילדים שלך' : undefined} />
+      <RequestsSection />
+      {!teams.length ? (
+        <NoTeam onShowSample={onShowSample} />
+      ) : (
+        <>
+          <NextUp teams={teams} />
+          {kids && kids.length > 0 && (
+            <section>
+              <SectionHeader title="הילדים שלי" icon="user" />
+              <Card padded={false}>
+                {kids.map((k) => (
+                  <ListRow
+                    key={`${k.id}-${k.team.id}`}
+                    icon="user"
+                    iconTone="lime"
+                    title={`${k.first_name} ${k.last_name}`.trim()}
+                    subtitle={[k.team.name, k.birth_year && `שנתון ${k.birth_year}`, k.shirt_number != null && `חולצה ${k.shirt_number}`].filter(Boolean).join(' · ')}
+                    trailing={<InitialsAvatar name={`${k.first_name} ${k.last_name}`} size={36} tone="lime" />}
+                    onClick={() => goTeam(k.team.id)}
+                  />
+                ))}
+              </Card>
+            </section>
+          )}
+          <section>
+            <SectionHeader title="הקבוצות שלי" icon="team" />
+            <TeamsList teams={teams} />
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function RealTeamsScreen({ onShowSample }: { onShowSample: () => void }) {
+  const { teams } = useAuth();
+  return (
+    <div className="ip-stack">
+      <ScreenTitle title="הקבוצות שלי" />
+      {!teams.length ? (
+        <NoTeam onShowSample={onShowSample} />
+      ) : (
+        <>
+          <TeamsList teams={teams} />
+          <div className="ip-btn-row">
+            <Button variant="secondary" icon="plus" onClick={goFind}>
+              הצטרפות לקבוצה נוספת
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+type TeamEvent = {
+  key: string;
+  kind: 'training' | 'match';
+  at: number;
+  endsAt: number;
+  title: string;
+  time: string;
+  place: string | null;
+  navigateTo: string;
+  tag?: string;
+  team: MyTeam;
+  href: string;
+  canceled: boolean;
+};
+
+const dayFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' });
+const hhmm = (d: Date) => d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+/** Upcoming trainings and matches (club + IFA league games) of all my teams. */
+function useTeamEvents(teams: MyTeam[]): TeamEvent[] | null {
+  const [events, setEvents] = useState<TeamEvent[] | null>(null);
+  const key = teams.map((t) => t.id).join(',');
+  useEffect(() => {
+    let alive = true;
+    const now = Date.now();
+    Promise.all(
+      teams.map(async (t) => {
+        const [matches, sessions] = await Promise.all([
+          getMatches(t.id).catch(() => [] as Match[]),
+          supabaseCoach(t.id).listSessions().catch(() => [] as TrainingSession[]),
+        ]);
+        const ms: TeamEvent[] = matches
+          .filter((m) => m.status !== 'canceled')
+          .map((m) => ({
+            key: `m-${m.id}`,
+            kind: 'match' as const,
+            at: new Date(m.starts_at).getTime(),
+            endsAt: matchEndsAt(m),
+            title: `${m.home ? 'נגד' : 'אצל'} ${m.opponent}`,
+            time: matchTimeLabel(m),
+            place: matchVenueLabel(m),
+            navigateTo: matchVenueName(m),
+            tag: competitionLabel[m.competition],
+            team: t,
+            href: `matches/${m.team_id}`,
+            canceled: false,
+          }));
+        const ts: TeamEvent[] = sessions.map((x) => {
+          const d = new Date(x.starts_at);
+          return {
+            key: `t-${x.id}`,
+            kind: 'training' as const,
+            at: d.getTime(),
+            endsAt: d.getTime() + (x.duration_min || 90) * 60_000,
+            title: x.title || 'אימון',
+            time: hhmm(d),
+            place: x.location || null,
+            navigateTo: x.location || '',
+            team: t,
+            href: `coach/${t.id}`,
+            canceled: x.canceled,
+          };
+        });
+        return [...ms, ...ts];
+      }),
+    )
+      .then((all) => {
+        if (!alive) return;
+        setEvents(all.flat().filter((e) => e.endsAt >= now).sort((a, b) => a.at - b.at));
+      })
+      .catch(() => alive && setEvents([]));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return events;
+}
+
+function EventCard({ label, e }: { label: string; e: TeamEvent }) {
+  return (
+    <Card className="ip-next-event">
+      <div className="ip-next-event-head">
+        <Tag tone={e.kind === 'match' ? 'blue' : 'lime'} icon={e.kind === 'match' ? 'ball' : 'whistle'}>
+          {label}
+        </Tag>
+        {e.tag && <Tag>{e.tag}</Tag>}
+        {e.canceled && <Tag tone="warning">בוטל</Tag>}
+      </div>
+      <button type="button" className="ip-next-event-body" onClick={() => (window.location.hash = e.href)}>
+        <strong>{e.title}</strong>
+        <span>
+          {dayFmt.format(new Date(e.at))} · {e.time}
+        </span>
+        {e.place && <span className="ip-muted">{e.place}</span>}
+        <span className="ip-muted">{e.team.name}</span>
+      </button>
+      {e.navigateTo && (
+        <a className="ip-link" href={wazeUrl(e.navigateTo)} target="_blank" rel="noreferrer">
+          <Icon name="navigate" size={16} /> ניווט ב-Waze
+        </a>
+      )}
+    </Card>
+  );
+}
+
+/** Home: the next training and the next match. */
+function NextUp({ teams }: { teams: MyTeam[] }) {
+  const events = useTeamEvents(teams);
+  if (events === null) return <p className="ip-muted">טוען את האימון והמשחק הקרובים…</p>;
+  const training = events.find((e) => e.kind === 'training' && !e.canceled);
+  const match = events.find((e) => e.kind === 'match');
+  return (
+    <section>
+      <SectionHeader title="הקרוב" icon="calendar" />
+      <div className="ip-stack">
+        {training ? <EventCard label="האימון הקרוב" e={training} /> : <Card><p className="ip-muted">עוד אין אימון קרוב ביומן. המאמן מזין אימונים בלוח הקבוצה.</p></Card>}
+        {match ? <EventCard label="המשחק הקרוב" e={match} /> : <Card><p className="ip-muted">אין משחק קרוב ביומן.</p></Card>}
+      </div>
+    </section>
+  );
+}
+
+/** Calendar: all upcoming trainings and matches, by day. */
+function Agenda({ teams }: { teams: MyTeam[] }) {
+  const events = useTeamEvents(teams);
+  if (events === null) return <p className="ip-muted">טוען…</p>;
+  if (!events.length) return <EmptyState icon="calendar" title="היומן ריק" text="אימונים ומשחקים של הקבוצות שלך יופיעו כאן, כולל משחקי הליגה מההתאחדות." />;
+  const days = new Map<string, TeamEvent[]>();
+  for (const e of events) {
+    const k = dayFmt.format(new Date(e.at));
+    days.set(k, [...(days.get(k) ?? []), e]);
+  }
+  return (
+    <>
+      {[...days.entries()].map(([day, list]) => (
+        <section key={day}>
+          <SectionHeader title={day} />
+          <Card padded={false}>
+            {list.map((e) => (
+              <ListRow
+                key={e.key}
+                icon={e.kind === 'match' ? 'ball' : 'whistle'}
+                iconTone={e.kind === 'match' ? 'blue' : 'lime'}
+                title={e.canceled ? `${e.title} (בוטל)` : e.title}
+                subtitle={[e.time, e.place, teams.length > 1 ? e.team.name : null].filter(Boolean).join(' · ')}
+                trailing={e.tag ? <Tag>{e.tag}</Tag> : undefined}
+                onClick={() => (window.location.hash = e.href)}
+              />
+            ))}
+          </Card>
+        </section>
+      ))}
+    </>
+  );
+}
+
+export function RealCalendarScreen({ onShowSample }: { onShowSample: () => void }) {
+  const { teams } = useAuth();
+  return (
+    <div className="ip-stack">
+      <ScreenTitle title="יומן" subtitle={teams.length ? 'אימונים ומשחקים של הקבוצות שלך' : undefined} />
+      {!teams.length ? <NoTeam onShowSample={onShowSample} /> : <Agenda teams={teams} />}
+    </div>
+  );
+}
+
+export function RealCareerScreen({ onShowSample }: { onShowSample: () => void }) {
+  const { teams } = useAuth();
+  return (
+    <div className="ip-stack">
+      <ScreenTitle title="קריירה" />
+      {!teams.length ? (
+        <NoTeam onShowSample={onShowSample} />
+      ) : (
+        <Card>
+          <EmptyState icon="career" title="עוד אין נתונים" text="הופעות, דקות משחק ושערים יופיעו כאן אחרי שהצוות יזין משחקים והרכבים." />
+        </Card>
+      )}
+    </div>
+  );
+}
+
+export function RealFamilyScreen() {
+  const kids = useMyKids();
+  const { profile } = useAuth();
+  return (
+    <div className="ip-stack">
+      <ScreenTitle title="משפחה" subtitle={profile?.full_name || undefined} />
+      <AccountSection />
+      <section>
+        <SectionHeader title="הילדים" />
+        {kids && kids.length > 0 ? (
+          <Card padded={false}>
+            {kids.map((k) => (
+              <ListRow
+                key={`${k.id}-${k.team.id}`}
+                icon="user"
+                title={`${k.first_name} ${k.last_name}`.trim()}
+                subtitle={k.team.name}
+                trailing={<InitialsAvatar name={`${k.first_name} ${k.last_name}`} size={36} tone="lime" />}
+                onClick={() => goTeam(k.team.id)}
+              />
+            ))}
+          </Card>
+        ) : (
+          <Card>
+            <p className="ip-muted">עוד אין ילדים מקושרים אליך.</p>
+            <div className="ip-btn-row">
+              <Button variant="secondary" icon="eye" onClick={goFind}>
+                חיפוש הקבוצה או הילד
+              </Button>
+            </div>
+          </Card>
+        )}
+      </section>
+    </div>
+  );
+}

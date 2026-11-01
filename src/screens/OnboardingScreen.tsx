@@ -3,15 +3,15 @@
  * or open a new team (coach / team manager) → add your child.
  * Nothing is refreshed globally until the flow finishes, so the steps stay put.
  */
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Err, Field } from '../components/form';
 import { Logo } from '../components/Logo';
 import { Icon } from '../components/Icon';
 import { Button, Card } from '../components/ui';
-import { addMyChild, createTeam, friendlyError, joinTeam, sportLabel, updateMyName, type Sport } from '../lib/api';
+import { addMyChild, claimPlayer, createTeam, friendlyError, getRoster, joinTeam, sportLabel, updateMyName, type Player, type Sport } from '../lib/api';
 import { clearPendingInvite, readPendingInvite, useAuth } from '../auth/AuthContext';
 import { InviteShare } from './MyTeamScreen';
-import { markOnboarded, PARENT_DECLARATION } from '../lib/joinApi';
+import { joinError, markOnboarded, PARENT_DECLARATION, setShirtNumber } from '../lib/joinApi';
 
 type Step = 'name' | 'choose' | 'join' | 'create' | 'created' | 'child' | 'done';
 
@@ -30,6 +30,17 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
   const [declared, setDeclared] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Child step: the team's roster (an imported league team already lists the
+  // children), so the parent picks their child instead of adding a duplicate.
+  const [roster, setRoster] = useState<Player[] | null>(null);
+  const [picked, setPicked] = useState<Player | null>(null);
+  useEffect(() => {
+    if (step !== 'child' || !teamId) return;
+    getRoster(teamId).then(setRoster).catch(() => setRoster([]));
+  }, [step, teamId]);
+  const mine = roster?.filter((p) => p.guardians.includes(userId)) ?? [];
+  const unclaimed = roster?.filter((p) => p.guardians.length === 0) ?? [];
+  const childTeam = teams.find((t) => t.id === teamId);
 
   async function run(fn: () => Promise<void>) {
     setError(null);
@@ -92,6 +103,24 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
 
   const submitChild = (e: FormEvent) => {
     e.preventDefault();
+    if (picked) {
+      setError(null);
+      setBusy(true);
+      (async () => {
+        try {
+          await claimPlayer(picked.id);
+          if (child.number) await setShirtNumber(picked.id, teamId!, Number(child.number)).catch(() => undefined);
+          markOnboarded();
+          await refresh();
+          onDone();
+        } catch (err) {
+          setError(joinError(err) ?? friendlyError(err));
+        } finally {
+          setBusy(false);
+        }
+      })();
+      return;
+    }
     run(async () => {
       await addMyChild(teamId!, {
         first: child.first,
@@ -244,7 +273,44 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
       {step === 'child' && (
         <form className="ip-form" onSubmit={submitChild}>
           <h1>הוספת הילד שלך</h1>
-          <p className="ip-muted">אפשר להוסיף עוד ילדים אחר כך, ולשנות את הפרטים בכל זמן.</p>
+          <p className="ip-muted">
+            {childTeam ? `בקבוצה ${childTeam.name}. ` : ''}אפשר להוסיף עוד ילדים אחר כך, ולשנות את הפרטים בכל זמן.
+          </p>
+          {mine.length > 0 && (
+            <Card>
+              <p>
+                <strong>כבר מקושר אליך:</strong> {mine.map((p) => `${p.first_name} ${p.last_name}`.trim()).join(', ')}
+              </p>
+              <Button variant="primary" block onClick={finish} disabled={busy}>
+                כניסה לאפליקציה
+              </Button>
+            </Card>
+          )}
+          {unclaimed.length > 0 && (
+            <Field label="הילד כבר ברשימת הקבוצה? בחרו אותו">
+              <div className="ip-pick-list">
+                {unclaimed.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`ip-choice-chip ${picked?.id === p.id ? 'is-on' : ''}`}
+                    aria-pressed={picked?.id === p.id}
+                    onClick={() => setPicked(picked?.id === p.id ? null : p)}
+                  >
+                    {`${p.first_name} ${p.last_name}`.trim()}
+                    {p.birth_year ? ` · ${p.birth_year}` : ''}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
+          {picked ? (
+            <Field label="מספר חולצה">
+              <input id="ob-child-number" className="ip-input" inputMode="numeric" dir="ltr" value={child.number} onChange={(e) => setChild({ ...child, number: e.target.value.replace(/\D/g, '').slice(0, 2) })} placeholder="לא חובה" />
+            </Field>
+          ) : (
+          <>
+          {unclaimed.length > 0 && <p className="ip-footnote">לא ברשימה? מלאו את הפרטים:</p>}
           <div className="ip-field-row">
             <Field label="שם פרטי">
               <input id="ob-child-first" className="ip-input" value={child.first} onChange={(e) => setChild({ ...child, first: e.target.value })} required />
@@ -264,13 +330,15 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
           <Field label="תפקיד במגרש">
             <input id="ob-child-pos" className="ip-input" value={child.position} onChange={(e) => setChild({ ...child, position: e.target.value })} placeholder="לא חובה" />
           </Field>
+          </>
+          )}
           <label className="ip-declare">
             <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
             <span>{PARENT_DECLARATION}</span>
           </label>
           <Err error={error} />
-          <Button type="submit" variant="primary" block disabled={busy || !child.first.trim() || !teamId || !declared}>
-            שמירה וכניסה לאפליקציה
+          <Button type="submit" variant="primary" block disabled={busy || (!picked && !child.first.trim()) || !teamId || !declared}>
+            {picked ? `זה הילד שלי: ${picked.first_name}` : 'שמירה וכניסה לאפליקציה'}
           </Button>
           <button type="button" className="ip-link ip-center-self" onClick={finish} disabled={busy}>
             אוסיף אחר כך

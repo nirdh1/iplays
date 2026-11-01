@@ -19,6 +19,7 @@ run supabase/migrations/20261101600000_open_teams.sql
 run supabase/migrations/20261101700000_team_claims.sql
 run supabase/migrations/20261101800000_ifa_import.sql
 run supabase/migrations/20261101900000_ifa_games_sync.sql
+run supabase/migrations/20261101950000_join_no_staff_parent.sql
 echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
 echo "== M3 tests"
@@ -35,6 +36,8 @@ echo "== IFA import tests"
 run supabase/tests/test_ifa.sql
 echo "== IFA games sync tests"
 run supabase/tests/test_ifa_games.sql
+echo "== rollback join no-staff parent"
+run supabase/rollback/20261101950000_join_no_staff_parent.down.sql
 echo "== rollback IFA games sync"
 run supabase/rollback/20261101900000_ifa_games_sync.down.sql
 echo "== rollback IFA import"
