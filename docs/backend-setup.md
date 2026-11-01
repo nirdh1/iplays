@@ -156,3 +156,35 @@ Club staff join with a one-time link `#staff/CODE` (14 days), created in **ני�
 Run order: `20261101300000_permissions.sql` after `20261101200000_clubs_and_assignments.sql`.
 Rollback: `supabase/rollback/20261101300000_permissions.down.sql`. It turns the new roles into
 `coach` and removes the grants.
+
+## Search, join requests, shirt numbers and kit (migration `20261101400000_search_and_join_requests.sql`)
+
+**Open search** (owner decision): any signed-in user can search a child by name and birth year (league
+and academy) and see the child's team and club, or search a club by name or city and see its teams by
+birth year. Results show only the name, birth year, team, club and program. Training times, places,
+contact details and everything else stay visible only to team members.
+
+**Joining** happens on the team page, `#t/<team id>`. Any member can share it on WhatsApp from
+**ניהול הקבוצה → שליחת דף הקבוצה להורים**, and every search result leads to it.
+
+* **Parent**: picks "זה הילד שלי" or "הילד שלי לא ברשימה". The parent must tick the declaration
+  *"אני מצהיר/ה שאני ההורה או האפוטרופוס החוקי של הילד/ה"*, which is stored with its wording and time.
+  The team's staff (staff ≥ create) approve it in **ניהול הקבוצה → בקשות הצטרפות**.
+* **Family / follower** (a grandparent, for example): asks to follow a child who already has a
+  declared parent. Only that parent can approve it, in **משפחה → בקשות מעקב לאישורך**. Followers see
+  the child and the team board. They cannot edit the child or report absences: from this migration on,
+  `is_player_guardian` means a parent.
+* A parent registers **once** and adds any number of children. Each child is its own request, or is
+  added directly in a team the parent already belongs to.
+* "זה הילד שלי" inside a team works directly only while the child has no declared parent yet.
+
+**Shirt number and kit**: the parent sets the child's shirt number per team (`set_shirt_number`). The
+number is not part of the IFA data, can change, and is unique per team. The parent also records the
+child's kit (`player_kit`): summer, winter, home and away sets, pairs of socks, and shirt, pants and
+shoe sizes. Edit access: the child's parent, or staff with equipment ≥ edit. View access: the
+child's guardians, and staff with equipment ≥ view.
+
+Run after `20261101300000_permissions.sql`. Rollback:
+`supabase/rollback/20261101400000_search_and_join_requests.down.sql`. It removes the functions and
+policies and keeps the `join_requests` and `player_kit` tables and their data, which are reused if the
+migration is run again.

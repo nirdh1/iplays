@@ -12,14 +12,19 @@ import { OnboardingScreen } from './screens/OnboardingScreen';
 import { MyTeamScreen } from './screens/MyTeamScreen';
 import { ClubScreen } from './screens/ClubScreen';
 import { DemoCoachScreen, TeamCoachScreen } from './screens/CoachScreen';
+import { FindScreen } from './screens/FindScreen';
+import { TeamPageScreen } from './screens/TeamPageScreen';
+import { wasOnboarded } from './lib/joinApi';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
 import { clearPendingInvite, readPendingInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 
-type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club';
-const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club'];
+type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'find' | 't';
+const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'find', 't'];
+/** Routes a signed-in user can open before belonging to any team (search, shared team page). */
+const openRoutes: Route[] = ['find', 't'];
 
 function readHash(): { route: Route; child?: string; param?: string } {
   const [r, c] = window.location.hash.replace('#', '').split('/');
@@ -49,7 +54,22 @@ captureInviteFromHash();
 export function App() {
   const auth = useAuth();
   const [onboarding, setOnboarding] = useState(false);
-  const needsOnboarding = !!auth.session && (!auth.profile?.full_name || auth.teams.length === 0);
+  const [hashRoute, setHashRoute] = useState(readHash().route);
+  useEffect(() => {
+    const onHash = () => setHashRoute(readHash().route);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  // Sign-up is once: a name, then (only the first time) a team step. Someone
+  // who opened a shared team page or the search, or already sent a request,
+  // is not sent back to the team step.
+  const openRoute = openRoutes.includes(hashRoute);
+  // Only decide once the profile and teams have loaded: while loading they are
+  // empty, and deciding then sent returning users back into onboarding.
+  const ready = !!auth.session && !auth.loading;
+  const needsName = ready && !auth.profile?.full_name;
+  const needsTeam = ready && auth.teams.length === 0 && !openRoute && !wasOnboarded();
+  const needsOnboarding = needsName || needsTeam;
 
   useEffect(() => {
     if (needsOnboarding) setOnboarding(true);
@@ -91,7 +111,7 @@ export function App() {
     if (needsOnboarding || onboarding) {
       return (
         <div className="ip-app">
-          <OnboardingScreen onDone={() => setOnboarding(false)} />
+          <OnboardingScreen skipTeamStep={openRoute} onDone={() => setOnboarding(false)} />
         </div>
       );
     }
@@ -161,7 +181,16 @@ function MainApp({ joinError }: { joinError: string | null }) {
             {joinError}
           </p>
         )}
-        {signedIn && firstTeam && route !== 'myteam' && route !== 'family' && route !== 'club' && !coachTeam && (
+        {signedIn && !firstTeam && !['family', 'club', 'find', 't'].includes(route) && (
+          <button type="button" className="ip-demo-banner" onClick={() => (window.location.hash = 'find')}>
+            <Icon name="eye" size={18} />
+            <span>
+              המסכים כאן מציגים נתוני הדגמה. <strong>חיפוש הילד או הקבוצה שלך</strong>
+            </span>
+            <Icon name="chevron" size={16} />
+          </button>
+        )}
+        {signedIn && firstTeam && !['myteam', 'family', 'club', 'find', 't'].includes(route) && !coachTeam && (
           <button type="button" className="ip-demo-banner" onClick={() => (window.location.hash = `myteam/${firstTeam.id}`)}>
             <Icon name="team" size={18} />
             <span>
@@ -172,6 +201,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
         )}
         {route === 'club' && signedIn && <ClubScreen clubId={param} onBack={() => back('family')} />}
         {route === 'club' && !signedIn && <FamilyScreen />}
+        {route === 'find' && (signedIn ? <FindScreen onBack={() => back('family')} /> : <FamilyScreen />)}
+        {route === 't' && (signedIn && param ? <TeamPageScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'myteam' && signedIn && param && <MyTeamScreen teamId={param} onBack={() => go('family')} />}
         {route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}
         {route === 'team' && <TeamScreen child={child} onOpenMatch={() => go('match')} onOpenCoach={() => go('coach')} />}
@@ -182,7 +213,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'family' && <FamilyScreen />}
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
-      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' ? 'family' : route} onChange={go} />
+      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' ? 'family' : route} onChange={go} />
       <ChildSwitcherSheet open={switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );
