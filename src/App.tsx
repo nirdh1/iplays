@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppHeader, BottomNav, ChildSwitcherSheet, type TabId } from './components/shell';
+import { NotificationsSheet, useUnread } from './components/NotificationsSheet';
 import { children, parent } from './data/demo';
 import { HomeScreen } from './screens/HomeScreen';
 import { CareerScreen } from './screens/CareerScreen';
@@ -17,16 +18,19 @@ import { IfaAdminScreen } from './screens/IfaAdminScreen';
 import { AdminPanelScreen } from './screens/AdminPanelScreen';
 import { MatchesScreen } from './screens/MatchesScreen';
 import { TeamPageScreen } from './screens/TeamPageScreen';
-import { RealCalendarScreen, RealCareerScreen, RealChildPill, RealFamilyScreen, RealHomeScreen, RealTeamsScreen, SignInPill } from './screens/RealScreens';
+import { RealCareerScreen } from './screens/RealCareerScreen';
+import { FundScreen } from './screens/FundScreen';
+import { CostsScreen } from './screens/CostsScreen';
+import { RealCalendarScreen, RealChildPill, RealFamilyScreen, RealHomeScreen, RealTeamsScreen, SignInPill } from './screens/RealScreens';
 import { wasOnboarded } from './lib/joinApi';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
-import { clearPendingInvite, readPendingInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
+import { clearPendingInvite, readFamilyInvite, readPendingInvite, saveFamilyInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 
-type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'find' | 't' | 'matches' | 'ifa' | 'admin';
-const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'find', 't', 'matches', 'ifa', 'admin'];
+type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'fund' | 'costs';
+const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'find', 't', 'matches', 'ifa', 'admin', 'fund', 'costs'];
 /** Routes a signed-in user can open before belonging to any team (search, shared team page). */
 const openRoutes: Route[] = ['find', 't'];
 
@@ -47,6 +51,12 @@ function captureInviteFromHash() {
   if (s) {
     saveStaffInvite(s[1]);
     history.replaceState(null, '', '#club');
+  }
+  // Family invites (second parent, grandparents): #fam/ABCDE23456
+  const f = window.location.hash.match(/^#fam\/([A-Za-z0-9]{10})$/);
+  if (f) {
+    saveFamilyInvite(f[1]);
+    history.replaceState(null, '', '#family');
   }
 }
 captureInviteFromHash();
@@ -85,7 +95,8 @@ export function App() {
   // Sign-up is once: a name, then (only the first time) a team step. Someone
   // who opened a shared team page or the search, or already sent a request,
   // is not sent back to the team step.
-  const openRoute = openRoutes.includes(hashRoute);
+  // A family invite link (#fam/...) is accepted on the Family tab, so it skips the team step too.
+  const openRoute = openRoutes.includes(hashRoute) || !!readFamilyInvite();
   // Only decide once the profile and teams have loaded: while loading they are
   // empty, and deciding then sent returning users back into onboarding.
   const ready = !!auth.session && !auth.loading;
@@ -149,6 +160,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
   const [sub, setSub] = useState(initial.sub);
   const [childId, setChildId] = useState(children.some((c) => c.id === initial.child) ? initial.child! : children[0].id);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const closeBell = useCallback(() => setBellOpen(false), []);
   const [sample, setSampleState] = useState(readSample);
   const setSample = useCallback((on: boolean) => {
     writeSample(on);
@@ -186,6 +199,13 @@ function MainApp({ joinError }: { joinError: string | null }) {
   };
 
   const openSwitcher = () => setSwitcherOpen(true);
+  const signedIn = !!auth.session;
+  const hasTeam = auth.teams.length > 0;
+  // Signed-in users see only their own data. The sample data shows when not
+  // signed in (demo from the login screen, or no backend), or when a user
+  // without a team asked for it; joining a real team ends it.
+  const demoMode = !signedIn || (!hasTeam && sample);
+  const { unread, refresh: refreshUnread } = useUnread(!demoMode);
   const closeSwitcher = useCallback(() => setSwitcherOpen(false), []);
 
   if (route === 'brand') {
@@ -198,12 +218,6 @@ function MainApp({ joinError }: { joinError: string | null }) {
     );
   }
 
-  const signedIn = !!auth.session;
-  const hasTeam = auth.teams.length > 0;
-  // Signed-in users see only their own data. The sample data shows when not
-  // signed in (demo from the login screen, or no backend), or when a user
-  // without a team asked for it; joining a real team ends it.
-  const demoMode = !signedIn || (!hasTeam && sample);
   const parentName = signedIn && auth.profile?.full_name ? auth.profile.full_name : `${parent.firstName} ${parent.lastName}`;
   // #coach/<teamId> opens a real team's board; #coach/<childId> opens the demo one.
   const coachTeam = route === 'coach' && signedIn ? auth.teams.find((t) => t.id === param) : undefined;
@@ -213,10 +227,11 @@ function MainApp({ joinError }: { joinError: string | null }) {
     <div className="ip-app">
       <AppHeader
         parentName={parentName}
-        unread={demoMode ? parent.unread : 0}
+        unread={demoMode ? parent.unread : unread}
         child={demoMode ? child : undefined}
         slot={!signedIn && auth.enabled ? <SignInPill onClick={() => auth.setDemo(false)} /> : !demoMode ? <RealChildPill /> : undefined}
         onOpenSwitcher={openSwitcher}
+        onOpenBell={() => setBellOpen(true)}
       />
       <main className="ip-main">
         {joinError && (
@@ -236,6 +251,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'club' && signedIn && <ClubScreen clubId={param} onBack={() => back('family')} />}
         {route === 'club' && !signedIn && <FamilyScreen />}
         {route === 'matches' && (signedIn && param ? <MatchesScreen key={param} teamId={param} matchId={sub} onBack={() => back('family')} /> : <FamilyScreen />)}
+        {route === 'costs' && (signedIn && param ? <CostsScreen playerId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
+        {route === 'fund' && (signedIn && param ? <FundScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'ifa' && (signedIn ? <IfaAdminScreen onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'admin' && (signedIn ? <AdminPanelScreen onBack={() => back('home')} /> : <FamilyScreen />)}
         {route === 'find' && (signedIn ? <FindScreen onBack={() => back('family')} /> : <FamilyScreen />)}
@@ -244,7 +261,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {!demoMode && (route === 'home' || route === 'match') && <RealHomeScreen onShowSample={() => setSample(true)} />}
         {!demoMode && (route === 'team' || (route === 'coach' && !coachTeam)) && <RealTeamsScreen onShowSample={() => setSample(true)} />}
         {!demoMode && route === 'calendar' && <RealCalendarScreen onShowSample={() => setSample(true)} />}
-        {!demoMode && route === 'career' && <RealCareerScreen onShowSample={() => setSample(true)} />}
+        {!demoMode && route === 'career' && <RealCareerScreen playerId={param} onShowSample={() => setSample(true)} />}
         {!demoMode && route === 'family' && <RealFamilyScreen />}
         {route === 'coach' && coachTeam && <TeamCoachScreen teamId={coachTeam.id} onBack={() => back('family')} />}
         {demoMode && route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}
@@ -256,7 +273,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {demoMode && route === 'family' && <FamilyScreen />}
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
-      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' || route === 'admin' ? 'family' : route} onChange={go} />
+      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' || route === 'admin' || route === 'fund' || route === 'costs' ? 'family' : route} onChange={go} />
+      <NotificationsSheet open={bellOpen} onClose={closeBell} demo={demoMode ? child.notifications : undefined} onRead={refreshUnread} />
       <ChildSwitcherSheet open={demoMode && switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );

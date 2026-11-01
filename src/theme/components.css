@@ -258,6 +258,75 @@
   font-size: var(--ip-fs-sm);
 }
 
+/* ===================== Notifications (bell) ===================== */
+.ip-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s1);
+  max-height: 65vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ip-inbox-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: var(--ip-s3);
+  padding: var(--ip-s3);
+  border-radius: var(--ip-r-md);
+  background: transparent;
+  border: 0;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+}
+button.ip-inbox-item {
+  cursor: pointer;
+}
+button.ip-inbox-item:hover {
+  background: var(--ip-surface-2);
+}
+.ip-inbox-item.is-unread {
+  background: var(--ip-blue-100);
+}
+.ip-inbox-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ip-bg);
+  color: var(--ip-navy);
+}
+.ip-inbox-item.is-unread .ip-inbox-icon {
+  background: var(--ip-navy);
+  color: var(--ip-lime);
+}
+.ip-inbox-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--ip-fs-sm);
+}
+.ip-inbox-text strong {
+  font-weight: 700;
+}
+.ip-inbox-text span {
+  color: var(--ip-text-2);
+  overflow-wrap: anywhere;
+}
+.ip-inbox-item time {
+  color: var(--ip-text-3);
+  font-size: var(--ip-fs-xs);
+  white-space: nowrap;
+}
+.ip-inbox-loading {
+  padding: var(--ip-s4) 0;
+  text-align: center;
+}
+
 /* ===================== Sheet ===================== */
 .ip-sheet {
   position: fixed;
@@ -613,6 +682,10 @@
   background: var(--ip-lime-100);
   border-radius: var(--ip-r-pill);
   padding: 0 6px;
+}
+.ip-progress-delta--down {
+  color: var(--ip-text-2);
+  background: var(--ip-border);
 }
 .ip-progress-track {
   height: 8px;
@@ -1204,7 +1277,7 @@
   gap: var(--ip-s3);
   min-height: var(--ip-touch);
 }
-.ip-career-hero-id > span {
+.ip-career-hero-id > span:not(.ip-initials) {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -2414,6 +2487,13 @@ select.ip-input {
   font-size: var(--ip-fs-h, 1.1rem);
 }
 
+.ip-a2hs-card.ip-form {
+  gap: 10px;
+}
+.ip-pw-saved {
+  color: var(--ip-success);
+  font-weight: 700;
+}
 @keyframes ip-a2hs-in {
   from {
     opacity: 0;
@@ -2445,6 +2525,27 @@ select.ip-input {
   width: 100%;
   text-align: start;
   color: inherit;
+}
+
+/* ---------- Family members (Family tab) ---------- */
+.ip-member--button {
+  width: 100%;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ip-member--button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.ip-family-head {
+  background: var(--ip-bg);
+}
+.ip-family-invite {
+  border: 2px solid var(--ip-lime);
 }
 
 /* ---------- Carpools (real data) ---------- */

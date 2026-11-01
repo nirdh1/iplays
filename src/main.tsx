@@ -7,6 +7,7 @@ import { App } from './App';
 import { LiveProvider } from './data/liveStore';
 import { AuthProvider } from './auth/AuthContext';
 import { InstallHint } from './components/InstallHint';
+import { PasswordNudge } from './components/PasswordSetup';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -14,6 +15,7 @@ createRoot(document.getElementById('root')!).render(
       <LiveProvider>
         <App />
         <InstallHint />
+        <PasswordNudge />
       </LiveProvider>
     </AuthProvider>
   </StrictMode>,

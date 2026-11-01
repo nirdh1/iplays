@@ -169,6 +169,9 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                     <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
                       חולצה וציוד
                     </Button>
+                    <Button variant="ghost" size="sm" icon="wallet" onClick={() => (window.location.hash = `costs/${p.id}`)}>
+                      הוצאות
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -203,6 +206,10 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                     {mine ? (
                       <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
                         חולצה וציוד
+                      </Button>
+                    ) : staff ? (
+                      <Button variant="secondary" size="sm" icon="career" onClick={() => (window.location.hash = `career/${p.id}`)}>
+                        קריירה
                       </Button>
                     ) : p.guardians.length === 0 ? (
                       <Button variant="secondary" size="sm" onClick={() => setClaim(p)}>
@@ -268,6 +275,16 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                   : 'לוח משחקים, הרכבים שפורסמו ותוצאות'
                 : 'נוכחות באימונים לאורך זמן'}
             </span>
+          </span>
+          <Icon name="chevron" size={18} className="ip-muted" />
+        </button>
+        <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = `fund/${teamId}`)}>
+          <span className="ip-icon-tile ip-icon-tile--blue">
+            <Icon name="wallet" size={20} />
+          </span>
+          <span className="ip-list-row-text">
+            <span className="ip-list-row-title">קופת הקבוצה</span>
+            <span className="ip-list-row-sub">גביות, מי שילם והוצאות מהקופה</span>
           </span>
           <Icon name="chevron" size={18} className="ip-muted" />
         </button>
