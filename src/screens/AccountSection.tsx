@@ -17,6 +17,7 @@ import {
 } from '../lib/joinApi';
 import { isPlatformAdmin } from '../lib/ifaApi';
 import '../theme/coach.css';
+import { PasswordCard } from '../components/PasswordSetup';
 import { disablePush, enablePush, getPrefs, pushState, savePrefs, type NotificationPrefs, type PushState } from '../lib/push';
 
 /** Game-change notifications: this device on/off, and what to get. */
@@ -242,6 +243,7 @@ export function AccountSection() {
           </div>
         </Card>
       </section>
+      <PasswordCard />
       <RequestsSection />
       <NotificationsSection />
       <section>

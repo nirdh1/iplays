@@ -2414,6 +2414,13 @@ select.ip-input {
   font-size: var(--ip-fs-h, 1.1rem);
 }
 
+.ip-a2hs-card.ip-form {
+  gap: 10px;
+}
+.ip-pw-saved {
+  color: var(--ip-success);
+  font-weight: 700;
+}
 @keyframes ip-a2hs-in {
   from {
     opacity: 0;
