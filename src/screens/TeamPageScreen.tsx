@@ -31,6 +31,7 @@ import {
   type RosterName,
 } from '../lib/joinApi';
 import { TeamLinkShare } from './TeamLinkShare';
+import { IfaTeamLink } from './IfaTeamLink';
 
 export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
   const [team, setTeam] = useState<PublicTeam | null | undefined>(undefined);
@@ -96,6 +97,7 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
                 .filter(Boolean)
                 .join(' · ')}
             </p>
+            <IfaTeamLink teamId={team.team_id} />
           </div>
         </div>
       </Card>

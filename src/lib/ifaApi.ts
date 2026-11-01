@@ -430,3 +430,12 @@ export async function revokeAgentKey(id: string) {
   const { error } = await db().rpc('revoke_ifa_agent_key', { p_id: id });
   if (error) throw error;
 }
+
+/** The IFA site page of a team linked to the IFA catalog (null when not linked or before the SQL is run). */
+export async function teamIfaLink(teamId: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('team_ifa_link', { p_team: teamId });
+  if (error) return null; // function not installed yet: just no link
+  const row = (data as { ifa_team_id: number; ifa_season_id: number }[] | null)?.[0];
+  return row ? `${BASE}/team-details/?team_id=${row.ifa_team_id}&season_id=${row.ifa_season_id}` : null;
+}
