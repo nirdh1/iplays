@@ -1,4 +1,4 @@
--- Rollback of 20261101970000_family_members.sql.
+-- Rollback of 20261101995000_family_members.sql.
 -- Restores the previous functions and policies. Keeps the data: the new
 -- player_guardians columns, team_members.is_follower and family_invites stay
 -- (unused), so re-applying the migration loses nothing.

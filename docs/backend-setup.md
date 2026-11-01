@@ -280,9 +280,30 @@ Run after `20261101950000_join_no_staff_parent.sql`. Adds three policies; rollba
 
 Any member of a team (parents too) can add, cancel and delete trainings in the team board (`#coach/<team>`), with or without a coach; everyone in the team sees them on Home and in the Calendar. A coach may still update parents elsewhere (e.g. WhatsApp). Staff keep their own training permissions.
 
-## Family members and permissions (migration `20261101970000_family_members.sql`)
+## Parent carpools (migration `20261101970000_rides.sql`)
 
-Run after `20261101960000_parent_trainings.sql`. Additive: new columns on `player_guardians` and `team_members`, a `family_invites` table, new functions, and replaced policies for trainings and absences. Rollback restores the previous functions and policies and keeps the data.
+Run after `20261101960000_parent_trainings.sql`. Additive only: tables `rides`, `ride_passengers`, `ride_needs` and their functions. Rollback (`supabase/rollback/20261101970000_rides.down.sql`) deletes all rides.
+
+- Every training and match (including IFA league games) has a "הסעות" line on Home and in the Calendar that opens the rides sheet.
+- A team member offers a ride (direction to / from / both, seats, optional departure time, pickup point, note). One offer per driver per event; the driver can edit or cancel it.
+- A parent seats their own child in a ride with a free seat (`join_ride`), or marks that the child needs a ride (`set_ride_need`). The mark is cleared (or narrowed to the remaining leg) when the child gets a seat. When a ride is canceled, the other parents' children go back to "needs a ride".
+- Only team members can read rides (RLS); clients have no direct write access, everything goes through the `security definer` functions. Children appear by first name only; the driver's name and phone (if on the profile) are shown to the team.
+
+## Team fund and payments (migration `20261101990000_team_fund.sql`)
+
+Run after `20261101980000_account_types.sql`. Additive: five new tables (`fund_treasurers`, `fund_collections`, `fund_payments`, `fund_expenses`, `child_costs`), helpers, RPCs and policies. The rollback drops the fund tables and their data.
+
+- The team page (`#myteam/<team>`) has a "קופת הקבוצה" entry that opens `#fund/<team>`.
+- A fund manager (an appointed treasurer, anyone with `can(team, 'finance', 3)` such as a team manager / team admin / club admin, or a platform admin) opens collections with an amount per child, due date and a payment link (Bit / PayBox / bank details), confirms or rejects payments, records cash, exempts a child, closes / cancels / reopens a collection and logs expenses.
+- While a team has no fund manager, any member can appoint themselves the first treasurer. After that, managers appoint others; a treasurer can step down.
+- A parent taps "שילמתי" for their own child (`report_payment`); the treasurer confirms (`set_payment_status`).
+- Every member sees collections, totals (`fund_summary`) and expenses. A parent sees only their own children's payment rows; managers see every family.
+- Money never moves through iplays. Collections are never deleted, only cancelled. The new-collection sheet offers ready titles (food after a game, a gift for the coaches, an end-of-season event…) and takes a PayBox group / Bit request link.
+- Family costs (`#costs/<player>`, linked from the fund screen and from the parent's child row): the program's annual fee per child and season, payments toward it (what's left to pay), and other costs (kit, tournaments, rides, medical). Confirmed team-fund payments are listed too. `child_costs` is visible only to the child's parents.
+
+## Family members and permissions (migration `20261101995000_family_members.sql`)
+
+Run after `20261101990000_team_fund.sql`. Additive: new columns on `player_guardians` and `team_members`, a `family_invites` table, new functions, and replaced policies for trainings and absences. Rollback restores the previous functions and policies and keeps the data.
 
 - **Family tab → "בני משפחה והרשאות"**: everyone linked to each of my children, with a kinship label (אמא, סבתא, ...) and what they may do.
 - **Invite link** (`#fam/<code>`): a parent invites a second parent or a family member for one or more children. One-time, valid 14 days. Opening it after sign-in shows an accept card on the Family tab; no staff approval.

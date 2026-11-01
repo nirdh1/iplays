@@ -1,7 +1,7 @@
 -- iplays — family members and their permissions (second parent, grandparents, ...).
 --
--- Run after 20261101960000_parent_trainings.sql.
--- Rollback: supabase/rollback/20261101970000_family_members.down.sql
+-- Run after 20261101990000_team_fund.sql.
+-- Rollback: supabase/rollback/20261101995000_family_members.down.sql
 -- Additive only: new columns with defaults, one new table, new functions,
 -- and a few replaced policies/functions. No data is deleted.
 --

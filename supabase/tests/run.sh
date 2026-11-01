@@ -21,7 +21,11 @@ run supabase/migrations/20261101800000_ifa_import.sql
 run supabase/migrations/20261101900000_ifa_games_sync.sql
 run supabase/migrations/20261101950000_join_no_staff_parent.sql
 run supabase/migrations/20261101960000_parent_trainings.sql
-run supabase/migrations/20261101970000_family_members.sql
+run supabase/migrations/20261101970000_rides.sql
+run supabase/migrations/20261101971000_match_events.sql
+run supabase/migrations/20261101980000_account_types.sql
+run supabase/migrations/20261101990000_team_fund.sql
+run supabase/migrations/20261101995000_family_members.sql
 echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
 echo "== M3 tests"
@@ -41,7 +45,18 @@ run supabase/tests/test_ifa_games.sql
 echo "== family members tests"
 run supabase/tests/test_family.sql
 echo "== rollback family members"
-run supabase/rollback/20261101970000_family_members.down.sql
+run supabase/rollback/20261101995000_family_members.down.sql
+echo "== rollback team fund, match events, rides"
+run supabase/rollback/20261101990000_team_fund.down.sql
+run supabase/rollback/20261101971000_match_events.down.sql
+run supabase/rollback/20261101970000_rides.down.sql
+# the match-events rollback keeps its table and read policy (uses can()); drop the policy so the M3 rollback below can run
+psql -q -d $DB -c "drop policy if exists match_events_select on public.match_events"
+echo "== account types tests (re-apply: backfill club staff created by the tests above)"
+run supabase/migrations/20261101980000_account_types.sql
+run supabase/tests/test_account_types.sql
+echo "== rollback account types"
+run supabase/rollback/20261101980000_account_types.down.sql
 echo "== rollback parent trainings"
 run supabase/rollback/20261101960000_parent_trainings.down.sql
 echo "== rollback join no-staff parent"
@@ -74,6 +89,6 @@ run supabase/migrations/20261101800000_ifa_import.sql
 run supabase/migrations/20261101900000_ifa_games_sync.sql
 run supabase/migrations/20261101950000_join_no_staff_parent.sql
 run supabase/migrations/20261101960000_parent_trainings.sql
-run supabase/migrations/20261101970000_family_members.sql
+run supabase/migrations/20261101995000_family_members.sql
 psql -q -d $DB -tc "select 'after re-apply: ' || count(*) || ' requests kept, ' || (select count(*) from team_matches) || ' matches kept' from join_requests"
 echo "ALL TESTS PASSED"
