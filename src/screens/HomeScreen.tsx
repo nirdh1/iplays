@@ -10,7 +10,6 @@ import { Button, Card, ListRow, LiveBadge, MetaRow, ProgressBar, Scoreline, Sect
 import { today, weekDays, type Child, type EventKind } from '../data/demo';
 import { useLive } from '../data/liveStore';
 import type { TabId } from '../components/shell';
-import { InstallHint } from '../components/InstallHint';
 
 const kindLabel: Record<EventKind, string> = { match: 'משחק', team: 'אימון קבוצתי', private: 'אימון אישי' };
 const kindTone: Record<EventKind, 'navy' | 'blue' | 'lime'> = { match: 'navy', team: 'blue', private: 'lime' };
@@ -18,7 +17,6 @@ const kindTone: Record<EventKind, 'navy' | 'blue' | 'lime'> = { match: 'navy', t
 export function HomeScreen({ child, onNavigate, onSwitchChild, onOpenMatch }: { child: Child; onNavigate: (t: TabId) => void; onSwitchChild: () => void; onOpenMatch: () => void }) {
   return (
     <div className="ip-stack" key={child.id}>
-      <InstallHint />
       <ChildCard child={child} onCareer={() => onNavigate('career')} onSwitch={onSwitchChild} />
       <NextMatchCard child={child} />
       <NextTrainingCard child={child} />

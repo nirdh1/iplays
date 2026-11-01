@@ -1,5 +1,7 @@
 /**
- * Login / sign-up in one flow: email, then a one-time code. No passwords.
+ * Login / sign-up in one flow: email, then either the link in the email (signs
+ * in directly) or the one-time code from the same email. No passwords. This
+ * happens once per device: afterwards the session is remembered and renewed.
  * Phone (SMS) login needs a paid SMS provider in Supabase; it is hidden until
  * VITE_ENABLE_SMS=true is set at build time.
  */
@@ -10,20 +12,25 @@ import { Button, Segmented } from '../components/ui';
 import { normalizeIlPhone, supabase } from '../lib/supabase';
 import { friendlyError } from '../lib/api';
 import { readPendingInvite, useAuth } from '../auth/AuthContext';
-import { InstallHint } from '../components/InstallHint';
+import { emailRedirectUrl, forgetEmail, isStandaloneApp, rememberEmail, rememberedEmail } from '../auth/remember';
 
 const smsEnabled = import.meta.env.VITE_ENABLE_SMS === 'true';
 
 type Method = 'phone' | 'email';
 
 export function AuthScreen() {
-  const { setDemo } = useAuth();
-  const [method, setMethod] = useState<Method>(smsEnabled ? 'phone' : 'email');
-  const [value, setValue] = useState('');
+  const { setDemo, linkError } = useAuth();
+  const [method, setMethod] = useState<Method>(smsEnabled && !rememberedEmail() ? 'phone' : 'email');
+  const [known, setKnown] = useState<string | null>(rememberedEmail);
+  const [value, setValue] = useState(known ?? '');
   const [target, setTarget] = useState<string | null>(null); // normalized phone / email the code was sent to
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(linkError);
+  const standalone = isStandaloneApp();
+  // Email: the main path is the link in the email. Code entry is a fallback,
+  // shown up front only in the home-screen app (where the link opens Safari).
+  const [showCode, setShowCode] = useState(standalone);
   const invite = readPendingInvite();
 
   async function sendCode(e?: FormEvent) {
@@ -35,11 +42,15 @@ export function AuthScreen() {
       return;
     }
     setBusy(true);
-    const { error: err } = await supabase!.auth.signInWithOtp(method === 'phone' ? { phone: t } : { email: t, options: { shouldCreateUser: true } });
+    const { error: err } = await supabase!.auth.signInWithOtp(
+      method === 'phone' ? { phone: t } : { email: t, options: { shouldCreateUser: true, emailRedirectTo: emailRedirectUrl() } },
+    );
     setBusy(false);
     if (err) return setError(friendlyError(err));
+    if (method === 'email') rememberEmail(t);
     setTarget(t);
     setCode('');
+    setShowCode(method === 'phone' || standalone);
   }
 
   async function verify(e: FormEvent) {
@@ -71,8 +82,12 @@ export function AuthScreen() {
       <div className="ip-auth-card">
         {!target ? (
           <form onSubmit={sendCode} className="ip-form" noValidate>
-            <h1>כניסה או הרשמה</h1>
-            <p className="ip-muted">נשלח קוד חד-פעמי למייל. אין צורך בסיסמה.</p>
+            <h1>{known ? 'ברוכים השבים' : 'כניסה או הרשמה'}</h1>
+            <p className="ip-muted">
+              {known
+                ? 'נשלח לכם מייל עם כפתור כניסה. מתחברים פעם אחת, ומאז המכשיר זוכר אתכם.'
+                : 'נשלח מייל עם כפתור כניסה (וגם קוד). אין צורך בסיסמה, ומתחברים רק פעם אחת בכל מכשיר.'}
+            </p>
             {smsEnabled && (
               <Segmented
                 items={[
@@ -105,37 +120,70 @@ export function AuthScreen() {
             </label>
             {error && <p className="ip-error" role="alert">{error}</p>}
             <Button type="submit" variant="primary" block disabled={busy || !value.trim()}>
-              {busy ? 'שולחים…' : 'שליחת קוד'}
+              {busy ? 'שולחים…' : method === 'email' ? 'שליחת לינק כניסה' : 'שליחת קוד'}
             </Button>
+            {known && (
+              <div className="ip-form-links">
+                <button
+                  type="button"
+                  className="ip-link"
+                  onClick={() => {
+                    forgetEmail();
+                    setKnown(null);
+                    setValue('');
+                  }}
+                >
+                  כניסה עם מייל אחר
+                </button>
+              </div>
+            )}
           </form>
         ) : (
           <form onSubmit={verify} className="ip-form" noValidate>
-            <h1>הזינו את הקוד</h1>
-            <p className="ip-muted">
-              שלחנו קוד למייל <bdi dir="ltr">{target}</bdi>
-            </p>
-            <label className="ip-field">
-              <span>קוד אימות</span>
-              <input
-                id="auth-code"
-                className="ip-input ip-input--otp"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                dir="ltr"
-                maxLength={8}
-                placeholder="••••••"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                autoFocus
-              />
-            </label>
+            <h1>{method === 'email' ? 'המשיכו מהמייל' : 'הזינו את הקוד'}</h1>
+            {method === 'email' ? (
+              <p className="ip-muted">
+                שלחנו מייל ל-<bdi dir="ltr">{target}</bdi>.{' '}
+                {standalone
+                  ? 'הכפתור במייל נפתח בדפדפן ולא באפליקציה שבמסך הבית, לכן כאן הקלידו את הקוד שמופיע במייל.'
+                  : 'פתחו אותו ולחצו על "כניסה ל-iplays". תיכנסו מיד, ומעכשיו המכשיר יזכור אתכם. אפשר לסגור את המסך הזה.'}
+              </p>
+            ) : (
+              <p className="ip-muted">
+                שלחנו קוד למספר <bdi dir="ltr">{target}</bdi>
+              </p>
+            )}
+            {showCode && (
+              <label className="ip-field">
+                <span>קוד אימות</span>
+                <input
+                  id="auth-code"
+                  className="ip-input ip-input--otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  dir="ltr"
+                  maxLength={8}
+                  placeholder="••••••"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  autoFocus
+                />
+              </label>
+            )}
             {error && <p className="ip-error" role="alert">{error}</p>}
-            <Button type="submit" variant="primary" block disabled={busy || code.length < 6}>
-              {busy ? 'בודקים…' : 'כניסה'}
-            </Button>
+            {showCode && (
+              <Button type="submit" variant="primary" block disabled={busy || code.length < 6}>
+                {busy ? 'בודקים…' : 'כניסה'}
+              </Button>
+            )}
             <div className="ip-form-links">
+              {!showCode && (
+                <button type="button" className="ip-link" onClick={() => setShowCode(true)}>
+                  יש לי קוד מהמייל
+                </button>
+              )}
               <button type="button" className="ip-link" onClick={() => sendCode()} disabled={busy}>
-                שליחת קוד חדש
+                {method === 'email' ? 'שליחת מייל חדש' : 'שליחת קוד חדש'}
               </button>
               <button type="button" className="ip-link" onClick={() => setTarget(null)}>
                 {method === 'phone' ? 'שינוי מספר' : 'שינוי כתובת'}
@@ -144,8 +192,6 @@ export function AuthScreen() {
           </form>
         )}
       </div>
-
-      <InstallHint tone="dark" />
 
       <button type="button" className="ip-auth-demo" onClick={() => setDemo(true)}>
         רק רוצים להציץ? <strong>לצפייה בהדגמה</strong>

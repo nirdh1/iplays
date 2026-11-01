@@ -7,7 +7,23 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const supabase: SupabaseClient | null = url && anonKey ? createClient(url, anonKey) : null;
+/**
+ * Sign in once, stay signed in: the session lives in localStorage and the
+ * refresh token is renewed automatically, so a returning parent goes straight
+ * into the app. (These are the library defaults; spelled out so nobody turns
+ * them off by accident. Don't change the storage key: that signs everyone out.)
+ */
+export const supabase: SupabaseClient | null =
+  url && anonKey
+    ? createClient(url, anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          // Older emails with Supabase's default link land as #access_token=…
+          detectSessionInUrl: true,
+        },
+      })
+    : null;
 export const backendEnabled = supabase !== null;
 
 /** Israeli mobile numbers: "050-123-4567" / "0501234567" / "+972501234567" → "+972501234567". */

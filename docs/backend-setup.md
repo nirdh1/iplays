@@ -17,14 +17,33 @@ Use a **separate project for iplays** (don't reuse a project that belongs to ano
 **Authentication → Sign In / Providers**
 
 - **Email** (free, recommended to start): keep it enabled.
-  Then **Authentication → Emails → Templates → Magic Link** and put the code in the email,
-  for example:
+  Then **Authentication → Emails → Templates**: paste the same body into **both** **Magic Link**
+  (returning parents) and **Confirm signup** (first time). The button signs the parent in
+  directly; the code is the fallback for the home-screen app on iPhone, whose storage is
+  separate from Safari's:
 
   ```html
-  <h2>קוד הכניסה שלך ל-iplays</h2>
-  <p style="font-size:28px;letter-spacing:6px"><strong>{{ .Token }}</strong></p>
-  <p>הקוד תקף לשעה.</p>
+  <div dir="rtl" style="font-family:Arial,sans-serif;text-align:right">
+    <h2>כניסה ל-iplays</h2>
+    <p>
+      <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
+         style="display:inline-block;background:#7CF23D;color:#0B1F3B;padding:14px 28px;border-radius:12px;font-weight:bold;text-decoration:none">
+        כניסה ל-iplays
+      </a>
+    </p>
+    <p>משתמשים באפליקציה שבמסך הבית? הקלידו בה את הקוד:</p>
+    <p style="font-size:28px;letter-spacing:6px" dir="ltr"><strong>{{ .Token }}</strong></p>
+    <p style="color:#666">הלינק והקוד תקפים לשעה ולשימוש אחד. מתחברים פעם אחת בכל מכשיר.</p>
+  </div>
   ```
+
+  `{{ .RedirectTo }}` is the site the parent asked from (it must be listed under Redirect URLs,
+  below; otherwise Supabase uses the Site URL). The app reads `token_hash` from the address and
+  signs in, in any browser.
+
+  **Stay signed in**: the app keeps the session on the device and renews it automatically, so a
+  parent signs in once per device. Under **Authentication → Sessions** keep *Time-box user
+  sessions* and *Inactivity timeout* off (0 / never).
 
   Supabase's built-in mailer is rate-limited (a few emails per hour). Before inviting real
   parents, add your own SMTP under **Authentication → Emails → SMTP Settings** (e.g. Resend).

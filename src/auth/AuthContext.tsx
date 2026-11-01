@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import type { Session } from '@supabase/supabase-js';
 import { backendEnabled, supabase } from '../lib/supabase';
 import { getMyProfile, getMyTeams, type MyTeam, type Profile } from '../lib/api';
+import { consumeEmailLink, rememberEmail, requestPersistentStorage } from './remember';
 
 interface AuthState {
   /** false when no backend is configured: the app runs on demo data only */
@@ -13,6 +14,8 @@ interface AuthState {
   /** The user chose "browse the demo" on the login screen */
   demo: boolean;
   setDemo: (v: boolean) => void;
+  /** The login email link could not be used (expired / already used) */
+  linkError: string | null;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -25,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<MyTeam[]>([]);
   const [loading, setLoading] = useState(backendEnabled);
   const [demo, setDemo] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const load = useCallback(async (s: Session | null) => {
     if (!s) {
@@ -40,17 +44,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) return;
     let alive = true;
-    supabase.auth.getSession().then(async ({ data }) => {
+    const client = supabase;
+    (async () => {
+      // Opened from the login email: sign in with its token first.
+      const err = await consumeEmailLink().catch(() => null);
+      if (!alive) return;
+      setLinkError(err);
+      const { data } = await client.auth.getSession();
       if (!alive) return;
       setSession(data.session);
+      if (data.session) requestPersistentStorage();
       try {
         await load(data.session);
+      } catch {
+        /* screens show their own errors; keep the session */
       } finally {
         if (alive) setLoading(false);
       }
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    })();
+    const { data: sub } = client.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === 'SIGNED_IN' && s) {
+        if (s.user.email) rememberEmail(s.user.email);
+        requestPersistentStorage();
+        setLinkError(null);
+      }
       // Defer the fetch: Supabase warns against awaiting inside this callback.
       setTimeout(() => void load(s), 0);
     });
@@ -67,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <Ctx.Provider value={{ enabled: backendEnabled, loading, session, profile, teams, demo, setDemo, refresh, signOut }}>
+    <Ctx.Provider value={{ enabled: backendEnabled, loading, session, profile, teams, demo, setDemo, linkError, refresh, signOut }}>
       {children}
     </Ctx.Provider>
   );
@@ -79,45 +97,54 @@ export function useAuth() {
   return ctx;
 }
 
-/** Invite codes arrive as #join/CODE before login; keep them until the user is signed in. */
-const PENDING_KEY = 'iplays.pendingInvite';
-export function savePendingInvite(code: string) {
+/*
+ * Invite codes arrive before login and are kept until the user is signed in.
+ * They live in localStorage (not sessionStorage) because the login email link
+ * opens a new tab, and expire after two days.
+ */
+const INVITE_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+function saveCode(key: string, code: string) {
   try {
-    sessionStorage.setItem(PENDING_KEY, code.toUpperCase());
+    localStorage.setItem(key, JSON.stringify({ code: code.toUpperCase(), at: Date.now() }));
   } catch {
     /* storage unavailable — the user can still type the code */
   }
 }
-export function readPendingInvite(): string | null {
+function readCode(key: string): string | null {
   try {
-    return sessionStorage.getItem(PENDING_KEY);
+    const raw = localStorage.getItem(key) ?? sessionStorage.getItem(key);
+    if (!raw) return null;
+    if (!raw.startsWith('{')) return raw; // saved by an older version
+    const { code, at } = JSON.parse(raw) as { code: string; at: number };
+    if (Date.now() - at > INVITE_TTL_MS) {
+      clearCode(key);
+      return null;
+    }
+    return code;
   } catch {
     return null;
   }
 }
-export function clearPendingInvite() {
+function clearCode(key: string) {
   try {
-    sessionStorage.removeItem(PENDING_KEY);
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
   } catch {
     /* ignore */
   }
 }
 
-/** Club staff invites arrive as #staff/CODE8; kept until the user is signed in. */
+/** Team invites: #join/CODE */
+const PENDING_KEY = 'iplays.pendingInvite';
+export const savePendingInvite = (code: string) => saveCode(PENDING_KEY, code);
+export const readPendingInvite = () => readCode(PENDING_KEY);
+export const clearPendingInvite = () => clearCode(PENDING_KEY);
+
+/** Club staff invites: #staff/CODE8 */
 const STAFF_KEY = 'iplays.pendingStaffInvite';
-export function saveStaffInvite(code: string) {
-  try {
-    sessionStorage.setItem(STAFF_KEY, code.toUpperCase());
-  } catch {
-    /* storage unavailable */
-  }
-}
+export const saveStaffInvite = (code: string) => saveCode(STAFF_KEY, code);
 export function takeStaffInvite(): string | null {
-  try {
-    const code = sessionStorage.getItem(STAFF_KEY);
-    sessionStorage.removeItem(STAFF_KEY);
-    return code;
-  } catch {
-    return null;
-  }
+  const code = readCode(STAFF_KEY);
+  clearCode(STAFF_KEY);
+  return code;
 }
