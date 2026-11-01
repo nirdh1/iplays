@@ -279,3 +279,14 @@ Signed-in users see only their own data: their teams, their linked children and 
 Run after `20261101950000_join_no_staff_parent.sql`. Adds three policies; rollback removes them and keeps the trainings.
 
 Any member of a team (parents too) can add, cancel and delete trainings in the team board (`#coach/<team>`), with or without a coach; everyone in the team sees them on Home and in the Calendar. A coach may still update parents elsewhere (e.g. WhatsApp). Staff keep their own training permissions.
+
+## Team fund and payments (migration `20261101970000_team_fund.sql`)
+
+Run after `20261101960000_parent_trainings.sql`. Additive: four new tables (`fund_treasurers`, `fund_collections`, `fund_payments`, `fund_expenses`), helpers, RPCs and policies. The rollback drops the fund tables and their data.
+
+- The team page (`#myteam/<team>`) has a "קופת הקבוצה" entry that opens `#fund/<team>`.
+- A fund manager (an appointed treasurer, anyone with `can(team, 'finance', 3)` such as a team manager / team admin / club admin, or a platform admin) opens collections with an amount per child, due date and a payment link (Bit / PayBox / bank details), confirms or rejects payments, records cash, exempts a child, closes / cancels / reopens a collection and logs expenses.
+- While a team has no fund manager, any member can appoint themselves the first treasurer. After that, managers appoint others; a treasurer can step down.
+- A parent taps "שילמתי" for their own child (`report_payment`); the treasurer confirms (`set_payment_status`).
+- Every member sees collections, totals (`fund_summary`) and expenses. A parent sees only their own children's payment rows; managers see every family.
+- Money never moves through iplays. Collections are never deleted, only cancelled.

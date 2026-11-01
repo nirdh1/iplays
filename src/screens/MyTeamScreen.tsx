@@ -271,6 +271,16 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
           </span>
           <Icon name="chevron" size={18} className="ip-muted" />
         </button>
+        <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = `fund/${teamId}`)}>
+          <span className="ip-icon-tile ip-icon-tile--blue">
+            <Icon name="wallet" size={20} />
+          </span>
+          <span className="ip-list-row-text">
+            <span className="ip-list-row-title">קופת הקבוצה</span>
+            <span className="ip-list-row-sub">גביות, מי שילם והוצאות מהקופה</span>
+          </span>
+          <Icon name="chevron" size={18} className="ip-muted" />
+        </button>
         <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = `coach/${teamId}`)}>
           <span className="ip-icon-tile ip-icon-tile--lime">
             <Icon name="whistle" size={20} />
