@@ -422,3 +422,77 @@ a.ip-dash-match:hover {
 .ip-ifa-games small {
   color: var(--ip-navy-500, #3a5275);
 }
+
+/* ===================== Live match reporting ===================== */
+.ip-live-report {
+  display: grid;
+  gap: var(--ip-s3);
+  margin-top: var(--ip-s3);
+}
+.ip-live-goal-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ip-s3);
+}
+.ip-live-goal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 112px;
+  padding: var(--ip-s3) var(--ip-s2);
+  border-radius: var(--ip-r-lg);
+  background: var(--ip-surface-2);
+  box-shadow: inset 0 0 0 1.5px var(--ip-border);
+  color: var(--ip-text);
+  text-align: center;
+  transition: transform var(--ip-dur) var(--ip-ease);
+}
+.ip-live-goal.is-ours {
+  background: var(--ip-lime);
+  color: var(--ip-navy);
+  box-shadow: none;
+}
+.ip-live-goal:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.ip-live-goal:disabled {
+  opacity: 0.6;
+}
+.ip-live-goal strong {
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 800;
+}
+.ip-live-goal span {
+  font-weight: 700;
+  font-size: var(--ip-fs-sm);
+  overflow-wrap: anywhere;
+}
+.ip-live-goal small {
+  font-size: var(--ip-fs-xs);
+  opacity: 0.7;
+}
+.ip-live-actions {
+  display: flex;
+  gap: var(--ip-s3);
+  margin-top: 2px;
+}
+.ip-live-actions .ip-link-btn {
+  margin-top: 0;
+  font-size: var(--ip-fs-xs);
+  padding: 0;
+  min-height: 32px;
+}
+.ip-live-shirt {
+  font-size: 28px;
+  font-weight: 800;
+  text-align: center;
+  max-width: 140px;
+}
+.ip-live-found {
+  font-weight: 700;
+  color: var(--ip-success);
+  margin-top: var(--ip-s2);
+}

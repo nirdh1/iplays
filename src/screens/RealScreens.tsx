@@ -11,7 +11,7 @@ import { Button, Card, EmptyState, ListRow, SectionHeader, Tag, TeamCrest } from
 import { ScreenTitle } from '../components/shell';
 import { useAuth } from '../auth/AuthContext';
 import { getRoster, isStaffRole, roleLabel, sportLabel, type MyTeam, type Player } from '../lib/api';
-import { competitionLabel, getMatches, matchEndsAt, matchTimeLabel, matchVenueLabel, matchVenueName, wazeUrl, type Match } from '../lib/matchApi';
+import { competitionLabel, getMatches, matchEndsAt, matchIsLive, matchTimeLabel, matchVenueLabel, matchVenueName, wazeUrl, type Match } from '../lib/matchApi';
 import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
 import { AccountSection, RequestsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
@@ -256,6 +256,8 @@ type TeamEvent = {
   team: MyTeam;
   href: string;
   canceled: boolean;
+  /** a match being played now (live reporting open) */
+  live?: boolean;
 };
 
 const dayFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' });
@@ -287,8 +289,9 @@ function useTeamEvents(teams: MyTeam[]): TeamEvent[] | null {
             navigateTo: matchVenueName(m),
             tag: competitionLabel[m.competition],
             team: t,
-            href: `matches/${m.team_id}`,
+            href: `matches/${m.team_id}/${m.id}`,
             canceled: false,
+            live: matchIsLive(m),
           }));
         const ts: TeamEvent[] = sessions.map((x) => {
           const d = new Date(x.starts_at);
@@ -326,9 +329,15 @@ function EventCard({ label, e }: { label: string; e: TeamEvent }) {
   return (
     <Card className="ip-next-event">
       <div className="ip-next-event-head">
-        <Tag tone={e.kind === 'match' ? 'blue' : 'lime'} icon={e.kind === 'match' ? 'ball' : 'whistle'}>
-          {label}
-        </Tag>
+        {e.live ? (
+          <Tag tone="live" icon="live">
+            LIVE · דיווח גולים
+          </Tag>
+        ) : (
+          <Tag tone={e.kind === 'match' ? 'blue' : 'lime'} icon={e.kind === 'match' ? 'ball' : 'whistle'}>
+            {label}
+          </Tag>
+        )}
         {e.tag && <Tag>{e.tag}</Tag>}
         {e.canceled && <Tag tone="warning">בוטל</Tag>}
       </div>

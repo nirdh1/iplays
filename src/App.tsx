@@ -29,9 +29,9 @@ const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand'
 /** Routes a signed-in user can open before belonging to any team (search, shared team page). */
 const openRoutes: Route[] = ['find', 't'];
 
-function readHash(): { route: Route; child?: string; param?: string } {
-  const [r, c] = window.location.hash.replace('#', '').split('/');
-  return { route: (routes as string[]).includes(r) ? (r as Route) : 'home', child: c, param: c };
+function readHash(): { route: Route; child?: string; param?: string; sub?: string } {
+  const [r, c, sub] = window.location.hash.replace('#', '').split('/');
+  return { route: (routes as string[]).includes(r) ? (r as Route) : 'home', child: c, param: c, sub };
 }
 
 // Invite links look like #join/ABC234: keep the code and continue to the app.
@@ -145,6 +145,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
   const initial = readHash();
   const [route, setRoute] = useState<Route>(initial.route);
   const [param, setParam] = useState(initial.param);
+  const [sub, setSub] = useState(initial.sub);
   const [childId, setChildId] = useState(children.some((c) => c.id === initial.child) ? initial.child! : children[0].id);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [sample, setSampleState] = useState(readSample);
@@ -163,6 +164,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
       const h = readHash();
       setRoute(h.route);
       setParam(h.param);
+      setSub(h.sub);
       if (h.child && children.some((c) => c.id === h.child)) setChildId(h.child);
     };
     window.addEventListener('hashchange', onHash);
@@ -232,7 +234,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         )}
         {route === 'club' && signedIn && <ClubScreen clubId={param} onBack={() => back('family')} />}
         {route === 'club' && !signedIn && <FamilyScreen />}
-        {route === 'matches' && (signedIn && param ? <MatchesScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
+        {route === 'matches' && (signedIn && param ? <MatchesScreen key={param} teamId={param} matchId={sub} onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'ifa' && (signedIn ? <IfaAdminScreen onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'find' && (signedIn ? <FindScreen onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 't' && (signedIn && param ? <TeamPageScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
