@@ -11,8 +11,10 @@ import { Icon } from '../components/Icon';
 import { BottomSheet } from '../components/shell';
 import { Button, Card, EmptyState, SectionHeader, Tag, TeamCrest } from '../components/ui';
 import { Err, Field } from '../components/form';
+import { useAuth } from '../auth/AuthContext';
 import { friendlyError } from '../lib/api';
 import {
+  birthYearsLabel,
   joinError,
   markOnboarded,
   myJoinRequests,
@@ -35,6 +37,7 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<null | { relation: Relation; player?: RosterName }>(null);
   const [sent, setSent] = useState<string | null>(null);
+  const { refresh } = useAuth();
 
   const load = useCallback(async () => {
     try {
@@ -80,7 +83,7 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
               </p>
             )}
             <p className="ip-on-navy-muted">
-              {[team.program_kind && programLabel[team.program_kind], team.season && `עונת ${team.season}`, `${team.players} שחקנים`]
+              {[birthYearsLabel(team.birth_year_from, team.birth_year_to), team.program_kind && programLabel[team.program_kind], team.season && `עונת ${team.season}`, `${team.players} שחקנים`]
                 .filter(Boolean)
                 .join(' · ')}
             </p>
@@ -88,6 +91,12 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
         </div>
       </Card>
 
+      {!team.has_staff && !team.is_member && (
+        <Card className="ip-find-sent">
+          <Tag tone="warning" icon="clock">עוד אין מאמן</Tag>
+          <p>אף מאמן או מועדון לא מנהלים את הקבוצה עדיין. הורה שמצהיר שהוא ההורה נכנס מיד, בלי לחכות לאישור.</p>
+        </Card>
+      )}
       {error && <p className="ip-error" role="alert">{error}</p>}
       {sent && (
         <Card className="ip-find-sent">
@@ -186,8 +195,12 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
         onSend={async (input) => {
           await requestJoin({ teamId: team.team_id, playerId: sheet?.player?.player_id, relation: sheet!.relation, ...input });
           markOnboarded();
+          const now = await teamPublic(team.team_id);
+          if (now?.is_member && !team.is_member) await refresh();
           setSent(
-            sheet?.relation === 'family'
+            now?.is_member && !team.is_member
+              ? 'נכנסת לקבוצה. אפשר כבר למלא מספר חולצה וציוד ולשלוח את הקישור להורים נוספים.'
+              : sheet?.relation === 'family'
               ? 'בקשת המעקב נשלחה להורה של הילד. אחרי האישור הקבוצה תופיע אצלך.'
               : 'הבקשה נשלחה לצוות הקבוצה. אחרי האישור הקבוצה תופיע אצלך, ואפשר יהיה למלא מספר חולצה וציוד.',
           );

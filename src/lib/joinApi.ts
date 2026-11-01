@@ -46,6 +46,27 @@ export interface PublicTeam {
   program_kind: ProgramKind | null;
   players: number;
   is_member: boolean;
+  /** someone manages the team (coach / club). false = parents join right away */
+  has_staff: boolean;
+  birth_year_from: number | null;
+  birth_year_to: number | null;
+}
+
+export interface TeamHit {
+  team_id: string;
+  name: string;
+  club_id: string | null;
+  club_name: string | null;
+  city: string | null;
+  program_kind: ProgramKind | null;
+  sport: string;
+  season: string;
+  age_group: string;
+  birth_year_from: number | null;
+  birth_year_to: number | null;
+  players: number;
+  has_staff: boolean;
+  is_member: boolean;
 }
 
 export interface ClubTeamRow {
@@ -137,6 +158,10 @@ export function joinError(e: unknown): string | null {
   if (msg.includes('shirt number must be')) return 'מספר חולצה בין 0 ל-99.';
   if (msg.includes('request not found')) return 'הבקשה כבר טופלה.';
   if (msg.includes('team not found')) return 'הקבוצה לא נמצאה.';
+  if (msg.includes('team already exists')) return 'קבוצה עם אותו שם, מועדון ושנתון כבר קיימת. חפשו אותה ובקשו להצטרף.';
+  if (msg.includes('birth year required')) return 'צריך לבחור שנתון.';
+  if (msg.includes('team name must be')) return 'שם הקבוצה צריך להיות בין 2 ל-60 תווים.';
+  if (msg.includes('child name required')) return 'צריך למלא את שם הילד/ה.';
   return null;
 }
 
@@ -144,6 +169,40 @@ export async function searchPlayers(query: string, birthYear?: number | null): P
   const { data, error } = await db().rpc('search_players', { p_query: query, p_birth_year: birthYear ?? null });
   if (error) throw error;
   return (data ?? []) as PlayerHit[];
+}
+
+export async function searchTeams(query: string, birthYear?: number | null, sport?: string | null): Promise<TeamHit[]> {
+  const { data, error } = await db().rpc('search_teams', { p_query: query, p_birth_year: birthYear ?? null, p_sport: sport ?? null });
+  if (error) throw error;
+  return (data ?? []) as TeamHit[];
+}
+
+/** A parent opens a team that is not in the app yet, with their child. */
+export async function openTeam(input: {
+  name: string;
+  club: string;
+  sport: string;
+  birthYear: number;
+  childFirst: string;
+  childLast: string;
+  declareParent: boolean;
+}): Promise<string> {
+  const { data, error } = await db().rpc('open_team', {
+    p_name: input.name,
+    p_club: input.club,
+    p_sport: input.sport,
+    p_birth_year: input.birthYear,
+    p_child_first: input.childFirst,
+    p_child_last: input.childLast,
+    p_declare_parent: input.declareParent,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export function birthYearsLabel(from: number | null, to: number | null) {
+  if (!from) return null;
+  return to && to !== from ? `שנתונים ${from}–${to}` : `שנתון ${from}`;
 }
 
 export async function searchClubs(query: string): Promise<ClubHit[]> {

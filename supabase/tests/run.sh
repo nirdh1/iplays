@@ -15,6 +15,7 @@ run supabase/migrations/20261101200000_clubs_and_assignments.sql
 run supabase/migrations/20261101300000_permissions.sql
 run supabase/migrations/20261101400000_search_and_join_requests.sql
 run supabase/migrations/20261101500000_matches_lineups_attendance.sql
+run supabase/migrations/20261101600000_open_teams.sql
 echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
 echo "== M3 tests"
@@ -23,6 +24,10 @@ echo "== search and join requests tests"
 run supabase/tests/test_search.sql
 echo "== M4 tests"
 run supabase/tests/test_m4.sql
+echo "== open teams tests"
+run supabase/tests/test_open_teams.sql
+echo "== rollback open teams"
+run supabase/rollback/20261101600000_open_teams.down.sql
 echo "== rollback M4"
 run supabase/rollback/20261101500000_matches_lineups_attendance.down.sql
 echo "== rollback search"
@@ -37,5 +42,6 @@ run supabase/migrations/20261101200000_clubs_and_assignments.sql
 run supabase/migrations/20261101300000_permissions.sql
 run supabase/migrations/20261101400000_search_and_join_requests.sql
 run supabase/migrations/20261101500000_matches_lineups_attendance.sql
+run supabase/migrations/20261101600000_open_teams.sql
 psql -q -d $DB -tc "select 'after re-apply: ' || count(*) || ' requests kept, ' || (select count(*) from team_matches) || ' matches kept' from join_requests"
 echo "ALL TESTS PASSED"
