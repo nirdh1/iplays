@@ -16,6 +16,12 @@ interface AuthState {
   setDemo: (v: boolean) => void;
   /** The login email link could not be used (expired / already used) */
   linkError: string | null;
+  /** Profile + teams were fetched successfully for the current session. Until
+   *  then the app must not treat the user as new (that sent returning parents
+   *  back to sign-up on a weak connection). */
+  loaded: boolean;
+  /** The last profile/teams fetch failed; it is retried automatically. */
+  loadFailed: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -29,16 +35,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(backendEnabled);
   const [demo, setDemo] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null); // user id whose data is loaded
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(async (s: Session | null) => {
     if (!s) {
       setProfile(null);
       setTeams([]);
+      setLoadedFor(null);
+      setLoadFailed(false);
       return;
     }
-    const [p, t] = await Promise.all([getMyProfile(s.user.id), getMyTeams(s.user.id)]);
-    setProfile(p);
-    setTeams(t);
+    try {
+      const [p, t] = await Promise.all([getMyProfile(s.user.id), getMyTeams(s.user.id)]);
+      setProfile(p);
+      setTeams(t);
+      setLoadedFor(s.user.id);
+      setLoadFailed(false);
+    } catch (e) {
+      // Keep whatever was loaded before; never fall back to "new user".
+      setLoadFailed(true);
+      throw e;
+    }
   }, []);
 
   useEffect(() => {
@@ -70,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLinkError(null);
       }
       // Defer the fetch: Supabase warns against awaiting inside this callback.
-      setTimeout(() => void load(s), 0);
+      setTimeout(() => void load(s).catch(() => undefined), 0);
     });
     return () => {
       alive = false;
@@ -79,13 +97,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [load]);
 
   const refresh = useCallback(() => load(session), [load, session]);
+  const loaded = !!session && loadedFor === session.user.id;
+
+  // A failed fetch (weak signal, server waking up) is retried: on a timer with
+  // backoff, when the connection comes back, and when the app is reopened.
+  useEffect(() => {
+    if (!session || loaded || !loadFailed) return;
+    let tries = 0;
+    let timer = 0;
+    const retry = () => void load(session).catch(() => undefined);
+    const schedule = () => {
+      timer = window.setTimeout(() => {
+        tries += 1;
+        load(session).catch(() => {
+          if (tries < 6) schedule();
+        });
+      }, Math.min(2000 * 2 ** tries, 30000));
+    };
+    schedule();
+    const onVisible = () => document.visibilityState === 'visible' && retry();
+    window.addEventListener('online', retry);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('online', retry);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [session, loaded, loadFailed, load]);
   const signOut = useCallback(async () => {
     await supabase?.auth.signOut();
     setDemo(false);
   }, []);
 
   return (
-    <Ctx.Provider value={{ enabled: backendEnabled, loading, session, profile, teams, demo, setDemo, linkError, refresh, signOut }}>
+    <Ctx.Provider value={{ enabled: backendEnabled, loading, session, profile, teams, demo, setDemo, linkError, loaded, loadFailed, refresh, signOut }}>
       {children}
     </Ctx.Provider>
   );

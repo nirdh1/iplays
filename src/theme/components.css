@@ -2652,3 +2652,12 @@ select.ip-input {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+.ip-splash:has(.ip-splash-retry) {
+  animation: none;
+  align-content: center;
+  gap: 16px;
+}
+.ip-splash-retry {
+  text-align: center;
+  padding: 0 24px;
+}
