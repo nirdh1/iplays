@@ -2643,3 +2643,21 @@ select.ip-input {
   background: var(--ip-surface);
   border: 1px solid var(--ip-border);
 }
+
+.ip-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.ip-splash:has(.ip-splash-retry) {
+  animation: none;
+  align-content: center;
+  gap: 16px;
+}
+.ip-splash-retry {
+  text-align: center;
+  padding: 0 24px;
+}

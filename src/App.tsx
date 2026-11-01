@@ -99,7 +99,9 @@ export function App() {
   const openRoute = openRoutes.includes(hashRoute) || !!readFamilyInvite();
   // Only decide once the profile and teams have loaded: while loading they are
   // empty, and deciding then sent returning users back into onboarding.
-  const ready = !!auth.session && !auth.loading;
+  // ...and only after a fetch that succeeded: a failed one (weak signal) must
+  // not look like a brand-new user.
+  const ready = !!auth.session && !auth.loading && auth.loaded;
   const needsName = ready && !auth.profile?.full_name;
   const needsTeam = ready && auth.teams.length === 0 && !openRoute && !wasOnboarded();
   const needsOnboarding = needsName || needsTeam;
@@ -141,6 +143,22 @@ export function App() {
       );
     }
     if (!auth.session) return <AuthScreen />;
+    if (!auth.loaded) {
+      // Signed in, but the profile has not loaded yet (or the fetch failed and is retried).
+      return (
+        <div className="ip-splash" aria-busy="true">
+          <Logo height={48} />
+          {auth.loadFailed && (
+            <div className="ip-splash-retry">
+              <p className="ip-muted">אין חיבור כרגע. אתם עדיין מחוברים, ננסה שוב אוטומטית.</p>
+              <button type="button" className="ip-link" onClick={() => void auth.refresh().catch(() => undefined)}>
+                לנסות עכשיו
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
     if (needsOnboarding || onboarding) {
       return (
         <div className="ip-app">

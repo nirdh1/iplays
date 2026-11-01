@@ -8,7 +8,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../auth/AuthContext';
-import { passwordError, preferPassword, prefersPassword } from '../auth/remember';
+import { askForPasswordNext, passwordError, passwordNext, preferPassword, prefersPassword, storeCredential } from '../auth/remember';
 import { Button, Card, SectionHeader } from './ui';
 import { Icon } from './Icon';
 
@@ -28,6 +28,8 @@ function usePasswordForm(onDone: () => void) {
     setBusy(false);
     if (err) return setError(passwordError(err));
     preferPassword(true);
+    const email = (await supabase!.auth.getUser()).data.user?.email;
+    if (email) storeCredential(email, pw);
     setPw('');
     setPw2('');
     onDone();
@@ -81,7 +83,7 @@ export function PasswordCard() {
         {saved && <p className="ip-pw-saved">הסיסמה נשמרה.</p>}
         {open ? (
           <form className="ip-form" onSubmit={form.submit} noValidate>
-            <input type="email" autoComplete="username" value={email} readOnly hidden />
+            <input type="email" autoComplete="username" value={email} readOnly className="ip-visually-hidden" tabIndex={-1} aria-hidden="true" />
             {form.fields}
             <Button type="submit" variant="primary" block disabled={form.busy || !form.ready}>
               {form.busy ? 'שומרים…' : 'שמירת סיסמה'}
@@ -107,13 +109,16 @@ export function PasswordNudge() {
   const { session, profile, teams } = useAuth();
   const [open, setOpen] = useState(false);
   const userId = session?.user.id;
-  const eligible = !!session?.user.email && !!profile?.full_name && teams.length > 0 && !hasPassword(session?.user.user_metadata) && !prefersPassword();
+  // Forced right after a code sign-in ("forgot password"); otherwise once, after sign-up is complete.
+  const forced = !!session?.user.email && passwordNext();
+  const eligible =
+    forced || (!!session?.user.email && !!profile?.full_name && teams.length > 0 && !hasPassword(session?.user.user_metadata) && !prefersPassword());
   const dismissedKey = `${NUDGE_KEY}.${userId}`;
 
   useEffect(() => {
     if (!eligible || !userId) return;
     try {
-      if (localStorage.getItem(dismissedKey)) return;
+      if (!forced && localStorage.getItem(dismissedKey)) return;
     } catch {
       return;
     }
@@ -122,11 +127,12 @@ export function PasswordNudge() {
         setOpen(true);
         window.clearInterval(t);
       }
-    }, 3000);
+    }, forced ? 600 : 3000);
     return () => window.clearInterval(t);
-  }, [eligible, userId, dismissedKey]);
+  }, [eligible, forced, userId, dismissedKey]);
 
   const close = () => {
+    askForPasswordNext(false);
     try {
       localStorage.setItem(dismissedKey, '1');
     } catch {
@@ -145,11 +151,15 @@ export function PasswordNudge() {
         </button>
         <div className="ip-a2hs-head">
           <div>
-            <strong id="ip-pw-title">נכנסים גם ממחשב אחר?</strong>
-            <span>במכשיר הזה אתם כבר מחוברים. עם סיסמה תוכלו להיכנס מכל מכשיר אחר עם המייל והסיסמה, בלי לחכות למייל.</span>
+            <strong id="ip-pw-title">{forced ? 'בחרו סיסמה' : 'נכנסים גם ממחשב אחר?'}</strong>
+            <span>
+              {forced
+                ? 'כדי שבפעם הבאה תיכנסו עם מייל וסיסמה, והמכשיר יוכל לשמור אותה בשבילכם.'
+                : 'במכשיר הזה אתם כבר מחוברים. עם סיסמה תוכלו להיכנס מכל מכשיר אחר עם המייל והסיסמה, בלי לחכות למייל.'}
+            </span>
           </div>
         </div>
-        <input type="email" autoComplete="username" value={session.user.email} readOnly hidden />
+        <input type="email" autoComplete="username" value={session.user.email} readOnly className="ip-visually-hidden" tabIndex={-1} aria-hidden="true" />
         {form.fields}
         <Button type="submit" variant="primary" block disabled={form.busy || !form.ready}>
           {form.busy ? 'שומרים…' : 'שמירת סיסמה'}
