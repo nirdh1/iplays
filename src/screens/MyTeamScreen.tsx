@@ -207,6 +207,10 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                       <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
                         חולצה וציוד
                       </Button>
+                    ) : staff ? (
+                      <Button variant="secondary" size="sm" icon="career" onClick={() => (window.location.hash = `career/${p.id}`)}>
+                        קריירה
+                      </Button>
                     ) : p.guardians.length === 0 ? (
                       <Button variant="secondary" size="sm" onClick={() => setClaim(p)}>
                         זה הילד שלי
