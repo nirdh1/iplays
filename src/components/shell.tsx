@@ -37,13 +37,13 @@ export function BottomSheet({ open, onClose, title, children }: { open: boolean;
 }
 
 /* ---------- Header ---------- */
-export function AppHeader({ parentName, unread, child, onOpenSwitcher }: { parentName: string; unread: number; child: Child; onOpenSwitcher: () => void }) {
+export function AppHeader({ parentName, unread, child, onOpenSwitcher }: { parentName: string; unread: number; child?: Child; onOpenSwitcher: () => void }) {
   return (
     <header className="ip-header">
       <div className="ip-header-row">
         <Logo height={32} />
         <div className="ip-header-actions">
-          <ChildSwitcherPill child={child} onClick={onOpenSwitcher} compact />
+          {child && <ChildSwitcherPill child={child} onClick={onOpenSwitcher} compact />}
           <IconButton icon="bell" label="התראות" badge={unread} />
           <button type="button" className="ip-parent-btn" aria-label={`פרופיל הורה: ${parentName}`}>
             <InitialsAvatar name={parentName} size={40} />

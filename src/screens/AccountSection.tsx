@@ -18,7 +18,7 @@ import {
 import { isPlatformAdmin } from '../lib/ifaApi';
 
 /** Follow requests waiting for me (as the child's parent) and my own pending requests. */
-function RequestsSection() {
+export function RequestsSection() {
   const [follow, setFollow] = useState<FollowRequest[]>([]);
   const [mine, setMine] = useState<MyRequest[]>([]);
   const [claims, setClaims] = useState<TeamClaim[]>([]);
@@ -75,16 +75,18 @@ function RequestsSection() {
       )}
       {follow.length > 0 && (
         <section>
-          <SectionHeader title={`בקשות מעקב לאישורך · ${follow.length}`} icon="bell" />
+          <SectionHeader title={`בקשות לאישורך · ${follow.length}`} icon="bell" />
           <Card padded={false}>
             {follow.map((r) => (
               <div key={r.id} className="ip-member ip-request">
                 <InitialsAvatar name={r.requester || 'בן משפחה'} size={40} tone="blue" />
                 <span className="ip-list-row-text">
                   <span className="ip-list-row-title">
-                    {r.requester || 'בן משפחה'} רוצה לעקוב אחרי {r.child_name}
+                    {r.relation === 'parent' ? `${r.requester || 'משתמש'} הצהיר/ה שהוא/היא הורה של ${r.child_name}` : `${r.requester || 'בן משפחה'} רוצה לעקוב אחרי ${r.child_name}`}
                   </span>
-                  <span className="ip-list-row-sub">{r.message || 'צפייה בילד ובלוח הקבוצה, בלי עריכה'}</span>
+                  <span className="ip-list-row-sub">
+                    {r.relation === 'parent' ? r.message || 'לקבוצה אין עדיין מאמן, ולכן ההורה הרשום (את/ה) מאשר/ת' : r.message || 'צפייה בילד ובלוח הקבוצה, בלי עריכה'}
+                  </span>
                 </span>
                 <span className="ip-find-actions">
                   <Button variant="primary" size="sm" onClick={() => review(r.id, true)}>
@@ -109,7 +111,7 @@ function RequestsSection() {
                 key={r.id}
                 icon="clock"
                 title={`${r.child_name} · ${r.team_name}`}
-                subtitle={r.relation === 'parent' ? 'ממתין לאישור צוות הקבוצה' : 'ממתין לאישור ההורה'}
+                subtitle={r.relation === 'parent' ? 'ממתין לאישור מאמן הקבוצה, או ההורה שכבר רשום לילד' : 'ממתין לאישור ההורה'}
                 trailing={<Tag tone="warning">ממתין</Tag>}
                 onClick={() => (window.location.hash = `t/${r.team_id}`)}
               />

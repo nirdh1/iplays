@@ -16,6 +16,7 @@ import { FindScreen } from './screens/FindScreen';
 import { IfaAdminScreen } from './screens/IfaAdminScreen';
 import { MatchesScreen } from './screens/MatchesScreen';
 import { TeamPageScreen } from './screens/TeamPageScreen';
+import { RealCalendarScreen, RealCareerScreen, RealFamilyScreen, RealHomeScreen, RealTeamsScreen } from './screens/RealScreens';
 import { wasOnboarded } from './lib/joinApi';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
@@ -48,6 +49,24 @@ function captureInviteFromHash() {
   }
 }
 captureInviteFromHash();
+
+/** A signed-in user without a team can ask to see the sample data; kept until they join a real team. */
+const SAMPLE_KEY = 'iplays.sampleView';
+function readSample(): boolean {
+  try {
+    return localStorage.getItem(SAMPLE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeSample(on: boolean) {
+  try {
+    if (on) localStorage.setItem(SAMPLE_KEY, '1');
+    else localStorage.removeItem(SAMPLE_KEY);
+  } catch {
+    /* storage unavailable: the choice lasts for this visit only */
+  }
+}
 
 /**
  * Gate: with a backend configured, users sign in and finish onboarding first
@@ -128,6 +147,15 @@ function MainApp({ joinError }: { joinError: string | null }) {
   const [param, setParam] = useState(initial.param);
   const [childId, setChildId] = useState(children.some((c) => c.id === initial.child) ? initial.child! : children[0].id);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [sample, setSampleState] = useState(readSample);
+  const setSample = useCallback((on: boolean) => {
+    writeSample(on);
+    setSampleState(on);
+    window.scrollTo({ top: 0 });
+  }, []);
+  useEffect(() => {
+    if (auth.teams.length > 0 && readSample()) setSample(false);
+  }, [auth.teams.length, setSample]);
   const child = children.find((c) => c.id === childId) ?? children[0];
 
   useEffect(() => {
@@ -168,37 +196,32 @@ function MainApp({ joinError }: { joinError: string | null }) {
   }
 
   const signedIn = !!auth.session;
+  const hasTeam = auth.teams.length > 0;
+  // Signed-in users see only their own data. The sample data shows when not
+  // signed in (demo from the login screen, or no backend), or when a user
+  // without a team asked for it; joining a real team ends it.
+  const demoMode = !signedIn || (!hasTeam && sample);
   const parentName = signedIn && auth.profile?.full_name ? auth.profile.full_name : `${parent.firstName} ${parent.lastName}`;
-  const firstTeam = auth.teams[0];
   // #coach/<teamId> opens a real team's board; #coach/<childId> opens the demo one.
   const coachTeam = route === 'coach' && signedIn ? auth.teams.find((t) => t.id === param) : undefined;
   const back = (fallback: Route) => (history.length > 1 ? history.back() : go(fallback));
 
   return (
     <div className="ip-app">
-      <AppHeader parentName={parentName} unread={parent.unread} child={child} onOpenSwitcher={openSwitcher} />
+      <AppHeader parentName={parentName} unread={demoMode ? parent.unread : 0} child={demoMode ? child : undefined} onOpenSwitcher={openSwitcher} />
       <main className="ip-main">
         {joinError && (
           <p className="ip-error" role="alert">
             {joinError}
           </p>
         )}
-        {signedIn && !firstTeam && !['family', 'club', 'find', 't', 'matches', 'ifa'].includes(route) && (
-          <button type="button" className="ip-demo-banner" onClick={() => (window.location.hash = 'find')}>
+        {signedIn && demoMode && (
+          <button type="button" className="ip-demo-banner" onClick={() => setSample(false)}>
             <Icon name="eye" size={18} />
             <span>
-              המסכים כאן מציגים נתוני הדגמה. <strong>חיפוש הילד או הקבוצה שלך</strong>
+              הצגה לדוגמה: הנתונים כאן אינם שלך. <strong>סגירת ההצגה לדוגמה</strong>
             </span>
-            <Icon name="chevron" size={16} />
-          </button>
-        )}
-        {signedIn && firstTeam && !['myteam', 'family', 'club', 'find', 't', 'matches', 'ifa'].includes(route) && !coachTeam && (
-          <button type="button" className="ip-demo-banner" onClick={() => (window.location.hash = `myteam/${firstTeam.id}`)}>
-            <Icon name="team" size={18} />
-            <span>
-              המסכים כאן עדיין מציגים נתוני הדגמה. <strong>לקבוצה שלך: {firstTeam.name}</strong>
-            </span>
-            <Icon name="chevron" size={16} />
+            <Icon name="close" size={16} />
           </button>
         )}
         {route === 'club' && signedIn && <ClubScreen clubId={param} onBack={() => back('family')} />}
@@ -208,17 +231,23 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'find' && (signedIn ? <FindScreen onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 't' && (signedIn && param ? <TeamPageScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'myteam' && signedIn && param && <MyTeamScreen teamId={param} onBack={() => go('family')} />}
-        {route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}
-        {route === 'team' && <TeamScreen child={child} onOpenMatch={() => go('match')} onOpenCoach={() => go('coach')} />}
-        {route === 'coach' && (coachTeam ? <TeamCoachScreen teamId={coachTeam.id} onBack={() => back('family')} /> : <DemoCoachScreen child={child} onBack={() => back('team')} />)}
-        {route === 'match' && <MatchCenterScreen child={child} onBack={() => (history.length > 1 ? history.back() : go('team'))} />}
-        {route === 'calendar' && <CalendarScreen child={child} />}
-        {route === 'career' && <CareerScreen child={child} onSwitchChild={openSwitcher} />}
-        {route === 'family' && <FamilyScreen />}
+        {!demoMode && (route === 'home' || route === 'match') && <RealHomeScreen onShowSample={() => setSample(true)} />}
+        {!demoMode && (route === 'team' || (route === 'coach' && !coachTeam)) && <RealTeamsScreen onShowSample={() => setSample(true)} />}
+        {!demoMode && route === 'calendar' && <RealCalendarScreen onShowSample={() => setSample(true)} />}
+        {!demoMode && route === 'career' && <RealCareerScreen onShowSample={() => setSample(true)} />}
+        {!demoMode && route === 'family' && <RealFamilyScreen />}
+        {route === 'coach' && coachTeam && <TeamCoachScreen teamId={coachTeam.id} onBack={() => back('family')} />}
+        {demoMode && route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}
+        {demoMode && route === 'team' && <TeamScreen child={child} onOpenMatch={() => go('match')} onOpenCoach={() => go('coach')} />}
+        {demoMode && route === 'coach' && !coachTeam && <DemoCoachScreen child={child} onBack={() => back('team')} />}
+        {demoMode && route === 'match' && <MatchCenterScreen child={child} onBack={() => (history.length > 1 ? history.back() : go('team'))} />}
+        {demoMode && route === 'calendar' && <CalendarScreen child={child} />}
+        {demoMode && route === 'career' && <CareerScreen child={child} onSwitchChild={openSwitcher} />}
+        {demoMode && route === 'family' && <FamilyScreen />}
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
       <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' ? 'family' : route} onChange={go} />
-      <ChildSwitcherSheet open={switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
+      <ChildSwitcherSheet open={demoMode && switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );
 }

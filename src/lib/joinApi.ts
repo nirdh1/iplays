@@ -116,6 +116,8 @@ export interface FollowRequest {
   child_name: string;
   message: string;
   created_at: string;
+  /** 'parent': someone else declared they are a parent (team with no staff). Missing before the migration. */
+  relation?: Relation;
 }
 
 export interface Kit {

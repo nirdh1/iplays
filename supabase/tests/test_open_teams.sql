@@ -85,6 +85,22 @@ select request_join((select id from t_new),
                     (select id from t_kids where first_name = 'אלון'), '', '', null, '', 'parent', true);
 select pg_temp.check(not is_team_member((select id from t_new)), 'no staff: claiming a child who has a parent is not automatic');
 
+-- ... and it goes to the child's declared parent (P1), not to a staff that does not exist
+select pg_temp.as_user(null);
+create temp table t_req as select id from join_requests where user_id = :P3 and relation = 'parent' and status = 'pending';
+grant select on t_req to authenticated;
+select pg_temp.as_user(:P2);
+select pg_temp.check((select count(*) from my_follow_requests()) = 0, 'no staff: another parent does not see the request');
+select pg_temp.fails(format('select review_join_request(%L, true)', (select id from t_req)),
+                     'no staff: someone who is not the child''s parent approves');
+select pg_temp.as_user(:P1);
+select pg_temp.check((select relation from my_follow_requests() where child_name like 'אלון%') = 'parent',
+                     'no staff: the child''s parent sees the parent request');
+select review_join_request((select id from my_follow_requests() where child_name like 'אלון%'), true);
+select pg_temp.as_user(:P3);
+select pg_temp.check(is_team_member((select id from t_new)), 'no staff: the child''s parent approved, second parent joined');
+select pg_temp.check(is_player_parent((select id from t_kids where first_name = 'אלון')), 'no staff: second parent linked to the child');
+
 -- a follower still needs the parent
 select request_join((select id from t_new),
                     (select id from t_kids where first_name = 'מיה'), '', '', null, '', 'family', false);
