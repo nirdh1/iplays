@@ -1,0 +1,80 @@
+/* Club panel (screens/ClubScreen.tsx). Mobile first; wider on desktop. */
+@media (min-width: 900px) {
+  .ip-main:has(.ip-club) {
+    max-width: 960px;
+  }
+}
+.ip-club-h2 {
+  font-size: var(--ip-fs-h);
+  font-weight: 800;
+}
+.ip-club-status {
+  margin-top: var(--ip-s2);
+}
+.ip-club-switch {
+  display: flex;
+  gap: var(--ip-s2);
+  overflow-x: auto;
+}
+.ip-club-switch button {
+  flex: none;
+  padding: 6px var(--ip-s3);
+  border-radius: 999px;
+  border: 1px solid var(--ip-line, rgba(11, 31, 59, 0.12));
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.ip-club-switch button.is-active {
+  background: var(--ip-navy);
+  color: #fff;
+  border-color: var(--ip-navy);
+}
+.ip-club-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s2);
+  padding: var(--ip-s3) var(--ip-s4);
+  flex-wrap: wrap;
+}
+.ip-club-row + .ip-club-row {
+  border-top: 1px solid var(--ip-line, rgba(11, 31, 59, 0.08));
+}
+.ip-club-row > .ip-list-row-text,
+.ip-club-row-main {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.ip-club-row-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ip-club-select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 120px;
+}
+.ip-club-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.ip-club-hint {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: var(--ip-fs-xs);
+}
+.ip-club .ip-roster li .ip-btn {
+  flex: none;
+}

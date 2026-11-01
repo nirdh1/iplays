@@ -71,3 +71,51 @@ For local development put the same two lines in `.env.local`.
 | `player_guardians` | which parent belongs to which child |
 
 Next steps: matches, trainings, carpools and the team fund move from demo data to these tables.
+
+## Clubs, programs and transfers (migration `20261101200000_clubs_and_assignments.sql`)
+
+A **club** holds two **programs**, league (`ליגה`) and academy (`אקדמיה`), and each team belongs to
+one program. A **player** is one profile for the whole career. Team membership lives in
+`player_assignments`, so a child can be in the academy and in a league team at the same time.
+Moving between programs closes one assignment and opens another, and is recorded in
+`player_transfers` and `audit_log`. Nothing is deleted: teams and players can't be deleted from the
+app any more (archive instead).
+
+| Table | What |
+|---|---|
+| `clubs` | club, city, status `draft` / `pending_verification` / `verified` / `suspended` |
+| `club_programs` | league / academy programs of a club |
+| `club_staff` | club owner / admin / staff |
+| `club_claims` | verification requests, reviewed by the platform team |
+| `platform_admins` | iplays platform admins (super admin) |
+| `audit_log` | who did what (club actions, transfers) |
+| `player_assignments` | player ↔ team, shirt number, main team, start / end dates |
+| `player_transfers` | history of moves, parallel joins and exits |
+
+`players.team_id` and `players.shirt_number` stay and always mirror the player's main team, so older
+screens keep working.
+
+### Running it (in this order)
+
+1. **Back up first**: Supabase → Database → Backups (or export the tables).
+2. SQL Editor → run [`20261101100000_coach.sql`](../supabase/migrations/20261101100000_coach.sql)
+   (the coach board), if you haven't yet.
+3. SQL Editor → run [`20261101200000_clubs_and_assignments.sql`](../supabase/migrations/20261101200000_clubs_and_assignments.sql).
+   It runs as one transaction and ends with a check that prints
+   `iplays M1+M2: N players backfilled, M clubs created`. If anything fails, nothing changes.
+4. Make yourself platform admin (put your login email):
+   ```sql
+   insert into public.platform_admins (user_id, note)
+   select id, 'owner' from auth.users where email = 'you@example.com';
+   ```
+
+Existing teams that had a club name typed in get a **draft club** owned by the person who created
+the team, with the team in the league program. Clubs are not merged by name automatically.
+
+**Rollback**: [`supabase/rollback/20261101200000_clubs_and_assignments.down.sql`](../supabase/rollback/20261101200000_clubs_and_assignments.down.sql)
+removes only what this migration added and restores the previous policies. Players, teams,
+trainings and absences stay. A second, parallel team of a player is lost on rollback.
+
+**Tests**: `supabase/tests/run.sh` runs both migrations, the RLS tests (club isolation, transfers,
+history, permissions), the rollback and a re-apply on a throwaway local Postgres:
+`PGHOST=… PGPORT=… PGUSER=postgres supabase/tests/run.sh`.
