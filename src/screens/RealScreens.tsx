@@ -325,7 +325,14 @@ function NextUp({ teams }: { teams: MyTeam[] }) {
     <section>
       <SectionHeader title="הקרוב" icon="calendar" />
       <div className="ip-stack">
-        {training ? <EventCard label="האימון הקרוב" e={training} /> : <Card><p className="ip-muted">עוד אין אימון קרוב ביומן. המאמן מזין אימונים בלוח הקבוצה.</p></Card>}
+        {training ? <EventCard label="האימון הקרוב" e={training} /> : <Card>
+            <p className="ip-muted">עוד אין אימון קרוב ביומן.</p>
+            <div className="ip-btn-row">
+              <Button variant="secondary" icon="whistle" onClick={() => (window.location.hash = `coach/${teams[0].id}`)}>
+                ללוח האימונים
+              </Button>
+            </div>
+          </Card>}
         {match ? <EventCard label="המשחק הקרוב" e={match} /> : <Card><p className="ip-muted">אין משחק קרוב ביומן.</p></Card>}
       </div>
     </section>
