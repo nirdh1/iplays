@@ -81,6 +81,17 @@ export function RealCareerScreen({ playerId, onShowSample }: { playerId?: string
   );
 }
 
+/** A load error with the server's own words, so a missing migration or a bad row can be told apart. */
+function careerLoadError(e: unknown): string {
+  const err = e as { code?: string; message?: string };
+  const code = err?.code ?? '';
+  const msg = err?.message ?? String(e);
+  if (code === 'PGRST202' || /Could not find the function/.test(msg)) return 'מסך הקריירה מחכה לעדכון מסד הנתונים (iplays-player-career.sql).';
+  if (code === '42P01' || /does not exist/.test(msg)) return `חסרה טבלה במסד הנתונים: ${msg}`;
+  if (/Failed to fetch/.test(msg)) return friendlyError(e);
+  return `לא הצלחנו לטעון את הקריירה. ${code ? `(${code}) ` : ''}${msg}`;
+}
+
 function PlayerCareer({ playerId }: { playerId: string }) {
   const [career, setCareer] = useState<Career | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
@@ -92,13 +103,24 @@ function PlayerCareer({ playerId }: { playerId: string }) {
         setCareer(c);
         setError(null);
       })
-      .catch((e) => setError(friendlyError(e)));
+      .catch((e) => setError(careerLoadError(e)));
   }, [playerId]);
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (error) return <Card><Err error={error} /></Card>;
+  if (error) {
+    return (
+      <Card>
+        <Err error={error} />
+        <div className="ip-btn-row">
+          <Button variant="secondary" size="sm" onClick={() => void load()}>
+            לנסות שוב
+          </Button>
+        </div>
+      </Card>
+    );
+  }
   if (career === undefined) return <p className="ip-muted">טוען…</p>;
   if (career === null) {
     return (
