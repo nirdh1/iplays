@@ -131,17 +131,40 @@ export async function addPlayer(teamId: string, p: { first: string; last: string
   if (error) throw error;
 }
 
+/**
+ * The team's current roster. Players are read through player_assignments, so
+ * a child who is in two teams (academy + league) shows up in both, with the
+ * shirt number of each team. Falls back to players.team_id while the
+ * clubs/assignments migration has not been run yet.
+ */
 export async function getRoster(teamId: string): Promise<Player[]> {
+  const guardiansOf = (p: { player_guardians?: unknown }) =>
+    ((p.player_guardians as { user_id: string }[] | null) ?? []).map((g) => g.user_id);
+
+  const viaAssignments = await db()
+    .from('player_assignments')
+    .select('team_id, shirt_number, players (id, first_name, last_name, position, birth_year, player_guardians (user_id))')
+    .eq('team_id', teamId)
+    .is('ended_on', null);
+  if (!viaAssignments.error) {
+    return (viaAssignments.data ?? [])
+      .flatMap((a) => {
+        const p = a.players as unknown as (Omit<Player, 'team_id' | 'shirt_number' | 'guardians'> & { player_guardians?: unknown }) | null;
+        if (!p) return [];
+        const { player_guardians, ...rest } = p;
+        return [{ ...rest, team_id: a.team_id, shirt_number: a.shirt_number, guardians: guardiansOf({ player_guardians }) }];
+      })
+      .sort((x, y) => (x.shirt_number ?? 999) - (y.shirt_number ?? 999));
+  }
+  if (!/player_assignments|PGRST205|42P01/.test(`${viaAssignments.error.code} ${viaAssignments.error.message}`)) throw viaAssignments.error;
+
   const { data, error } = await db()
     .from('players')
     .select('id, team_id, first_name, last_name, shirt_number, position, birth_year, player_guardians (user_id)')
     .eq('team_id', teamId)
     .order('shirt_number', { nullsFirst: false });
   if (error) throw error;
-  return (data ?? []).map((p) => ({
-    ...p,
-    guardians: ((p.player_guardians as { user_id: string }[] | null) ?? []).map((g) => g.user_id),
-  })) as Player[];
+  return (data ?? []).map((p) => ({ ...p, guardians: guardiansOf(p) })) as Player[];
 }
 
 export async function getMembers(teamId: string): Promise<Member[]> {

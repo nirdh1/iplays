@@ -65,6 +65,18 @@ export function AccountSection() {
           ))}
         </Card>
       </section>
+      <section>
+        <SectionHeader title="מועדון" icon="shield" />
+        <Card padded={false}>
+          <ListRow
+            icon="shield"
+            iconTone="navy"
+            title="ניהול מועדון"
+            subtitle="קבוצות ליגה ואקדמיה, שחקנים ומעברים"
+            onClick={() => (window.location.hash = 'club')}
+          />
+        </Card>
+      </section>
     </>
   );
 }

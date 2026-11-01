@@ -10,14 +10,15 @@ import { BrandScreen } from './screens/BrandScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { MyTeamScreen } from './screens/MyTeamScreen';
+import { ClubScreen } from './screens/ClubScreen';
 import { DemoCoachScreen, TeamCoachScreen } from './screens/CoachScreen';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
 import { clearPendingInvite, readPendingInvite, savePendingInvite, useAuth } from './auth/AuthContext';
 import { friendlyError, joinTeam } from './lib/api';
 
-type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach';
-const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach'];
+type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club';
+const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club'];
 
 function readHash(): { route: Route; child?: string; param?: string } {
   const [r, c] = window.location.hash.replace('#', '').split('/');
@@ -140,7 +141,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
             {joinError}
           </p>
         )}
-        {signedIn && firstTeam && route !== 'myteam' && route !== 'family' && !coachTeam && (
+        {signedIn && firstTeam && route !== 'myteam' && route !== 'family' && route !== 'club' && !coachTeam && (
           <button type="button" className="ip-demo-banner" onClick={() => (window.location.hash = `myteam/${firstTeam.id}`)}>
             <Icon name="team" size={18} />
             <span>
@@ -149,6 +150,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
             <Icon name="chevron" size={16} />
           </button>
         )}
+        {route === 'club' && signedIn && <ClubScreen clubId={param} onBack={() => back('family')} />}
+        {route === 'club' && !signedIn && <FamilyScreen />}
         {route === 'myteam' && signedIn && param && <MyTeamScreen teamId={param} onBack={() => go('family')} />}
         {route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}
         {route === 'team' && <TeamScreen child={child} onOpenMatch={() => go('match')} onOpenCoach={() => go('coach')} />}
@@ -159,7 +162,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'family' && <FamilyScreen />}
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
-      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' ? 'family' : route} onChange={go} />
+      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' ? 'family' : route} onChange={go} />
       <ChildSwitcherSheet open={switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );
