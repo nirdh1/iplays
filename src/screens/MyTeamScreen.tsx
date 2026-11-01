@@ -165,6 +165,19 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
         </Card>
       </section>
 
+      <section>
+        <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = `coach/${teamId}`)}>
+          <span className="ip-icon-tile ip-icon-tile--lime">
+            <Icon name="whistle" size={20} />
+          </span>
+          <span className="ip-list-row-text">
+            <span className="ip-list-row-title">לוח המאמן</span>
+            <span className="ip-list-row-sub">{staff ? 'פרסום הודעות, ניהול ימי אימון ודיווחי היעדרות' : 'הודעות מהמאמן, ימי אימון ודיווח איחור / אי־הגעה'}</span>
+          </span>
+          <Icon name="chevron" size={18} className="ip-muted" />
+        </button>
+      </section>
+
       <PlayerSheet
         mode={sheet}
         onClose={() => setSheet(null)}

@@ -10,13 +10,14 @@ import { BrandScreen } from './screens/BrandScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { MyTeamScreen } from './screens/MyTeamScreen';
+import { DemoCoachScreen, TeamCoachScreen } from './screens/CoachScreen';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
 import { clearPendingInvite, readPendingInvite, savePendingInvite, useAuth } from './auth/AuthContext';
 import { friendlyError, joinTeam } from './lib/api';
 
-type Route = TabId | 'brand' | 'match' | 'myteam';
-const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam'];
+type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach';
+const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach'];
 
 function readHash(): { route: Route; child?: string; param?: string } {
   const [r, c] = window.location.hash.replace('#', '').split('/');
@@ -126,6 +127,9 @@ function MainApp({ joinError }: { joinError: string | null }) {
   const signedIn = !!auth.session;
   const parentName = signedIn && auth.profile?.full_name ? auth.profile.full_name : `${parent.firstName} ${parent.lastName}`;
   const firstTeam = auth.teams[0];
+  // #coach/<teamId> opens a real team's board; #coach/<childId> opens the demo one.
+  const coachTeam = route === 'coach' && signedIn ? auth.teams.find((t) => t.id === param) : undefined;
+  const back = (fallback: Route) => (history.length > 1 ? history.back() : go(fallback));
 
   return (
     <div className="ip-app">
@@ -136,7 +140,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
             {joinError}
           </p>
         )}
-        {signedIn && firstTeam && route !== 'myteam' && route !== 'family' && (
+        {signedIn && firstTeam && route !== 'myteam' && route !== 'family' && !coachTeam && (
           <button type="button" className="ip-demo-banner" onClick={() => (window.location.hash = `myteam/${firstTeam.id}`)}>
             <Icon name="team" size={18} />
             <span>
@@ -147,14 +151,15 @@ function MainApp({ joinError }: { joinError: string | null }) {
         )}
         {route === 'myteam' && signedIn && param && <MyTeamScreen teamId={param} onBack={() => go('family')} />}
         {route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}
-        {route === 'team' && <TeamScreen child={child} onOpenMatch={() => go('match')} />}
+        {route === 'team' && <TeamScreen child={child} onOpenMatch={() => go('match')} onOpenCoach={() => go('coach')} />}
+        {route === 'coach' && (coachTeam ? <TeamCoachScreen teamId={coachTeam.id} onBack={() => back('family')} /> : <DemoCoachScreen child={child} onBack={() => back('team')} />)}
         {route === 'match' && <MatchCenterScreen child={child} onBack={() => (history.length > 1 ? history.back() : go('team'))} />}
         {route === 'calendar' && <CalendarScreen child={child} />}
         {route === 'career' && <CareerScreen child={child} onSwitchChild={openSwitcher} />}
         {route === 'family' && <FamilyScreen />}
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
-      <BottomNav active={route === 'match' ? 'team' : route === 'myteam' ? 'family' : route} onChange={go} />
+      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' ? 'family' : route} onChange={go} />
       <ChildSwitcherSheet open={switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );

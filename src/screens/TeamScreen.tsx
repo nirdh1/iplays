@@ -22,12 +22,13 @@ const sections: { id: Section; label: string }[] = [
 
 const shekel = (n: number) => `${n.toLocaleString('he-IL')} ₪`;
 
-export function TeamScreen({ child, onOpenMatch }: { child: Child; onOpenMatch: () => void }) {
+export function TeamScreen({ child, onOpenMatch, onOpenCoach }: { child: Child; onOpenMatch: () => void; onOpenCoach: () => void }) {
   const [section, setSection] = useState<Section>('overview');
   const team = teams[child.id];
   return (
     <div className="ip-stack" key={child.id}>
       <TeamHero child={child} />
+      <CoachEntry onClick={onOpenCoach} coach={team.coach} />
       <div className="ip-sticky-seg">
         <Segmented items={sections} value={section} onChange={setSection} label="אזורי הקבוצה" />
       </div>
@@ -72,6 +73,22 @@ function TeamHero({ child }: { child: Child }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+/** Entry to the coach board: announcements, training days, absence reports. */
+function CoachEntry({ onClick, coach }: { onClick: () => void; coach: string }) {
+  return (
+    <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={onClick}>
+      <span className="ip-icon-tile ip-icon-tile--lime">
+        <Icon name="whistle" size={20} />
+      </span>
+      <span className="ip-list-row-text">
+        <span className="ip-list-row-title">לוח המאמן</span>
+        <span className="ip-list-row-sub">הודעות מ{coach}, ימי אימון ודיווח איחור / אי־הגעה</span>
+      </span>
+      <Icon name="chevron" size={18} className="ip-muted" />
+    </button>
   );
 }
 
