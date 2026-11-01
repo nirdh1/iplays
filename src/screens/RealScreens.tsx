@@ -14,6 +14,8 @@ import { getRoster, isStaffRole, roleLabel, sportLabel, type MyTeam, type Player
 import { competitionLabel, getMatches, matchEndsAt, matchTimeLabel, matchVenueLabel, matchVenueName, wazeUrl, type Match } from '../lib/matchApi';
 import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
 import { AccountSection, RequestsSection } from './AccountSection';
+import { MyTeamScreen } from './MyTeamScreen';
+import { sportProfile } from '../lib/sports';
 
 const goFind = () => (window.location.hash = 'find');
 const goTeam = (id: string) => (window.location.hash = `myteam/${id}`);
@@ -117,6 +119,33 @@ function TeamsList({ teams }: { teams: MyTeam[] }) {
   );
 }
 
+/** The team's working screens, one tap from Home. */
+function TeamShortcuts({ team, showName }: { team: MyTeam; showName?: boolean }) {
+  const matches = sportProfile(team.sport).hasMatches;
+  const items: { icon: 'whistle' | 'ball' | 'check' | 'team'; tone: string; title: string; sub: string; href: string }[] = [
+    { icon: 'whistle', tone: 'lime', title: 'לוח הקבוצה', sub: 'אימונים, הודעות מהמאמן, דיווח איחור / אי־הגעה', href: `coach/${team.id}` },
+    { icon: matches ? 'ball' : 'check', tone: 'blue', title: matches ? 'משחקים והרכבים' : 'נוכחות', sub: matches ? 'לוח משחקים, הרכבים ותוצאות' : 'נוכחות באימונים', href: `matches/${team.id}` },
+    { icon: 'team', tone: 'blue', title: 'דף הקבוצה', sub: 'הילד שלי, חולצה וציוד, הסגל וההורים', href: `myteam/${team.id}` },
+  ];
+  return (
+    <section className="ip-stack ip-stack--tight">
+      {showName && <SectionHeader title={team.name} icon="team" />}
+      {items.map((it) => (
+        <button key={it.href} type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = it.href)}>
+          <span className={`ip-icon-tile ip-icon-tile--${it.tone}`}>
+            <Icon name={it.icon} size={20} />
+          </span>
+          <span className="ip-list-row-text">
+            <span className="ip-list-row-title">{it.title}</span>
+            <span className="ip-list-row-sub">{it.sub}</span>
+          </span>
+          <Icon name="chevron" size={18} className="ip-muted" />
+        </button>
+      ))}
+    </section>
+  );
+}
+
 /** Home with one child: the child and their team, no lists. */
 function ChildHero({ k }: { k: Player & { team: MyTeam } }) {
   const name = `${k.first_name} ${k.last_name}`.trim();
@@ -148,6 +177,9 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
         <>
           {kids && kids.length === 1 && <ChildHero k={kids[0]} />}
           <NextUp teams={teams} />
+          {teams.map((t) => (
+            <TeamShortcuts key={t.id} team={t} showName={teams.length > 1} />
+          ))}
           {kids && kids.length > 1 && (
             <section>
               <SectionHeader title="הילדים שלי" icon="user" />
@@ -190,6 +222,8 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
 
 export function RealTeamsScreen({ onShowSample }: { onShowSample: () => void }) {
   const { teams } = useAuth();
+  // One team: the team tab is that team's page.
+  if (teams.length === 1) return <MyTeamScreen teamId={teams[0].id} onBack={() => (window.location.hash = 'home')} />;
   return (
     <div className="ip-stack">
       <ScreenTitle title="הקבוצות שלי" />
