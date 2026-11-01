@@ -368,3 +368,57 @@ a.ip-dash-match:hover {
   color: var(--ip-warning, #b45309);
   font-size: 13px;
 }
+
+/* Match venue: Waze + saved address */
+.ip-venue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ip-venue-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.ip-venue a.ip-btn {
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.ip-link-btn {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ip-blue-700, #1477d6);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* IFA game change history */
+.ip-change-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.ip-change-list del {
+  color: var(--ip-navy-500, #3a5275);
+}
+.ip-ifa-games {
+  margin: 0;
+  padding-inline-start: 1.6em;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ip-ifa-games li > * {
+  display: block;
+}
+.ip-ifa-games small {
+  color: var(--ip-navy-500, #3a5275);
+}

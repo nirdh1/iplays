@@ -19,6 +19,16 @@ import {
   type SyncedTeam,
   type SyncRun,
 } from '../lib/ifaApi';
+import { IfaGamesAdmin, PushControl } from './IfaGamesAdmin';
+import '../theme/club.css';
+
+const runStatus: Record<string, { label: string; tone: 'lime' | 'warning' | 'live' | 'neutral' }> = {
+  ok: { label: 'תקין', tone: 'lime' },
+  partial: { label: 'חלקי', tone: 'warning' },
+  failed: { label: 'נכשל', tone: 'live' },
+  skipped: { label: 'דולג', tone: 'neutral' },
+  dry_run: { label: 'בדיקה', tone: 'neutral' },
+};
 
 const fmt = (iso: string) => new Date(iso).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -106,7 +116,7 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
           <Card className="ip-find-sent">
             <Tag tone="warning" icon="clock">אין סנכרון חי</Tag>
             <p>
-              אתר ההתאחדות חוסם בקשות משרתים (403), ולכן אין משיכה אוטומטית. הייבוא כאן עובד מדף סגל ששמרת בדפדפן. הצלחה כאן לא אומרת שסנכרון מול האתר החי עובד.
+              אתר ההתאחדות חוסם בקשות משרתים (403), ולכן אין משיכה אוטומטית. הייבוא כאן עובד מדפי סגל ומשחקים ששמרת בדפדפן. הצלחה כאן לא אומרת שסנכרון מול האתר החי עובד.
             </p>
           </Card>
 
@@ -175,6 +185,9 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
             </Card>
           </section>
 
+          <IfaGamesAdmin onImported={() => void loadLog()} />
+          <PushControl />
+
           <section>
             <SectionHeader title="קבוצות שיובאו" icon="team" />
             {teams.length === 0 ? (
@@ -205,14 +218,20 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
                   <div key={r.id} className="ip-club-row">
                     <span className="ip-list-row-text">
                       <span className="ip-list-row-title">
-                        קבוצה {String(r.counts.ifa_team_id ?? '')} · {fmt(r.created_at)}
+                        {r.kind === 'games' ? 'משחקים' : 'סגל'}
+                        {r.counts.ifa_team_id ? ` · קבוצה ${String(r.counts.ifa_team_id)}` : r.counts.ifa_league_id ? ` · ליגה ${String(r.counts.ifa_league_id)}` : ''} · {fmt(r.created_at)}
                       </span>
                       <span className="ip-list-row-sub">
-                        {String(r.counts.players_seen ?? 0)} בסגל · {String(r.counts.new_players ?? 0)} חדשים
+                        {r.kind === 'games'
+                          ? `${String(r.counts.new ?? 0)} חדשים · ${String(r.counts.changed ?? 0)} שינויים · ${String(r.counts.queued ?? 0)} התראות`
+                          : `${String(r.counts.players_seen ?? 0)} בסגל · ${String(r.counts.new_players ?? 0)} חדשים`}
                         {r.errors.length > 0 && ` · ${r.errors.map((x) => x.error).join('; ')}`}
                       </span>
                     </span>
-                    <Tag tone={r.errors.length ? 'warning' : 'lime'}>{r.errors.length ? `${r.errors.length} שגיאות` : 'תקין'}</Tag>
+                    {(() => {
+                      const st = runStatus[r.status ?? (r.errors.length ? 'partial' : 'ok')] ?? runStatus.ok;
+                      return <Tag tone={st.tone}>{r.errors.length && st.tone !== 'live' ? `${st.label} · ${r.errors.length} שגיאות` : st.label}</Tag>;
+                    })()}
                   </div>
                 ))}
               </Card>

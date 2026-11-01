@@ -1,4 +1,4 @@
--- Rollback of 20261101900000_join_no_staff_parent.sql: restores the previous
+-- Rollback of 20261101950000_join_no_staff_parent.sql: restores the previous
 -- review_join_request and my_follow_requests. No data changes.
 
 begin;

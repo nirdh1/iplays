@@ -243,9 +243,9 @@ To make yourself Super Admin, run once in the SQL Editor:
 
 Run after `20261101700000_team_claims.sql`. See `docs/ifa-integration.md` for what is verified and what isn't. Super Admin screen: `#ifa`.
 
-## Parent requests on a team with no staff (migration `20261101900000_join_no_staff_parent.sql`)
+## Parent requests on a team with no staff (migration `20261101950000_join_no_staff_parent.sql`)
 
-Run after `20261101800000_ifa_import.sql`. Replaces two functions; no tables or data change. Rollback restores them.
+Run after `20261101900000_ifa_games_sync.sql`. Replaces two functions; no tables or data change. Rollback restores them.
 
 - A declared parent on a team with no staff is still added right away (no request), as before.
 - If the child already has a declared parent, the request used to wait for "the staff", which a team with no staff doesn't have. It now goes to the child's declared parent: it shows with the follow requests at the top of the Family / Home tab, and that parent approves (`review_join_request`). A platform admin can also approve it.

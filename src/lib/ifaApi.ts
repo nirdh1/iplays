@@ -120,10 +120,12 @@ export interface SyncRun {
   counts: Record<string, unknown>;
   errors: { error: string }[];
   created_at: string;
+  /** ok | partial | failed | skipped | dry_run (missing before the games migration) */
+  status?: string;
 }
 
 export async function getSyncRuns(): Promise<SyncRun[]> {
-  const { data, error } = await db().from('ifa_sync_runs').select('id, kind, source, counts, errors, created_at').order('created_at', { ascending: false }).limit(30);
+  const { data, error } = await db().from('ifa_sync_runs').select('*').order('created_at', { ascending: false }).limit(30);
   if (error) throw error;
   return (data ?? []) as SyncRun[];
 }
@@ -147,4 +149,176 @@ export async function isPlatformAdmin(): Promise<boolean> {
   const { data, error } = await db().rpc('is_platform_admin');
   if (error) return false;
   return data === true;
+}
+
+/* ------------------------------------------------------------------ games */
+// Saved IFA games pages (verified on season 28):
+//   /team-details/team-games/?team_id=N&season_id=S  all games of one team
+//   /leagues/games/?league_id=L&season_id=S           a window of dates; its teams dropdown gives the team ids
+// Rows: .games_table a.table_row, labelled columns תאריך / משחק ("home - away") / אצטדיון / שעה / תוצאה,
+// link /leagues/games/game/?game_id=N, where N = -1 for games that have no id yet.
+
+export interface ParsedGame {
+  ifa_game_id: string;
+  date: string;
+  time: string | null;
+  home_ifa_team_id: number;
+  away_ifa_team_id: number;
+  home_name: string;
+  away_name: string;
+  venue: string;
+  status: 'scheduled' | 'played';
+  result_raw: string;
+  home_score: number | null;
+  away_score: number | null;
+}
+
+export interface ParsedGames {
+  seasonId: number | null;
+  leagueId: number | null;
+  leagueName: string;
+  teamId: number | null;
+  sourceUrl: string;
+  rows: number;
+  games: ParsedGame[];
+  teamsInDropdown: number;
+  unmatched: { date: string; home: string; away: string }[];
+  problems: string[];
+}
+
+function formQuery(doc: Document): URLSearchParams {
+  const action = doc.querySelector('form')?.getAttribute('action') ?? '';
+  return new URL(action, BASE).searchParams;
+}
+
+function dropdownTeams(doc: Document | null): Map<string, number> {
+  const map = new Map<string, number>();
+  doc?.querySelectorAll('select[id*="ddlTeams"] option').forEach((o) => {
+    const v = (o as HTMLOptionElement).value;
+    if (/^\d+$/.test(v)) map.set(clean(o.textContent), Number(v));
+  });
+  return map;
+}
+
+export function parseGamesHtml(gamesHtml: string, leagueHtml?: string): ParsedGames {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(gamesHtml, 'text/html');
+  const league = leagueHtml ? parser.parseFromString(leagueHtml, 'text/html') : null;
+  const q = formQuery(doc);
+  const lq = league ? formQuery(league) : new URLSearchParams();
+  const teams = dropdownTeams(league ?? doc);
+  const num = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : null);
+  const action = doc.querySelector('form')?.getAttribute('action') ?? '';
+  const out: ParsedGames = {
+    seasonId: num(q.get('season_id')) ?? num(lq.get('season_id')),
+    leagueId: num(q.get('league_id')) ?? num(lq.get('league_id')),
+    leagueName: clean((league ?? doc).querySelector('h1.page_main_title')?.textContent),
+    teamId: num(q.get('team_id')),
+    sourceUrl: action ? new URL(action, BASE).toString() : '',
+    rows: 0,
+    games: [],
+    teamsInDropdown: teams.size,
+    unmatched: [],
+    problems: [],
+  };
+  const seen = new Set<string>();
+  doc.querySelectorAll('.games_table a.table_row').forEach((a) => {
+    out.rows += 1;
+    const cols: Record<string, string> = {};
+    a.querySelectorAll('.table_col').forEach((c) => {
+      const label = clean(c.querySelector('.sr-only')?.textContent);
+      c.querySelector('.sr-only')?.remove();
+      cols[label] = clean(c.textContent);
+    });
+    const gid = param(a.getAttribute('href') ?? '', 'game_id') ?? '';
+    const match = cols['משחק'] ?? '';
+    const cut = match.indexOf(' - ');
+    const d = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(cols['תאריך'] ?? '');
+    const time = cols['שעה'] ?? '';
+    if (cut < 0 || !d || (time && !/^\d{1,2}:\d{2}$/.test(time))) {
+      out.problems.push(`שורה לא תקינה: ${cols['תאריך'] ?? ''} ${match}`);
+      return;
+    }
+    const home = clean(match.slice(0, cut));
+    const away = clean(match.slice(cut + 3));
+    const hid = teams.get(home);
+    const aid = teams.get(away);
+    if (hid === undefined || aid === undefined) {
+      out.unmatched.push({ date: cols['תאריך'], home, away });
+      return;
+    }
+    if (seen.has(`${hid}-${aid}`)) {
+      out.problems.push(`אותו זוג קבוצות פעמיים: ${home} - ${away}`);
+      return;
+    }
+    seen.add(`${hid}-${aid}`);
+    const res = cols['תוצאה'] ?? '';
+    const sm = /^(\d+)\s*-\s*(\d+)$/.exec(res);
+    out.games.push({
+      ifa_game_id: /^\d+$/.test(gid) && Number(gid) > 0 ? gid : '-1',
+      date: `${d[3]}-${d[2]}-${d[1]}`,
+      time: time || null,
+      home_ifa_team_id: hid,
+      away_ifa_team_id: aid,
+      home_name: home,
+      away_name: away,
+      venue: cols['אצטדיון'] ?? '',
+      status: res ? 'played' : 'scheduled',
+      result_raw: res,
+      home_score: sm ? Number(sm[1]) : null,
+      away_score: sm ? Number(sm[2]) : null,
+    });
+  });
+  return out;
+}
+
+export interface GamesImportResult {
+  run_id: string;
+  applied: boolean;
+  new: number;
+  changed: number;
+  unchanged: number;
+  queued: number;
+  not_in_payload: { ifa_game_id: number | null; date: string; pairing: string }[];
+  errors: { game: string; date?: string; error: string }[];
+  changes: { ifa_game_id: number | null; pairing: string; change: 'new' | 'updated'; fields?: { field: string; old: string | null; new: string | null }[]; notify?: boolean }[];
+}
+
+/** apply = false: dry run (shows what would change, writes only the run log). */
+export async function importIfaGames(p: ParsedGames, apply: boolean): Promise<GamesImportResult> {
+  const payload = {
+    ifa_season_id: p.seasonId,
+    ifa_league_id: p.leagueId,
+    league_name: p.leagueName || null,
+    source_url: p.sourceUrl,
+    scope: { kind: p.teamId ? 'team' : 'league', ifa_team_id: p.teamId },
+    games: p.games,
+  };
+  const { data, error } = await db().rpc('import_ifa_games', { p: payload, p_apply: apply });
+  if (error) throw error;
+  return data as GamesImportResult;
+}
+
+export async function setTeamCategory(seasonId: number, teamId: number, category: string): Promise<string> {
+  const { data, error } = await db().rpc('set_ifa_team_category', { p_season: seasonId, p_ifa_team: teamId, p_category: category });
+  if (error) throw error;
+  return data as string;
+}
+
+export type PushMode = 'off' | 'admins' | 'all';
+
+export async function getPushMode(): Promise<PushMode> {
+  const { data } = await db().from('app_settings').select('value').eq('key', 'push_mode').maybeSingle();
+  return ((data?.value as PushMode | undefined) ?? 'off');
+}
+
+export async function setPushMode(mode: PushMode) {
+  const { error } = await db().rpc('set_push_mode', { p_mode: mode });
+  if (error) throw error;
+}
+
+export async function getQueueStats(): Promise<{ status: string; n: number; oldest: string }[]> {
+  const { data, error } = await db().rpc('notification_queue_stats');
+  if (error) return [];
+  return data ?? [];
 }

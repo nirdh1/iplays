@@ -1,7 +1,7 @@
 -- iplays — parent requests on a team with no staff no longer get stuck.
 --
--- Run after 20261101800000_ifa_import.sql.
--- Rollback: supabase/rollback/20261101900000_join_no_staff_parent.down.sql
+-- Run after 20261101900000_ifa_games_sync.sql.
+-- Rollback: supabase/rollback/20261101950000_join_no_staff_parent.down.sql
 -- No tables or data change: two functions are replaced.
 --
 -- Until now, on a team with no coach / club admin (e.g. a team imported from

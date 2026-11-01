@@ -20,24 +20,32 @@ import {
   eventAttendance,
   getLineups,
   getMatches,
+  getVenueLocations,
+  matchEndsAt,
   matchError,
+  matchTimeLabel,
+  matchVenueLabel,
+  matchVenueName,
   publishLineup,
   removeLineup,
   saveLineup,
+  setVenueLocation,
   updateMatch,
+  wazeUrl,
   type AttendanceRow,
   type Competition,
   type Lineup,
   type LineupPlayer,
   type Match,
   type SummaryRow,
+  type VenueLocation,
 } from '../lib/matchApi';
 import { slotLabel, sportProfile, type SportProfile } from '../lib/sports';
 import { AttendanceSheet } from './AttendanceSheet';
+import '../theme/club.css';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' });
-const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 const errText = (e: unknown) => matchError(e) ?? friendlyError(e);
 
 export function MatchesScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
@@ -94,8 +102,8 @@ export function MatchesScreen({ teamId, onBack }: { teamId: string; onBack: () =
   }
 
   const now = Date.now();
-  const upcoming = (matches ?? []).filter((m) => new Date(m.starts_at).getTime() >= now - 3 * 3600_000);
-  const past = (matches ?? []).filter((m) => new Date(m.starts_at).getTime() < now - 3 * 3600_000).reverse();
+  const upcoming = (matches ?? []).filter((m) => matchEndsAt(m) >= now);
+  const past = (matches ?? []).filter((m) => matchEndsAt(m) < now).reverse();
 
   return (
     <div className="ip-stack">
@@ -201,15 +209,88 @@ function MatchCard({ m, profile, onOpen }: { m: Match; profile: SportProfile; on
         ) : m.score_for != null ? (
           <Score m={m} />
         ) : (
-          <Tag tone="blue">{competitionLabel[m.competition]}</Tag>
+          <Tag tone="blue">{m.source === 'ifa' ? 'ליגה · התאחדות' : competitionLabel[m.competition]}</Tag>
         )}
       </div>
       <MetaRow icon="clock">
-        {fmtDate(m.starts_at)} · {fmtTime(m.starts_at)}
+        {fmtDate(m.starts_at)} · {matchTimeLabel(m)}
       </MetaRow>
-      {m.venue && <MetaRow icon="pin">{m.venue}</MetaRow>}
+      {matchVenueLabel(m) && <MetaRow icon="pin">{matchVenueLabel(m)}</MetaRow>}
       {profile.lineup && m.lineup_size && <span className="ip-list-row-sub">הרכב של {m.lineup_size}</span>}
     </button>
+  );
+}
+
+/* ------------------------------------------------------------------ venue */
+
+/** Navigate with Waze, and let a coach or parent save where the venue really is (kept for future games). */
+function VenueCard({ match }: { match: Match }) {
+  const name = matchVenueName(match);
+  const [loc, setLoc] = useState<VenueLocation | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [address, setAddress] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!name) return;
+    void getVenueLocations([name]).then((m) => setLoc(m.get(name) ?? null));
+  }, [name]);
+
+  if (!name) return null;
+  const guess = !match.venue;
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await setVenueLocation(name, address);
+      setLoc((await getVenueLocations([name])).get(name) ?? null);
+      setEditing(false);
+    } catch (err) {
+      setError(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="ip-venue">
+        <div className="ip-venue-text">
+          <strong>{guess ? `כנראה: ${name}` : name}</strong>
+          <span className="ip-list-row-sub">
+            {loc?.address ? loc.address : 'עוד אין כתובת שמורה למגרש הזה'}
+            {guess && ' · מגרש הבית הרגיל של הקבוצה המארחת, לא אושר בהתאחדות'}
+          </span>
+        </div>
+        <a className="ip-btn ip-btn--primary ip-btn--sm" href={wazeUrl(name, loc)} target="_blank" rel="noopener noreferrer">
+          <Icon name="navigate" size={18} />
+          <span>נווט ב־Waze</span>
+        </a>
+      </div>
+      {!editing ? (
+        <button type="button" className="ip-link-btn" onClick={() => { setAddress(loc?.address ?? ''); setEditing(true); }}>
+          {loc?.address ? 'הכתובת לא נכונה? עדכון' : 'יודעים איפה זה? הוספת כתובת'}
+        </button>
+      ) : (
+        <form className="ip-form" onSubmit={(e) => void save(e)}>
+          <Field label={`כתובת המגרש "${name}" (תישמר לכל המשחקים הבאים בו)`}>
+            <input id="venue-address" className="ip-input" value={address} onChange={(e) => setAddress(e.target.value.slice(0, 200))} placeholder="רחוב, מספר, עיר" />
+          </Field>
+          <Err error={error} />
+          <div className="ip-btn-row">
+            <Button type="submit" variant="primary" size="sm" disabled={busy || address.trim().length < 3}>
+              {busy ? 'שומרים…' : 'שמירה'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+              ביטול
+            </Button>
+          </div>
+        </form>
+      )}
+    </Card>
   );
 }
 
@@ -272,11 +353,15 @@ function MatchDetail({
       <Back onBack={onBack} title={`נגד ${match.opponent}`} />
       <Card tone="navy" className="ip-team-hero">
         <div className="ip-match-hero">
-          <span>{match.home ? 'משחק בית' : 'משחק חוץ'} · {competitionLabel[match.competition]}</span>
+          <span>
+            {match.home ? 'משחק בית' : 'משחק חוץ'} · {competitionLabel[match.competition]}
+            {match.source === 'ifa' && ' · לפי אתר ההתאחדות'}
+          </span>
           <strong>
-            {fmtDate(match.starts_at)} · {fmtTime(match.starts_at)}
+            {fmtDate(match.starts_at)} · {matchTimeLabel(match)}
           </strong>
-          {match.venue && <span className="ip-on-navy-muted">{match.venue}</span>}
+          {matchVenueLabel(match) && <span className="ip-on-navy-muted">{matchVenueLabel(match)}</span>}
+          {match.ifa_status === 'postponed' && <Tag tone="warning">המשחק נדחה</Tag>}
           {match.score_for != null && match.score_against != null && (
             <strong className="ip-match-score" dir="ltr">
               {match.score_for} : {match.score_against}
@@ -287,8 +372,13 @@ function MatchDetail({
       </Card>
       {error && <p className="ip-error" role="alert">{error}</p>}
 
+      <VenueCard match={match} />
+
       {staff && (
         <Card>
+          {match.source === 'ifa' ? (
+            <p className="ip-muted">מועד, מגרש ותוצאה מתעדכנים אוטומטית מאתר ההתאחדות.</p>
+          ) : (
           <form
             className="ip-match-score-form"
             onSubmit={(e) => {
@@ -313,10 +403,12 @@ function MatchDetail({
               שמירת תוצאה
             </Button>
           </form>
+          )}
           <div className="ip-btn-row">
             <Button variant="secondary" size="sm" icon="check" onClick={() => setAttOpen(true)}>
               נוכחות במשחק
             </Button>
+            {match.source !== 'ifa' && (
             <Button
               variant="ghost"
               size="sm"
@@ -328,6 +420,7 @@ function MatchDetail({
             >
               {match.status === 'canceled' ? 'החזרת המשחק' : 'ביטול המשחק'}
             </Button>
+            )}
           </div>
         </Card>
       )}
