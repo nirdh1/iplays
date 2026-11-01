@@ -12,10 +12,17 @@ run supabase/migrations/20261031000000_init.sql
 run supabase/migrations/20261101100000_coach.sql
 run supabase/tests/seed_before_m1.sql
 run supabase/migrations/20261101200000_clubs_and_assignments.sql
+run supabase/migrations/20261101300000_permissions.sql
+echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
-echo "== rollback"
+echo "== M3 tests"
+run supabase/tests/test_m3.sql
+echo "== rollback M3"
+run supabase/rollback/20261101300000_permissions.down.sql
+echo "== rollback M1+M2"
 run supabase/rollback/20261101200000_clubs_and_assignments.down.sql
 psql -q -d $DB -tc "select 'after rollback: ' || count(*) || ' players, ' || (select count(*) from player_absences) || ' absences' from players"
 echo "== re-apply after rollback"
 run supabase/migrations/20261101200000_clubs_and_assignments.sql
+run supabase/migrations/20261101300000_permissions.sql
 echo "ALL TESTS PASSED"

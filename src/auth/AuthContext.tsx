@@ -102,3 +102,22 @@ export function clearPendingInvite() {
     /* ignore */
   }
 }
+
+/** Club staff invites arrive as #staff/CODE8; kept until the user is signed in. */
+const STAFF_KEY = 'iplays.pendingStaffInvite';
+export function saveStaffInvite(code: string) {
+  try {
+    sessionStorage.setItem(STAFF_KEY, code.toUpperCase());
+  } catch {
+    /* storage unavailable */
+  }
+}
+export function takeStaffInvite(): string | null {
+  try {
+    const code = sessionStorage.getItem(STAFF_KEY);
+    sessionStorage.removeItem(STAFF_KEY);
+    return code;
+  } catch {
+    return null;
+  }
+}

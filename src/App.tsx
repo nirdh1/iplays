@@ -14,7 +14,8 @@ import { ClubScreen } from './screens/ClubScreen';
 import { DemoCoachScreen, TeamCoachScreen } from './screens/CoachScreen';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
-import { clearPendingInvite, readPendingInvite, savePendingInvite, useAuth } from './auth/AuthContext';
+import { clearPendingInvite, readPendingInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
+import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 
 type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club';
@@ -31,6 +32,12 @@ function captureInviteFromHash() {
   if (m) {
     savePendingInvite(m[1]);
     history.replaceState(null, '', '#home');
+  }
+  // Club staff invites: #staff/ABCD2345
+  const s = window.location.hash.match(/^#staff\/([A-Za-z0-9]{8})$/);
+  if (s) {
+    saveStaffInvite(s[1]);
+    history.replaceState(null, '', '#club');
   }
 }
 captureInviteFromHash();
@@ -58,6 +65,19 @@ export function App() {
       .then((teamId) => auth.refresh().then(() => (window.location.hash = `myteam/${teamId}`)))
       .catch((e) => setJoinError(friendlyError(e)));
   }, [auth, needsOnboarding]);
+
+  // Club staff invite: accept right after sign-in (before team onboarding).
+  useEffect(() => {
+    if (!auth.session) return;
+    const code = takeStaffInvite();
+    if (!code) return;
+    acceptClubInvite(code)
+      .then((clubId) => auth.refresh().then(() => {
+        setOnboarding(false);
+        window.location.hash = `club/${clubId}`;
+      }))
+      .catch((e) => setJoinError(clubError(e) ?? friendlyError(e)));
+  }, [auth]);
 
   if (auth.enabled && !auth.demo) {
     if (auth.loading) {

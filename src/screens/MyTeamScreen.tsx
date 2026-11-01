@@ -21,6 +21,7 @@ import {
   sportLabel,
   type Member,
   type Player,
+  isStaffRole,
 } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
 import { Err, Field } from '../components/form';
@@ -29,7 +30,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
   const { session, teams, refresh } = useAuth();
   const me = session!.user.id;
   const team = teams.find((t) => t.id === teamId);
-  const staff = team?.role === 'admin' || team?.role === 'coach';
+  const staff = isStaffRole(team?.role);
   const [roster, setRoster] = useState<Player[] | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [code, setCode] = useState<string | null>(null);
