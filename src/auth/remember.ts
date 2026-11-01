@@ -87,3 +87,38 @@ export async function consumeEmailLink(): Promise<string | null> {
   if (data.user?.email) rememberEmail(data.user.email);
   return null;
 }
+
+/* Password sign-in: optional, set from the account screen. Lets a parent sign
+ * in from another computer (or the iPhone home-screen app) without an email. */
+const METHOD_KEY = 'iplays.loginMethod';
+export function preferPassword(on: boolean) {
+  try {
+    if (on) localStorage.setItem(METHOD_KEY, 'password');
+    else localStorage.removeItem(METHOD_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+export function prefersPassword(): boolean {
+  try {
+    return localStorage.getItem(METHOD_KEY) === 'password';
+  } catch {
+    return false;
+  }
+}
+
+/** Hebrew message for password errors from Supabase. */
+export function passwordError(e: unknown): string {
+  const msg = ((e as { message?: string })?.message ?? String(e)).toLowerCase();
+  const code = (e as { code?: string })?.code ?? '';
+  if (code === 'invalid_credentials' || msg.includes('invalid login credentials'))
+    return 'המייל או הסיסמה לא נכונים. אפשר גם לבקש לינק כניסה למייל.';
+  if (code === 'email_not_confirmed' || msg.includes('not confirmed')) return 'צריך קודם להיכנס פעם אחת עם הלינק מהמייל.';
+  if (code === 'same_password' || msg.includes('different from the old')) return 'זו כבר הסיסמה שלכם.';
+  if (code === 'weak_password' || msg.includes('password should')) return 'הסיסמה חלשה מדי. בחרו לפחות 8 תווים, עם אותיות ומספרים.';
+  if (code === 'reauthentication_needed' || msg.includes('reauthentication'))
+    return 'מטעמי אבטחה צריך להיכנס מחדש עם לינק מהמייל, ואז להגדיר סיסמה.';
+  if (msg.includes('rate limit') || msg.includes('too many')) return 'יותר מדי ניסיונות. נסו שוב בעוד דקה.';
+  if (msg.includes('failed to fetch')) return 'אין חיבור לשרת. בדקו את האינטרנט ונסו שוב.';
+  return 'משהו השתבש. נסו שוב.';
+}

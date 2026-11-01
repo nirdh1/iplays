@@ -12,7 +12,16 @@ import { Button, Segmented } from '../components/ui';
 import { normalizeIlPhone, supabase } from '../lib/supabase';
 import { friendlyError } from '../lib/api';
 import { readPendingInvite, useAuth } from '../auth/AuthContext';
-import { emailRedirectUrl, forgetEmail, isStandaloneApp, rememberEmail, rememberedEmail } from '../auth/remember';
+import {
+  emailRedirectUrl,
+  forgetEmail,
+  isStandaloneApp,
+  passwordError,
+  preferPassword,
+  prefersPassword,
+  rememberEmail,
+  rememberedEmail,
+} from '../auth/remember';
 
 const smsEnabled = import.meta.env.VITE_ENABLE_SMS === 'true';
 
@@ -31,7 +40,25 @@ export function AuthScreen() {
   // Email: the main path is the link in the email. Code entry is a fallback,
   // shown up front only in the home-screen app (where the link opens Safari).
   const [showCode, setShowCode] = useState(standalone);
+  // Password sign-in (for parents who set one in their account). Remembered per device.
+  const [usePassword, setUsePassword] = useState(prefersPassword);
+  const [password, setPassword] = useState('');
   const invite = readPendingInvite();
+
+  async function signInWithPassword(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const email = value.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('כתובת המייל לא תקינה');
+    if (!password) return setError('הקלידו סיסמה');
+    setBusy(true);
+    const { error: err } = await supabase!.auth.signInWithPassword({ email, password });
+    setBusy(false);
+    if (err) return setError(passwordError(err));
+    rememberEmail(email);
+    preferPassword(true);
+    // AuthContext picks up the session.
+  }
 
   async function sendCode(e?: FormEvent) {
     e?.preventDefault();
@@ -81,14 +108,18 @@ export function AuthScreen() {
 
       <div className="ip-auth-card">
         {!target ? (
-          <form onSubmit={sendCode} className="ip-form" noValidate>
+          <form onSubmit={usePassword && method === 'email' ? signInWithPassword : sendCode} className="ip-form" noValidate>
             <h1>{known ? 'ברוכים השבים' : 'כניסה או הרשמה'}</h1>
             <p className="ip-muted">
-              {known
-                ? 'נשלח לכם מייל עם כפתור כניסה. מתחברים פעם אחת, ומאז המכשיר זוכר אתכם.'
-                : 'נשלח מייל עם כפתור כניסה (וגם קוד). אין צורך בסיסמה, ומתחברים רק פעם אחת בכל מכשיר.'}
+              {usePassword
+                ? 'כניסה עם המייל והסיסמה שהגדרתם בחשבון.'
+                : standalone
+                  ? 'נשלח קוד למייל, ותקלידו אותו כאן באפליקציה. אחרי זה האפליקציה תזכור אתכם.'
+                  : known
+                  ? 'נשלח לכם מייל עם כפתור כניסה. מתחברים פעם אחת, ומאז המכשיר זוכר אתכם.'
+                  : 'נשלח מייל עם כפתור כניסה (וגם קוד). מתחברים רק פעם אחת בכל מכשיר.'}
             </p>
-            {smsEnabled && (
+            {smsEnabled && !usePassword && (
               <Segmented
                 items={[
                   { id: 'phone', label: 'טלפון' },
@@ -118,10 +149,49 @@ export function AuthScreen() {
                 required
               />
             </label>
+            {usePassword && method === 'email' && (
+              <label className="ip-field">
+                <span>סיסמה</span>
+                <input
+                  id="auth-password"
+                  className="ip-input"
+                  type="password"
+                  autoComplete="current-password"
+                  dir="ltr"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </label>
+            )}
             {error && <p className="ip-error" role="alert">{error}</p>}
-            <Button type="submit" variant="primary" block disabled={busy || !value.trim()}>
-              {busy ? 'שולחים…' : method === 'email' ? 'שליחת לינק כניסה' : 'שליחת קוד'}
+            <Button type="submit" variant="primary" block disabled={busy || !value.trim() || (usePassword && !password)}>
+              {usePassword && method === 'email'
+                ? busy
+                  ? 'נכנסים…'
+                  : 'כניסה'
+                : busy
+                  ? 'שולחים…'
+                  : method === 'email'
+                    ? standalone
+                      ? 'שליחת קוד למייל'
+                      : 'שליחת לינק כניסה'
+                    : 'שליחת קוד'}
             </Button>
+            <div className="ip-form-links">
+              {method === 'email' && (
+                <button
+                  type="button"
+                  className="ip-link"
+                  onClick={() => {
+                    setUsePassword(!usePassword);
+                    preferPassword(!usePassword);
+                    setError(null);
+                  }}
+                >
+                  {usePassword ? 'שכחתי סיסמה / כניסה עם לינק למייל' : 'יש לי סיסמה'}
+                </button>
+              )}
+            </div>
             {known && (
               <div className="ip-form-links">
                 <button
@@ -140,12 +210,12 @@ export function AuthScreen() {
           </form>
         ) : (
           <form onSubmit={verify} className="ip-form" noValidate>
-            <h1>{method === 'email' ? 'המשיכו מהמייל' : 'הזינו את הקוד'}</h1>
+            <h1>{method === 'email' && !standalone ? 'המשיכו מהמייל' : 'הקלידו את הקוד מהמייל'}</h1>
             {method === 'email' ? (
               <p className="ip-muted">
                 שלחנו מייל ל-<bdi dir="ltr">{target}</bdi>.{' '}
                 {standalone
-                  ? 'הכפתור במייל נפתח בדפדפן ולא באפליקציה שבמסך הבית, לכן כאן הקלידו את הקוד שמופיע במייל.'
+                  ? 'אל תלחצו על הכפתור במייל: הוא פותח את הדפדפן ולא את האפליקציה. העתיקו מהמייל את הקוד והדביקו אותו כאן.'
                   : 'פתחו אותו ולחצו על "כניסה ל-iplays". תיכנסו מיד, ומעכשיו המכשיר יזכור אתכם. אפשר לסגור את המסך הזה.'}
               </p>
             ) : (
