@@ -2520,3 +2520,8 @@ select.ip-input {
   border-radius: var(--ip-r-md, 12px);
   background: var(--ip-bg, #f4f7fb);
 }
+
+.ip-hero-admin {
+  color: var(--ip-lime);
+  margin-top: var(--ip-s2);
+}

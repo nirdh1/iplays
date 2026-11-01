@@ -280,9 +280,9 @@ export function AccountSection() {
             <ListRow
               icon="shield"
               iconTone="lime"
-              title="נתוני ההתאחדות"
-              subtitle="מנהל מערכת: ייבוא סגלים ויומן סנכרונים"
-              onClick={() => (window.location.hash = 'ifa')}
+              title="פאנל ניהול על"
+              subtitle="מנהלי מערכת בלבד: נתוני ההתאחדות ומועדונים"
+              onClick={() => (window.location.hash = 'admin')}
             />
           )}
         </Card>
