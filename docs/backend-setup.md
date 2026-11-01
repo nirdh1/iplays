@@ -279,3 +279,12 @@ Signed-in users see only their own data: their teams, their linked children and 
 Run after `20261101950000_join_no_staff_parent.sql`. Adds three policies; rollback removes them and keeps the trainings.
 
 Any member of a team (parents too) can add, cancel and delete trainings in the team board (`#coach/<team>`), with or without a coach; everyone in the team sees them on Home and in the Calendar. A coach may still update parents elsewhere (e.g. WhatsApp). Staff keep their own training permissions.
+
+## Parent carpools (migration `20261101970000_rides.sql`)
+
+Run after `20261101960000_parent_trainings.sql`. Additive only: tables `rides`, `ride_passengers`, `ride_needs` and their functions. Rollback (`supabase/rollback/20261101970000_rides.down.sql`) deletes all rides.
+
+- Every training and match (including IFA league games) has a "הסעות" line on Home and in the Calendar that opens the rides sheet.
+- A team member offers a ride (direction to / from / both, seats, optional departure time, pickup point, note). One offer per driver per event; the driver can edit or cancel it.
+- A parent seats their own child in a ride with a free seat (`join_ride`), or marks that the child needs a ride (`set_ride_need`). The mark is cleared (or narrowed to the remaining leg) when the child gets a seat. When a ride is canceled, the other parents' children go back to "needs a ride".
+- Only team members can read rides (RLS); clients have no direct write access, everything goes through the `security definer` functions. Children appear by first name only; the driver's name and phone (if on the profile) are shown to the team.
