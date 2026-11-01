@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { InitialsAvatar } from '../components/Avatar';
+import { Icon } from '../components/Icon';
 import { Button, Card, EmptyState, ListRow, SectionHeader, Tag, TeamCrest } from '../components/ui';
 import { ScreenTitle } from '../components/shell';
 import { useAuth } from '../auth/AuthContext';
@@ -37,6 +38,49 @@ function useMyKids(): (Player & { team: MyTeam })[] | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, key]);
   return kids;
+}
+
+/**
+ * Top-bar pill for a signed-in user: their own child (tap: the child's team),
+ * or "הוספת ילד" when no child is linked yet.
+ */
+export function RealChildPill() {
+  const kids = useMyKids();
+  if (kids === null) return null;
+  if (!kids.length) {
+    return (
+      <button type="button" className="ip-child-pill ip-child-pill--compact" onClick={goFind} aria-label="הוספת הילד שלי">
+        <Icon name="plus" size={18} />
+        <span className="ip-child-pill-name">הוספת ילד</span>
+      </button>
+    );
+  }
+  const k = kids[0];
+  const more = kids.length > 1;
+  return (
+    <button
+      type="button"
+      className="ip-child-pill ip-child-pill--compact"
+      onClick={() => (more ? (window.location.hash = 'family') : goTeam(k.team.id))}
+      aria-label={more ? 'הילדים שלי' : `${k.first_name}: דף הקבוצה`}
+    >
+      <InitialsAvatar name={`${k.first_name} ${k.last_name}`} size={32} tone="lime" />
+      <span className="ip-child-pill-name">
+        {k.first_name.split(' ')[0]}
+        {more ? ` +${kids.length - 1}` : ''}
+      </span>
+    </button>
+  );
+}
+
+/** Top-bar button for a signed-out visitor browsing the sample data. */
+export function SignInPill({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="ip-child-pill ip-child-pill--compact" onClick={onClick}>
+      <Icon name="user" size={18} />
+      <span className="ip-child-pill-name">כניסה</span>
+    </button>
+  );
 }
 
 function teamSub(t: MyTeam) {

@@ -16,7 +16,7 @@ import { FindScreen } from './screens/FindScreen';
 import { IfaAdminScreen } from './screens/IfaAdminScreen';
 import { MatchesScreen } from './screens/MatchesScreen';
 import { TeamPageScreen } from './screens/TeamPageScreen';
-import { RealCalendarScreen, RealCareerScreen, RealFamilyScreen, RealHomeScreen, RealTeamsScreen } from './screens/RealScreens';
+import { RealCalendarScreen, RealCareerScreen, RealChildPill, RealFamilyScreen, RealHomeScreen, RealTeamsScreen, SignInPill } from './screens/RealScreens';
 import { wasOnboarded } from './lib/joinApi';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
@@ -208,7 +208,13 @@ function MainApp({ joinError }: { joinError: string | null }) {
 
   return (
     <div className="ip-app">
-      <AppHeader parentName={parentName} unread={demoMode ? parent.unread : 0} child={demoMode ? child : undefined} onOpenSwitcher={openSwitcher} />
+      <AppHeader
+        parentName={parentName}
+        unread={demoMode ? parent.unread : 0}
+        child={demoMode ? child : undefined}
+        slot={!signedIn && auth.enabled ? <SignInPill onClick={() => auth.setDemo(false)} /> : !demoMode ? <RealChildPill /> : undefined}
+        onOpenSwitcher={openSwitcher}
+      />
       <main className="ip-main">
         {joinError && (
           <p className="ip-error" role="alert">
