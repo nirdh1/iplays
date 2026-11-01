@@ -97,14 +97,14 @@ export function StatTile({ value, label, accent }: { value: ReactNode; label: st
   );
 }
 
-export function ProgressBar({ value, label, delta }: { value: number; label: string; delta?: number }) {
+export function ProgressBar({ value, label, delta, display }: { value: number; label: string; delta?: number | null; display?: ReactNode }) {
   return (
     <div className="ip-progress">
       <div className="ip-progress-row">
         <span className="ip-progress-label">{label}</span>
         <span className="ip-progress-value">
-          {value}
-          {delta ? <span className="ip-progress-delta">+{delta}</span> : null}
+          {display ?? value}
+          {delta ? <span className={`ip-progress-delta ${delta < 0 ? 'ip-progress-delta--down' : ''}`}>{delta > 0 ? `+${delta}` : `−${-delta}`}</span> : null}
         </span>
       </div>
       <div className="ip-progress-track" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} aria-label={label}>

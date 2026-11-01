@@ -16,7 +16,8 @@ import { FindScreen } from './screens/FindScreen';
 import { IfaAdminScreen } from './screens/IfaAdminScreen';
 import { MatchesScreen } from './screens/MatchesScreen';
 import { TeamPageScreen } from './screens/TeamPageScreen';
-import { RealCalendarScreen, RealCareerScreen, RealChildPill, RealFamilyScreen, RealHomeScreen, RealTeamsScreen, SignInPill } from './screens/RealScreens';
+import { RealCareerScreen } from './screens/RealCareerScreen';
+import { RealCalendarScreen, RealChildPill, RealFamilyScreen, RealHomeScreen, RealTeamsScreen, SignInPill } from './screens/RealScreens';
 import { wasOnboarded } from './lib/joinApi';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
@@ -240,7 +241,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {!demoMode && (route === 'home' || route === 'match') && <RealHomeScreen onShowSample={() => setSample(true)} />}
         {!demoMode && (route === 'team' || (route === 'coach' && !coachTeam)) && <RealTeamsScreen onShowSample={() => setSample(true)} />}
         {!demoMode && route === 'calendar' && <RealCalendarScreen onShowSample={() => setSample(true)} />}
-        {!demoMode && route === 'career' && <RealCareerScreen onShowSample={() => setSample(true)} />}
+        {!demoMode && route === 'career' && <RealCareerScreen playerId={param} onShowSample={() => setSample(true)} />}
         {!demoMode && route === 'family' && <RealFamilyScreen />}
         {route === 'coach' && coachTeam && <TeamCoachScreen teamId={coachTeam.id} onBack={() => back('family')} />}
         {demoMode && route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}

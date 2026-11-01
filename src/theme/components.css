@@ -614,6 +614,10 @@
   border-radius: var(--ip-r-pill);
   padding: 0 6px;
 }
+.ip-progress-delta--down {
+  color: var(--ip-text-2);
+  background: var(--ip-border);
+}
 .ip-progress-track {
   height: 8px;
   border-radius: 4px;
@@ -1204,7 +1208,7 @@
   gap: var(--ip-s3);
   min-height: var(--ip-touch);
 }
-.ip-career-hero-id > span {
+.ip-career-hero-id > span:not(.ip-initials) {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -2445,4 +2449,78 @@ select.ip-input {
   width: 100%;
   text-align: start;
   color: inherit;
+}
+
+/* ---------- Career (real data) ---------- */
+.ip-career-seasons li,
+.ip-fitness-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+  padding: var(--ip-s3) var(--ip-s4);
+}
+.ip-career-seasons li + li,
+.ip-fitness-list li + li {
+  border-top: 1px solid var(--ip-border);
+}
+.ip-career-season-nums {
+  display: flex;
+  gap: var(--ip-s3);
+  font-size: var(--ip-fs-sm);
+  color: var(--ip-text-2);
+  white-space: nowrap;
+}
+.ip-career-season-nums strong {
+  color: var(--ip-text);
+  font-variant-numeric: tabular-nums;
+}
+.ip-fitness-list {
+  margin-top: var(--ip-s3);
+  border-top: 1px solid var(--ip-border);
+}
+.ip-fitness-list li {
+  padding-inline: 0;
+}
+.ip-fitness-list--manage {
+  margin-top: var(--ip-s4);
+}
+.ip-fitness-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ip-fs-sm);
+  color: var(--ip-text-2);
+  white-space: nowrap;
+}
+.ip-fitness-value strong {
+  color: var(--ip-text);
+  font-size: var(--ip-fs-md, 1rem);
+  font-variant-numeric: tabular-nums;
+}
+.ip-rate-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  font-size: var(--ip-fs-sm);
+}
+.ip-rate-scale {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+}
+.ip-rate-scale button {
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--ip-border);
+  background: var(--ip-surface, #fff);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--ip-text);
+  cursor: pointer;
+}
+.ip-rate-scale button.is-on {
+  background: var(--ip-navy);
+  border-color: var(--ip-navy);
+  color: #fff;
 }

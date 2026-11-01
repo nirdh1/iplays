@@ -21,7 +21,7 @@ const goFind = () => (window.location.hash = 'find');
 const goTeam = (id: string) => (window.location.hash = `myteam/${id}`);
 
 /** The children linked to me, across all my teams. */
-function useMyKids(): (Player & { team: MyTeam })[] | null {
+export function useMyKids(): (Player & { team: MyTeam })[] | null {
   const { session, teams } = useAuth();
   const me = session?.user.id;
   const [kids, setKids] = useState<(Player & { team: MyTeam })[] | null>(null);
@@ -91,7 +91,7 @@ function teamSub(t: MyTeam) {
 }
 
 /** No team yet: search first; the sample view is offered only here. */
-function NoTeam({ onShowSample }: { onShowSample: () => void }) {
+export function NoTeam({ onShowSample }: { onShowSample: () => void }) {
   return (
     <Card>
       <EmptyState icon="team" title="עוד לא הצטרפת לקבוצה" text="חפשו את הקבוצה של הילד (לפי שם או שנתון) והצהירו שזה הילד שלכם. כאן יופיעו האימונים, המשחקים וההודעות של הקבוצה." />
@@ -413,22 +413,6 @@ export function RealCalendarScreen({ onShowSample }: { onShowSample: () => void 
     <div className="ip-stack">
       <ScreenTitle title="יומן" subtitle={teams.length ? 'אימונים ומשחקים של הקבוצות שלך' : undefined} />
       {!teams.length ? <NoTeam onShowSample={onShowSample} /> : <Agenda teams={teams} />}
-    </div>
-  );
-}
-
-export function RealCareerScreen({ onShowSample }: { onShowSample: () => void }) {
-  const { teams } = useAuth();
-  return (
-    <div className="ip-stack">
-      <ScreenTitle title="קריירה" />
-      {!teams.length ? (
-        <NoTeam onShowSample={onShowSample} />
-      ) : (
-        <Card>
-          <EmptyState icon="career" title="עוד אין נתונים" text="הופעות, דקות משחק ושערים יופיעו כאן אחרי שהצוות יזין משחקים והרכבים." />
-        </Card>
-      )}
     </div>
   );
 }
