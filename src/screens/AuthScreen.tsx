@@ -12,7 +12,6 @@ import { Button, Segmented } from '../components/ui';
 import { normalizeIlPhone, supabase } from '../lib/supabase';
 import { friendlyError } from '../lib/api';
 import { readPendingInvite, useAuth } from '../auth/AuthContext';
-import { InstallHint } from '../components/InstallHint';
 import { emailRedirectUrl, forgetEmail, isStandaloneApp, rememberEmail, rememberedEmail } from '../auth/remember';
 
 const smsEnabled = import.meta.env.VITE_ENABLE_SMS === 'true';
@@ -193,8 +192,6 @@ export function AuthScreen() {
           </form>
         )}
       </div>
-
-      <InstallHint tone="dark" />
 
       <button type="button" className="ip-auth-demo" onClick={() => setDemo(true)}>
         רק רוצים להציץ? <strong>לצפייה בהדגמה</strong>

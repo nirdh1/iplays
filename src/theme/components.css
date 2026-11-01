@@ -2245,53 +2245,152 @@ select.ip-input {
   gap: var(--ip-s3);
 }
 
-/* ---------- Install hint (components/InstallHint.tsx) ---------- */
-.ip-install {
+/* ---------- Add-to-home-screen popup (components/InstallHint.tsx) ---------- */
+.ip-a2hs {
+  position: fixed;
+  inset-inline: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 var(--ip-s4, 16px);
+  pointer-events: none;
+  animation: ip-a2hs-in 0.35s ease-out;
+}
+.ip-a2hs > * {
+  pointer-events: auto;
+}
+/* iPhone Safari: toolbar (share button) at the bottom, arrow below the card */
+.ip-a2hs--bottom,
+.ip-a2hs--none {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  flex-direction: column-reverse;
+}
+/* iPad share / browser ⋮ menu: top right, arrow above the card */
+.ip-a2hs--top {
+  top: calc(env(safe-area-inset-top, 0px) + 6px);
+}
+.ip-a2hs-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 18px 18px 12px;
+  border-radius: 20px;
+  background: var(--ip-surface);
+  color: var(--ip-text);
+  box-shadow: 0 18px 48px rgba(11, 31, 59, 0.35);
+  border: 2px solid var(--ip-lime);
+}
+.ip-a2hs-arrow {
+  color: var(--ip-lime);
+  filter: drop-shadow(0 2px 4px rgba(11, 31, 59, 0.45));
+  animation: ip-a2hs-bounce-down 1s ease-in-out infinite;
+  line-height: 0;
+  margin: 4px 0;
+}
+.ip-a2hs--top .ip-a2hs-arrow {
+  align-self: flex-end; /* physical right, where the share / ⋮ button sits */
+  transform: rotate(180deg);
+  animation-name: ip-a2hs-bounce-up;
+  margin-inline: 12px;
+}
+[dir='rtl'] .ip-a2hs--top .ip-a2hs-arrow {
+  align-self: flex-start;
+}
+.ip-a2hs-close {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  border: 0;
+  background: none;
+  color: var(--ip-text-2);
+  padding: 6px;
+  cursor: pointer;
+}
+.ip-a2hs-head {
   display: flex;
   align-items: center;
-  gap: var(--ip-s3);
-  padding: var(--ip-s3);
-  border-radius: var(--ip-r-lg);
-  background: var(--ip-surface);
-  box-shadow: var(--ip-shadow-2);
+  gap: 12px;
+  padding-inline-end: 24px;
 }
-.ip-install--dark {
-  margin: var(--ip-s4) var(--ip-s4) 0;
-}
-.ip-install-icon {
-  flex: none;
-  border-radius: 10px;
-}
-.ip-install-text {
-  flex: 1;
-  min-width: 0;
+.ip-a2hs-head > div {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: var(--ip-fs-xs);
+  font-size: var(--ip-fs-sm);
   color: var(--ip-text-2);
 }
-.ip-install-text strong {
+.ip-a2hs-head strong {
   color: var(--ip-text);
-  font-size: var(--ip-fs-sm, 15px);
+  font-size: var(--ip-fs-h);
 }
-.ip-install-btn {
+.ip-a2hs-icon {
   flex: none;
-  padding: 8px 14px;
+  border-radius: 12px;
+}
+.ip-a2hs-steps {
+  margin: 14px 0 4px;
+  padding-inline-start: 22px;
+  display: grid;
+  gap: 8px;
+  font-size: var(--ip-fs-body);
+}
+.ip-a2hs-steps small {
+  display: block;
+  color: var(--ip-text-2);
+}
+.ip-a2hs-glyph {
+  vertical-align: -4px;
+  color: var(--ip-blue-700);
+}
+.ip-a2hs-install {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px;
   border: 0;
   border-radius: 999px;
   background: var(--ip-lime);
   color: var(--ip-navy);
   font: inherit;
   font-weight: 800;
+  font-size: var(--ip-fs-body);
   cursor: pointer;
 }
-.ip-install-close {
-  flex: none;
-  align-self: flex-start;
+.ip-a2hs-later {
+  display: block;
+  margin: 8px auto 0;
   border: 0;
   background: none;
   color: var(--ip-text-2);
-  padding: 4px;
+  font: inherit;
+  font-size: var(--ip-fs-sm);
+  padding: 6px 10px;
   cursor: pointer;
+}
+@keyframes ip-a2hs-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes ip-a2hs-bounce-down {
+  50% {
+    transform: translateY(8px);
+  }
+}
+@keyframes ip-a2hs-bounce-up {
+  0%,
+  100% {
+    transform: rotate(180deg);
+  }
+  50% {
+    transform: rotate(180deg) translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ip-a2hs,
+  .ip-a2hs-arrow {
+    animation: none;
+  }
 }
