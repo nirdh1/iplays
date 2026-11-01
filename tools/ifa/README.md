@@ -30,3 +30,13 @@ python ifa_collector.py --saved fixtures --out /tmp/ifa_fixture_out
 ```
 
 Output: `players.json` — one record per IFA `player_id` with `ifa_team_id`, `ifa_season_id`, `name`, `profile_url`, `image_url` (null when the page has no image). Records without a `player_id` are skipped, never guessed.
+
+## Games from saved pages
+
+```
+python3 -I tools/ifa/ifa_games.py --games team_games.html --league league_games.html --report > games.json
+```
+
+`team_games.html` = the saved "כל משחקי קבוצה" page (`/team-details/team-games/?team_id=…&season_id=…`);
+`league_games.html` = the saved league games page, needed for the team ids in its dropdown.
+The output is the payload of `import_ifa_games()`. See `docs/ifa-games-sync.md`.

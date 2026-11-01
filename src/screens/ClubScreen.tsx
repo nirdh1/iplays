@@ -258,7 +258,7 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
             <StatTile value={academyPlayers.length} label="באקדמיה" />
             <StatTile value={both.length} label="בשתי המסגרות" />
           </div>
-          <ClubDashboard programs={data.programs} teams={data.teams} />
+          <ClubDashboard clubId={club.id} programs={data.programs} teams={data.teams} />
           <SectionHeader title="מעברים אחרונים" icon="arrow" action={data.transfers.length ? 'הכול' : undefined} onAction={() => setTab('transfers')} />
           <TransferList transfers={data.transfers.slice(0, 5)} teamName={(id) => teamById.get(id ?? '')?.name} />
         </section>

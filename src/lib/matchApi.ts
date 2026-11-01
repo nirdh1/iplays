@@ -37,6 +37,108 @@ export interface Match {
   score_for: number | null;
   score_against: number | null;
   note: string;
+  /** 'ifa' = league game from the football association (official fields are read-only). */
+  source?: 'club' | 'ifa';
+  /** false: the IFA shows 00:00 or no time yet. */
+  time_confirmed?: boolean;
+  ifa_status?: string | null;
+  /** Home team's usual ground while the IFA shows no venue (an estimate). */
+  venue_hint?: string | null;
+}
+
+export const TIME_TBD = 'שעה טרם נקבעה';
+export const VENUE_TBD = 'מיקום טרם נקבע';
+
+/** "18:30", or "שעה טרם נקבעה" for an IFA game without a confirmed time. */
+export function matchTimeLabel(m: Pick<Match, 'starts_at' | 'time_confirmed'>): string {
+  if (m.time_confirmed === false) return TIME_TBD;
+  return new Date(m.starts_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** When the match counts as over: 3 h after kickoff, or the end of the day while the time is not set yet. */
+export function matchEndsAt(m: Pick<Match, 'starts_at' | 'time_confirmed'>): number {
+  const start = new Date(m.starts_at);
+  if (m.time_confirmed === false) {
+    const end = new Date(start);
+    end.setHours(23, 59, 59, 999);
+    return end.getTime();
+  }
+  return start.getTime() + 3 * 3600_000;
+}
+
+/** Venue line: the official venue, else "מיקום טרם נקבע · כנראה: X". */
+export function matchVenueLabel(m: Pick<Match, 'venue' | 'venue_hint' | 'source'>): string | null {
+  if (m.venue) return m.venue;
+  if (m.venue_hint) return `${VENUE_TBD} · כנראה: ${m.venue_hint}`;
+  return m.source === 'ifa' ? VENUE_TBD : null;
+}
+
+/** The venue name to navigate to (official first, then the estimate). */
+export const matchVenueName = (m: Pick<Match, 'venue' | 'venue_hint'>) => m.venue || m.venue_hint || '';
+
+export interface VenueLocation {
+  name: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
+  set_by_role: 'admin' | 'staff' | 'parent';
+}
+
+/** Waze link: exact point if known, else the address, else the venue name as a search. */
+export function wazeUrl(name: string, loc?: VenueLocation | null): string {
+  if (loc?.lat != null && loc.lng != null) return `https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`;
+  return `https://waze.com/ul?q=${encodeURIComponent(loc?.address || name)}&navigate=yes`;
+}
+
+export async function getVenueLocations(names: string[]): Promise<Map<string, VenueLocation>> {
+  const list = [...new Set(names.filter(Boolean))];
+  if (list.length === 0) return new Map();
+  const { data, error } = await db().from('venue_locations').select('name, address, lat, lng, set_by_role').in('name', list);
+  if (error) return new Map(); // table not installed yet: plain venue-name search still works
+  return new Map((data as VenueLocation[]).map((v) => [v.name, v]));
+}
+
+export async function setVenueLocation(name: string, address: string, lat?: number | null, lng?: number | null) {
+  const { error } = await db().rpc('set_venue_location', { p_name: name, p_address: address, p_lat: lat ?? null, p_lng: lng ?? null });
+  if (error) throw error;
+}
+
+export interface GameUpdate {
+  update_id: string;
+  ifa_game_id: number | null;
+  team_id: string;
+  team_name: string;
+  home_name: string;
+  away_name: string;
+  detected_at: string;
+  kinds: string[];
+  significant: boolean;
+  notify: boolean;
+  source: string;
+  changes: { field: string; old: string | null; new: string | null }[];
+  queued: number;
+  sent: number;
+}
+
+export const changeFieldLabel: Record<string, string> = {
+  date: 'תאריך',
+  time: 'שעה',
+  venue: 'מגרש',
+  address: 'כתובת',
+  status: 'סטטוס',
+  result: 'תוצאה',
+  ifa_game_id: 'מזהה משחק',
+};
+
+/** IFA game change history: one team, a whole club (club admin) or everything (Super Admin). */
+export async function getGameHistory(opts: { teamId?: string; clubId?: string; limit?: number }): Promise<GameUpdate[]> {
+  const { data, error } = await db().rpc('ifa_game_history', {
+    p_team: opts.teamId ?? null,
+    p_club: opts.clubId ?? null,
+    p_limit: opts.limit ?? 100,
+  });
+  if (error) throw error;
+  return (data ?? []) as GameUpdate[];
 }
 
 export interface Lineup {
@@ -87,16 +189,30 @@ export function matchError(e: unknown): string | null {
   if (msg.includes('unpublish the lineup')) return 'קודם מבטלים את פרסום ההרכב.';
   if (msg.includes('too many lineups')) return 'אפשר עד 6 הרכבים למשחק.';
   if (msg.includes('no lineups')) return 'בענף הזה אין הרכבים.';
+  if (msg.includes('set by the team staff')) return 'את הכתובת קבע צוות הקבוצה. אפשר לבקש מהמאמן לעדכן.';
+  if (msg.includes('address or a map point')) return 'צריך למלא כתובת.';
   if (msg.includes('not allowed') || msg.includes('row-level security')) return 'אין לך הרשאה לפעולה הזו.';
   return null;
 }
 
-const matchCols = 'id, team_id, starts_at, opponent, home, venue, competition, lineup_size, status, score_for, score_against, note';
+const baseCols = 'id, team_id, starts_at, opponent, home, venue, competition, lineup_size, status, score_for, score_against, note';
+const ifaCols = `${baseCols}, source, time_confirmed, ifa_status, venue_hint`;
+// Until the IFA games migration runs, those columns don't exist: fall back to the base set.
+let matchCols = ifaCols;
+const missingColumn = (e: { code?: string; message?: string }) => e.code === '42703' || /column .* does not exist/.test(e.message ?? '');
+
+async function selectMatches<T>(run: (cols: string) => PromiseLike<{ data: T[] | null; error: { code?: string; message?: string } | null }>): Promise<T[]> {
+  let { data, error } = await run(matchCols);
+  if (error && matchCols !== baseCols && missingColumn(error)) {
+    matchCols = baseCols;
+    ({ data, error } = await run(matchCols));
+  }
+  if (error) throw error;
+  return data ?? [];
+}
 
 export async function getMatches(teamId: string): Promise<Match[]> {
-  const { data, error } = await db().from('team_matches').select(matchCols).eq('team_id', teamId).order('starts_at');
-  if (error) throw error;
-  return (data ?? []) as Match[];
+  return selectMatches<Match>((cols) => db().from('team_matches').select(cols).eq('team_id', teamId).order('starts_at') as never);
 }
 
 export async function addMatch(input: {
@@ -122,16 +238,9 @@ export async function addMatch(input: {
 
 /** Matches of several teams (club dashboard), between two dates (YYYY-MM-DD). */
 export async function getClubMatches(teamIds: string[], from: string, to: string): Promise<Match[]> {
-  const { data, error } = await db()
-    .from('team_matches')
-    .select(matchCols)
-    .in('team_id', teamIds)
-    .gte('starts_at', from)
-    .lt('starts_at', to)
-    .neq('status', 'canceled')
-    .order('starts_at');
-  if (error) throw error;
-  return (data ?? []) as Match[];
+  return selectMatches<Match>(
+    (cols) => db().from('team_matches').select(cols).in('team_id', teamIds).gte('starts_at', from).lt('starts_at', to).neq('status', 'canceled').order('starts_at') as never,
+  );
 }
 
 export async function updateMatch(id: string, patch: Partial<Pick<Match, 'status' | 'score_for' | 'score_against' | 'venue' | 'starts_at' | 'note'>>) {
