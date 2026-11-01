@@ -30,6 +30,7 @@ import {
 import { teams as demoTeams } from '../data/team';
 import { parent, type Child } from '../data/demo';
 import '../theme/coach.css';
+import { AttendanceSheet } from './AttendanceSheet';
 
 interface PlayerRef {
   id: string;
@@ -124,7 +125,7 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
   }
   if (error) return <p className="ip-error" role="alert">{error}</p>;
   if (!myPlayers) return <p className="ip-muted ip-pad">טוען…</p>;
-  return <CoachBoard backend={backend} teamName={team.name} club={team.club} staff={staff} myPlayers={myPlayers} onBack={onBack} />;
+  return <CoachBoard backend={backend} teamName={team.name} club={team.club} staff={staff} myPlayers={myPlayers} onBack={onBack} withAttendance />;
 }
 
 /* --------------------------------------------------------------- board */
@@ -140,11 +141,14 @@ interface BoardProps {
   myPlayers: PlayerRef[];
   onBack: () => void;
   demoSwitch?: ReactNode;
+  /** real teams: staff mark attendance per training */
+  withAttendance?: boolean;
 }
 
 type ReportPreset = { sessionId?: string; mode: 'session' | 'dates'; kind?: AbsenceKind; playerId?: string };
 
-function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBack, demoSwitch }: BoardProps) {
+function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBack, demoSwitch, withAttendance }: BoardProps) {
+  const [attFor, setAttFor] = useState<TrainingSession | null>(null);
   const [tab, setTab] = useState<Tab>('news');
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
   const [news, setNews] = useState<Announcement[]>([]);
@@ -280,6 +284,7 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
           staff={staff}
           myPlayers={myPlayers}
           onReport={(s, playerId) => setReport({ mode: 'session', sessionId: s.id, playerId })}
+          onAttendance={withAttendance ? setAttFor : undefined}
           onCancel={(s) => run(() => backend.setCanceled(s.id, !s.canceled), s.canceled ? 'האימון חזר ללוח' : 'האימון סומן כמבוטל')}
           onDelete={(s) => confirm('למחוק את האימון מהלוח?') && run(() => backend.deleteSession(s.id), 'האימון נמחק')}
         />
@@ -293,6 +298,8 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
           onDelete={(a) => confirm('לבטל את הדיווח?') && run(() => backend.deleteAbsence(a.id), 'הדיווח בוטל')}
         />
       )}
+
+      {attFor && <AttendanceSheet kind="training" eventId={attFor.id} title={`נוכחות · ${attFor.title}`} onClose={() => setAttFor(null)} />}
 
       <ReportSheet
         preset={report}
@@ -443,7 +450,9 @@ function TrainingList({
   onReport,
   onCancel,
   onDelete,
+  onAttendance,
 }: {
+  onAttendance?: (s: TrainingSession) => void;
   sessions: TrainingSession[];
   absences: Absence[];
   staff: boolean;
@@ -488,6 +497,11 @@ function TrainingList({
                   </ul>
                 )}
                 <div className="ip-btn-row">
+                  {onAttendance && !s.canceled && (
+                    <Button variant="primary" size="sm" icon="check" onClick={() => onAttendance(s)}>
+                      נוכחות
+                    </Button>
+                  )}
                   <Button variant="secondary" size="sm" icon={s.canceled ? 'undo' : 'close'} onClick={() => onCancel(s)}>
                     {s.canceled ? 'החזרת האימון' : 'ביטול האימון'}
                   </Button>

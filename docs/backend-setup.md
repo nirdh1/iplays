@@ -193,3 +193,27 @@ Run after `20261101300000_permissions.sql`. Rollback:
 `supabase/rollback/20261101400000_search_and_join_requests.down.sql`. It removes the functions and
 policies and keeps the `join_requests` and `player_kit` tables and their data, which are reused if the
 migration is run again.
+
+## Matches, lineups and attendance — M4 (migration `20261101500000_matches_lineups_attendance.sql`)
+
+**Sport profiles** (`src/lib/sports.ts`): one app for every sport. The shared core works the same
+everywhere: teams, trainings, announcements, absences, attendance, carpools, kit, payments,
+permissions and search. Football and basketball also get matches, lineups and scores: football
+lineups have 7 players by default (5, 8, 9 or 11 can be chosen per match), basketball lineups have 5.
+Other sports get the core only.
+
+* **Matches** (`team_matches`): opponent, home or away, time, venue, type and score. Members see
+  them; staff add them (matches ≥ create) and edit them (≥ edit). A match is canceled, never
+  deleted.
+* **Lineups** (`match_lineups`, `match_lineup_players`): any number per match, for example two
+  sevens. Slot 1 to N means on the field; no slot means on the bench. A player can be in only one
+  lineup of a match. Parents see a lineup only after staff publish it.
+* **Attendance** (`attendance_records`): a player is presumed to be coming. A parent's absence
+  report, for one training or for a date range, shows up as expected absent or late. Staff mark
+  only the exceptions, or "present" to confirm. `event_attendance()` builds the sheet for one
+  training or match. `team_attendance_summary()` gives each player's rate over a period of past,
+  non-canceled events. A player with no mark and no report counts as present.
+
+Run after `20261101400000_search_and_join_requests.sql`. Rollback:
+`supabase/rollback/20261101500000_matches_lineups_attendance.down.sql`. It keeps the tables and their
+data.

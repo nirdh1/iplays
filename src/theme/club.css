@@ -200,3 +200,140 @@
 .ip-kit-count > span:first-child {
   white-space: nowrap;
 }
+
+/* Matches, lineups, attendance (MatchesScreen, AttendanceSheet) */
+.ip-match-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  text-align: start;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.ip-match-card.is-canceled {
+  opacity: 0.6;
+}
+.ip-match-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+.ip-match-score {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--ip-lime);
+}
+.ip-match-score-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--ip-s2);
+  align-items: end;
+}
+.ip-lineup {
+  list-style: none;
+  margin: var(--ip-s2) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ip-lineup li {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s2);
+  padding: 6px var(--ip-s2);
+  border-radius: 10px;
+  background: var(--ip-bg);
+}
+.ip-lineup li.is-mine {
+  background: var(--ip-lime-100);
+}
+.ip-lineup li .ip-club-select {
+  flex: 1;
+}
+.ip-lineup-slot {
+  flex: none;
+  min-width: 76px;
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+}
+.ip-lineup-label {
+  flex: 1;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+.ip-lineup-bench {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 var(--ip-s2);
+}
+.ip-lineup-bench button,
+.ip-att-marks button {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ip-line, rgba(11, 31, 59, 0.16));
+  background: transparent;
+  font: inherit;
+  font-size: var(--ip-fs-xs);
+  cursor: pointer;
+}
+.ip-lineup-bench button.is-on,
+.ip-att-marks button.is-on {
+  background: var(--ip-navy);
+  border-color: var(--ip-navy);
+  color: #fff;
+}
+.ip-att-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+}
+.ip-att {
+  padding: var(--ip-s2) 0;
+  border-bottom: 1px solid var(--ip-line, rgba(11, 31, 59, 0.08));
+}
+.ip-att-who {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s2);
+}
+.ip-att-who .ip-list-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.ip-att-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  padding-inline-start: 36px;
+}
+.ip-att-summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ip-att-summary li {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s2);
+  padding: var(--ip-s3) var(--ip-s4);
+  border-bottom: 1px solid var(--ip-line, rgba(11, 31, 59, 0.08));
+}
+.ip-att-summary .ip-list-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.ip-att-rate {
+  font-size: 18px;
+}
+.ip-att-rate.is-low {
+  color: var(--ip-live, #e5484d);
+}

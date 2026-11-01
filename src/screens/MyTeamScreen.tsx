@@ -28,6 +28,7 @@ import { Err, Field } from '../components/form';
 import { joinError, PARENT_DECLARATION, pendingJoinRequests, reviewJoinRequest, type PendingRequest } from '../lib/joinApi';
 import { TeamLinkShare } from './TeamLinkShare';
 import { ChildDetailsSheet } from './ChildDetailsSheet';
+import { sportProfile } from '../lib/sports';
 
 export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
   const { session, teams, refresh } = useAuth();
@@ -219,7 +220,23 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
         </Card>
       </section>
 
-      <section>
+      <section className="ip-stack ip-stack--tight">
+        <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = `matches/${teamId}`)}>
+          <span className="ip-icon-tile ip-icon-tile--blue">
+            <Icon name={sportProfile(team.sport).hasMatches ? 'ball' : 'check'} size={20} />
+          </span>
+          <span className="ip-list-row-text">
+            <span className="ip-list-row-title">{sportProfile(team.sport).hasMatches ? 'משחקים והרכבים' : 'נוכחות'}</span>
+            <span className="ip-list-row-sub">
+              {sportProfile(team.sport).hasMatches
+                ? staff
+                  ? 'הוספת משחקים, בניית הרכבים, נוכחות ותוצאות'
+                  : 'לוח משחקים, הרכבים שפורסמו ותוצאות'
+                : 'נוכחות באימונים לאורך זמן'}
+            </span>
+          </span>
+          <Icon name="chevron" size={18} className="ip-muted" />
+        </button>
         <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = `coach/${teamId}`)}>
           <span className="ip-icon-tile ip-icon-tile--lime">
             <Icon name="whistle" size={20} />
