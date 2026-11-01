@@ -108,7 +108,6 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
   const backend = useMemo(() => supabaseCoach(teamId), [teamId]);
   const [myPlayers, setMyPlayers] = useState<PlayerRef[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     getRoster(teamId)
       .then((r) => setMyPlayers(r.filter((p) => p.guardians.includes(me)).map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}`.trim() }))))
@@ -125,7 +124,7 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
   }
   if (error) return <p className="ip-error" role="alert">{error}</p>;
   if (!myPlayers) return <p className="ip-muted ip-pad">טוען…</p>;
-  return <CoachBoard backend={backend} teamName={team.name} club={team.club} staff={staff} myPlayers={myPlayers} onBack={onBack} withAttendance />;
+  return <CoachBoard backend={backend} teamName={team.name} club={team.club} staff={staff} canSchedule myPlayers={myPlayers} onBack={onBack} withAttendance />;
 }
 
 /* --------------------------------------------------------------- board */
@@ -143,11 +142,13 @@ interface BoardProps {
   demoSwitch?: ReactNode;
   /** real teams: staff mark attendance per training */
   withAttendance?: boolean;
+  /** may add / cancel / delete trainings: staff, and on real teams every member (parents too) */
+  canSchedule?: boolean;
 }
 
 type ReportPreset = { sessionId?: string; mode: 'session' | 'dates'; kind?: AbsenceKind; playerId?: string };
 
-function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBack, demoSwitch, withAttendance }: BoardProps) {
+function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBack, demoSwitch, withAttendance, canSchedule = staff }: BoardProps) {
   const [attFor, setAttFor] = useState<TrainingSession | null>(null);
   const [tab, setTab] = useState<Tab>('news');
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
@@ -238,7 +239,7 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
           </Button>
         </div>
       )}
-      {staff && (
+      {staff ? (
         <div className="ip-coach-actions">
           <Button variant="primary" icon="chat" block onClick={() => setSheet('news')}>
             הודעה חדשה לקבוצה
@@ -247,6 +248,17 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
             הוספת ימי אימון
           </Button>
         </div>
+      ) : (
+        canSchedule && (
+          <>
+            <div className="ip-coach-actions">
+              <Button variant="secondary" icon="whistle" block onClick={() => setSheet('session')}>
+                הוספת לוח אימונים
+              </Button>
+            </div>
+            <p className="ip-footnote">כל הורה בקבוצה יכול להזין, לבטל ולמחוק אימונים. כל ההורים בקבוצה רואים אותם מיד.</p>
+          </>
+        )
       )}
 
       {error && (
@@ -282,6 +294,7 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
           sessions={upcoming}
           absences={absences}
           staff={staff}
+          canSchedule={canSchedule}
           myPlayers={myPlayers}
           onReport={(s, playerId) => setReport({ mode: 'session', sessionId: s.id, playerId })}
           onAttendance={withAttendance ? setAttFor : undefined}
@@ -446,6 +459,7 @@ function TrainingList({
   sessions,
   absences,
   staff,
+  canSchedule = staff,
   myPlayers,
   onReport,
   onCancel,
@@ -456,6 +470,7 @@ function TrainingList({
   sessions: TrainingSession[];
   absences: Absence[];
   staff: boolean;
+  canSchedule?: boolean;
   myPlayers: PlayerRef[];
   onReport: (s: TrainingSession, playerId: string) => void;
   onCancel: (s: TrainingSession) => void;
@@ -464,7 +479,7 @@ function TrainingList({
   if (!sessions.length) {
     return (
       <Card>
-        <EmptyState icon="whistle" title="אין אימונים בלוח" text={staff ? 'הוסיפו ימי אימון קבועים, למשל כל יום ראשון ושלישי ב-17:00.' : 'המאמן עוד לא פרסם את לוח האימונים.'} />
+        <EmptyState icon="whistle" title="אין אימונים בלוח" text={canSchedule ? 'הוסיפו ימי אימון קבועים, למשל כל יום ראשון ושלישי ב-17:00.' : 'המאמן עוד לא פרסם את לוח האימונים.'} />
       </Card>
     );
   }
@@ -511,7 +526,8 @@ function TrainingList({
                 </div>
               </>
             ) : (
-              !s.canceled &&
+              <>
+              {!s.canceled &&
               myPlayers.map((p) => {
                 const mine = reports.find((a) => a.player_id === p.id);
                 return (
@@ -526,7 +542,18 @@ function TrainingList({
                     )}
                   </div>
                 );
-              })
+              })}
+              {canSchedule && (
+                <div className="ip-btn-row">
+                  <Button variant="secondary" size="sm" icon={s.canceled ? 'undo' : 'close'} onClick={() => onCancel(s)}>
+                    {s.canceled ? 'החזרת האימון' : 'ביטול האימון'}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => onDelete(s)}>
+                    מחיקה
+                  </Button>
+                </div>
+              )}
+              </>
             )}
           </Card>
         );

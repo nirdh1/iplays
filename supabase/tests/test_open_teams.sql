@@ -112,6 +112,21 @@ select request_join(:T1, null, 'גיל', 'שני', 2017, '', 'parent', true);
 select pg_temp.check((select status from join_requests where user_id = :P3 and team_id = :T1) = 'pending',
                      'with staff: request waits for approval');
 
+-- ------------------------------------------------- parents and the schedule
+select pg_temp.as_user(:P1);
+insert into training_sessions (team_id, starts_at, title) values ((select id from t_new), now() + interval '1 day', 'אימון הורים');
+select pg_temp.as_user(:P2);
+select pg_temp.check((select count(*) from training_sessions where team_id = (select id from t_new)) = 1,
+                     'another parent sees the training a parent added');
+update training_sessions set canceled = true where team_id = (select id from t_new);
+select pg_temp.check((select canceled from training_sessions where team_id = (select id from t_new)), 'a parent cancels a training');
+select pg_temp.as_user(:P3);
+select pg_temp.as_user(null);
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000029', 'x@test');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000029');
+select pg_temp.fails(format('insert into training_sessions (team_id, starts_at) values (%L, now())', (select id from t_new)),
+                     'a non-member adds a training');
+
 -- ------------------------------------------------------------- adoption
 select pg_temp.fails(format('select adopt_team(%L, (select id from clubs where name = %L))', (select id from t_new), 'מכבי צפון'),
                      'a parent adopts a team into a club');
@@ -119,6 +134,10 @@ select pg_temp.as_user(:A);
 select adopt_team((select id from t_new), (select id from clubs where name = 'מכבי צפון'));
 select pg_temp.check(team_has_staff((select id from t_new)), 'adopted: the club now manages the team');
 select pg_temp.check(can((select id from t_new), 'staff', 2), 'adopted: club admin approves requests');
+select pg_temp.as_user(:P1);
+insert into training_sessions (team_id, starts_at, title) values ((select id from t_new), now() + interval '2 days', 'עוד אימון');
+select pg_temp.check((select count(*) from training_sessions where title = 'עוד אימון') = 1, 'adopted: a parent still adds trainings');
+select pg_temp.as_user(:A);
 select pg_temp.fails(format('select adopt_team(%L, (select id from clubs where name = %L))', (select id from t_new), 'מכבי צפון'),
                      'adopt twice');
 

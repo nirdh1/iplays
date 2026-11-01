@@ -273,3 +273,9 @@ Run after `20261101900000_ifa_games_sync.sql`. Replaces two functions; no tables
 ## Empty state instead of sample data
 
 Signed-in users see only their own data: their teams, their linked children and the teams' upcoming matches. A user without a team sees an empty state with a search button and a "הצגה לדוגמה" link that shows the sample screens; the choice is remembered on the device and ends as soon as the user belongs to a real team. Signed-out visitors who tap "browse the demo" on the login screen still see the sample data.
+
+## Parents keep the training schedule (migration `20261101960000_parent_trainings.sql`)
+
+Run after `20261101950000_join_no_staff_parent.sql`. Adds three policies; rollback removes them and keeps the trainings.
+
+Any member of a team (parents too) can add, cancel and delete trainings in the team board (`#coach/<team>`), with or without a coach; everyone in the team sees them on Home and in the Calendar. A coach may still update parents elsewhere (e.g. WhatsApp). Staff keep their own training permissions.
