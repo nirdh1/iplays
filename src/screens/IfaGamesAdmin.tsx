@@ -39,7 +39,9 @@ export function IfaGamesAdmin({ onImported }: { onImported: () => void }) {
     const p = gamesHtml ? parseGamesHtml(gamesHtml, leagueHtml ?? undefined) : null;
     setParsed(p);
     // suggest the age group the league name states (e.g. "ליגת ילדים טרום ב' דן" -> "טרום ב׳"); the admin confirms
-    const m = /(טרום [א-ת]|ילדים [א-ת]|נערים [א-ת]|נוער|ילדות [א-ת]|נערות [א-ת])['׳]?/.exec(p?.leagueName ?? '');
+    // "טרום" first: in "ליגת ילדים טרום ב'" the age group is "טרום ב׳", not "ילדים ט"
+    const name = p?.leagueName ?? '';
+    const m = /(טרום [א-ת])['׳]/.exec(name) ?? /(ילדים [א-ת]|נערים [א-ת]|ילדות [א-ת]|נערות [א-ת])['׳]/.exec(name) ?? /(נוער)/.exec(name);
     if (m) setCategory(/\s[א-ת]$/.test(m[1]) ? `${m[1]}׳` : m[1]);
   }, [gamesHtml, leagueHtml]);
 
