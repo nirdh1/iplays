@@ -45,7 +45,7 @@ import requests
 from bs4 import BeautifulSoup
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from batch_saved_import import validate_roster  # noqa: E402
+from batch_saved_import import is_masked, validate_roster  # noqa: E402
 
 BASE = 'https://www.football.org.il'
 ROSTER_ITEM = '%7B2AE09DED-5019-4C49-BFD5-4458C66F9D24%7D'
@@ -135,7 +135,10 @@ def payload_from_file(folder, team, season):
         if not players or any(not str(x.get('ifa_player_id', '')).isdigit() or not str(x.get('name', '')).strip() for x in players):
             raise ValueError(f'{js.name}: empty roster or a player without numeric id / name')
         p['players'] = [{'ifa_player_id': str(x['ifa_player_id']), 'name': str(x['name']).strip(),
-                         'profile_url': str(x.get('profile_url', ''))} for x in players]  # id, name, link only
+                         'profile_url': str(x.get('profile_url', ''))}
+                        for x in players if not is_masked(str(x['name']))]  # id, name, link only; masked names skipped
+        if not p['players']:
+            raise ValueError(f'{js.name}: no player with a readable name')
         p.setdefault('sport', 'football')
         p.setdefault('source_url', f'file:{js.name}')
         return p, {'source': 'file', 'file': js.name}

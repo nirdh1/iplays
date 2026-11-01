@@ -27,6 +27,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Err, Field } from '../components/form';
 import { joinError, PARENT_DECLARATION, pendingJoinRequests, reviewJoinRequest, type PendingRequest } from '../lib/joinApi';
 import { TeamLinkShare } from './TeamLinkShare';
+import { IfaTeamLink } from './IfaTeamLink';
 import { ChildDetailsSheet } from './ChildDetailsSheet';
 import { sportProfile } from '../lib/sports';
 
@@ -90,6 +91,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
             <p className="ip-on-navy-muted">
               {sportLabel[team.sport]} · עונת {team.season} · {roleLabel[team.role]}
             </p>
+            <IfaTeamLink teamId={teamId} />
           </div>
         </div>
       </Card>
