@@ -123,3 +123,80 @@
   flex-basis: 100%;
   font-size: var(--ip-fs-xs);
 }
+
+/* Search, team page, join requests, kit (FindScreen, TeamPageScreen, ChildDetailsSheet) */
+.ip-find-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ip-request {
+  flex-wrap: wrap;
+}
+.ip-find-sent {
+  display: flex;
+  gap: var(--ip-s2);
+  align-items: flex-start;
+}
+.ip-declare {
+  display: flex;
+  gap: var(--ip-s2);
+  align-items: flex-start;
+  padding: var(--ip-s3);
+  border-radius: 12px;
+  background: var(--ip-lime-soft, rgba(190, 242, 100, 0.18));
+  font-weight: 600;
+  cursor: pointer;
+}
+.ip-declare input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex: none;
+  accent-color: var(--ip-navy);
+}
+.ip-kit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--ip-s2);
+}
+.ip-kit-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-s2);
+  padding: var(--ip-s2) var(--ip-s3);
+  border: 1px solid var(--ip-line, rgba(11, 31, 59, 0.12));
+  border-radius: 12px;
+  font-size: var(--ip-fs-xs);
+}
+.ip-kit-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ip-kit-stepper button {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--ip-line, rgba(11, 31, 59, 0.16));
+  background: transparent;
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+.ip-kit-stepper strong {
+  min-width: 1.5ch;
+  text-align: center;
+}
+.ip-request .ip-list-row-text {
+  flex: 1 1 180px;
+}
+.ip-request .ip-find-actions {
+  flex-basis: 100%;
+  justify-content: flex-end;
+}
+.ip-kit-count > span:first-child {
+  white-space: nowrap;
+}

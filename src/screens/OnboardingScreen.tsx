@@ -11,10 +11,12 @@ import { Button, Card } from '../components/ui';
 import { addMyChild, createTeam, friendlyError, joinTeam, sportLabel, updateMyName, type Sport } from '../lib/api';
 import { clearPendingInvite, readPendingInvite, useAuth } from '../auth/AuthContext';
 import { InviteShare } from './MyTeamScreen';
+import { markOnboarded, PARENT_DECLARATION } from '../lib/joinApi';
 
 type Step = 'name' | 'choose' | 'join' | 'create' | 'created' | 'child' | 'done';
 
-export function OnboardingScreen({ onDone }: { onDone: () => void }) {
+/** skipTeamStep: the user opened a shared team page or the search, so only the name is asked. */
+export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () => void; skipTeamStep?: boolean }) {
   const { session, profile, teams, refresh, signOut } = useAuth();
   const userId = session!.user.id;
   const pending = readPendingInvite();
@@ -25,6 +27,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
   const [invite, setInvite] = useState<string | null>(null);
   const [team, setTeam] = useState({ name: '', club: '', season: '2026/27', sport: 'football' as Sport });
   const [child, setChild] = useState({ first: '', last: '', number: '', position: '', birthYear: '' });
+  const [declared, setDeclared] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,14 +45,27 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
 
   const finish = () => run(async () => {
     clearPendingInvite();
+    markOnboarded();
     await refresh();
     onDone();
   });
+
+  // No invite code: search the child or the club and send a request from there.
+  const goSearch = () => {
+    markOnboarded();
+    window.location.hash = 'find';
+    onDone();
+  };
 
   const submitName = (e: FormEvent) => {
     e.preventDefault();
     run(async () => {
       await updateMyName(userId, name);
+      if (skipTeamStep && !teams.length && !pending) {
+        await refresh();
+        onDone();
+        return;
+      }
       setStep(teams.length ? 'child' : pending ? 'join' : 'choose');
     });
   };
@@ -84,6 +100,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
         position: child.position,
         birthYear: child.birthYear ? Number(child.birthYear) : null,
       });
+      markOnboarded();
       await refresh();
       onDone();
     });
@@ -123,6 +140,16 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
             <span>
               <strong>אני הורה</strong>
               <span className="ip-muted">יש לי קוד הזמנה מהמאמן</span>
+            </span>
+            <Icon name="chevron" size={20} />
+          </button>
+          <button type="button" className="ip-choice-card" onClick={goSearch}>
+            <span className="ip-icon-tile ip-icon-tile--blue ip-icon-tile--lg">
+              <Icon name="eye" size={26} />
+            </span>
+            <span>
+              <strong>אני הורה, ואין לי קוד</strong>
+              <span className="ip-muted">חיפוש הילד לפי שם ושנתון, או חיפוש המועדון</span>
             </span>
             <Icon name="chevron" size={20} />
           </button>
@@ -217,7 +244,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
       {step === 'child' && (
         <form className="ip-form" onSubmit={submitChild}>
           <h1>הוספת הילד שלך</h1>
-          <p className="ip-muted">הפרטים גלויים רק לאנשי הקבוצה. אפשר לשנות אותם בכל זמן.</p>
+          <p className="ip-muted">אפשר להוסיף עוד ילדים אחר כך, ולשנות את הפרטים בכל זמן.</p>
           <div className="ip-field-row">
             <Field label="שם פרטי">
               <input id="ob-child-first" className="ip-input" value={child.first} onChange={(e) => setChild({ ...child, first: e.target.value })} required />
@@ -237,8 +264,12 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
           <Field label="תפקיד במגרש">
             <input id="ob-child-pos" className="ip-input" value={child.position} onChange={(e) => setChild({ ...child, position: e.target.value })} placeholder="לא חובה" />
           </Field>
+          <label className="ip-declare">
+            <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
+            <span>{PARENT_DECLARATION}</span>
+          </label>
           <Err error={error} />
-          <Button type="submit" variant="primary" block disabled={busy || !child.first.trim() || !teamId}>
+          <Button type="submit" variant="primary" block disabled={busy || !child.first.trim() || !teamId || !declared}>
             שמירה וכניסה לאפליקציה
           </Button>
           <button type="button" className="ip-link ip-center-self" onClick={finish} disabled={busy}>
@@ -250,7 +281,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
       {busy && <p className="ip-footnote ip-center">רגע…</p>}
       <Card className="ip-onboard-note" padded>
         <p className="ip-footnote">
-          iplays שומרת רק את מה שצריך כדי לנהל את הקבוצה. פרטי הילדים גלויים לאנשי הקבוצה בלבד.
+          iplays שומרת רק את מה שצריך כדי לנהל את הקבוצה. בחיפוש מופיעים רק שם, שנתון, קבוצה ומועדון. כל השאר גלוי לאנשי הקבוצה בלבד.
         </p>
       </Card>
     </div>

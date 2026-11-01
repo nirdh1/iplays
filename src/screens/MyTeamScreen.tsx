@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { InitialsAvatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
-import { Button, Card, EmptyState, SectionHeader, Tag, TeamCrest } from '../components/ui';
+import { Button, Card, EmptyState, SectionHeader, TeamCrest } from '../components/ui';
 import { BottomSheet } from '../components/shell';
 import {
   addMyChild,
@@ -25,6 +25,9 @@ import {
 } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
 import { Err, Field } from '../components/form';
+import { joinError, PARENT_DECLARATION, pendingJoinRequests, reviewJoinRequest, type PendingRequest } from '../lib/joinApi';
+import { TeamLinkShare } from './TeamLinkShare';
+import { ChildDetailsSheet } from './ChildDetailsSheet';
 
 export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
   const { session, teams, refresh } = useAuth();
@@ -36,13 +39,20 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<null | 'player' | 'child'>(null);
+  const [requests, setRequests] = useState<PendingRequest[]>([]);
+  const [details, setDetails] = useState<Player | null>(null);
+  const [claim, setClaim] = useState<Player | null>(null);
 
   const load = useCallback(async () => {
     try {
       const [r, m] = await Promise.all([getRoster(teamId), getMembers(teamId)]);
       setRoster(r);
       setMembers(m);
-      if (staff) setCode((await getInviteCode(teamId)) ?? (await newInviteCode(teamId)));
+      if (staff) {
+        // join requests need the search migration; without it the list stays empty
+        setRequests(await pendingJoinRequests(teamId).catch(() => []));
+        setCode((await getInviteCode(teamId)) ?? (await newInviteCode(teamId)));
+      }
     } catch (e) {
       setError(friendlyError(e));
     }
@@ -82,6 +92,51 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
 
       {error && <p className="ip-error" role="alert">{error}</p>}
 
+      {staff && requests.length > 0 && (
+        <section>
+          <SectionHeader title={`בקשות הצטרפות · ${requests.length}`} icon="bell" />
+          <Card padded={false}>
+            {requests.map((r) => (
+              <div key={r.id} className="ip-member ip-request">
+                <InitialsAvatar name={r.requester || 'הורה'} size={40} tone="blue" />
+                <span className="ip-list-row-text">
+                  <span className="ip-list-row-title">
+                    {r.requester || 'הורה'} · הורה של {r.child_name}
+                  </span>
+                  <span className="ip-list-row-sub">
+                    {[r.birth_year && `שנתון ${r.birth_year}`, r.player_id ? 'ילד מהסגל' : 'ילד חדש', 'הצהיר/ה שהוא ההורה', r.message].filter(Boolean).join(' · ')}
+                  </span>
+                </span>
+                <span className="ip-find-actions">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() =>
+                      reviewJoinRequest(r.id, true)
+                        .then(load)
+                        .catch((e) => setError(joinError(e) ?? friendlyError(e)))
+                    }
+                  >
+                    אישור
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      reviewJoinRequest(r.id, false)
+                        .then(load)
+                        .catch((e) => setError(joinError(e) ?? friendlyError(e)))
+                    }
+                  >
+                    דחייה
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </Card>
+        </section>
+      )}
+
       {staff && code && (
         <section>
           <SectionHeader title="הזמנת הורים" icon="plus" />
@@ -113,20 +168,11 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                       <span className="ip-list-row-sub">{[p.position, p.birth_year && `שנתון ${p.birth_year}`].filter(Boolean).join(' · ') || ' '}</span>
                     </span>
                     {mine ? (
-                      <Tag tone="lime">הילד שלי</Tag>
+                      <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
+                        חולצה וציוד
+                      </Button>
                     ) : p.guardians.length === 0 ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            await claimPlayer(p.id);
-                            await load();
-                          } catch (e) {
-                            setError(friendlyError(e));
-                          }
-                        }}
-                      >
+                      <Button variant="secondary" size="sm" onClick={() => setClaim(p)}>
                         זה הילד שלי
                       </Button>
                     ) : null}
@@ -146,6 +192,13 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
             {mineCount ? 'הוספת ילד נוסף' : 'הוספת הילד שלי'}
           </Button>
         </div>
+      </section>
+
+      <section>
+        <SectionHeader title="שליחת דף הקבוצה להורים" icon="chat" />
+        <Card>
+          <TeamLinkShare teamId={teamId} teamName={team.name} />
+        </Card>
       </section>
 
       <section>
@@ -178,6 +231,17 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
           <Icon name="chevron" size={18} className="ip-muted" />
         </button>
       </section>
+
+      <ChildDetailsSheet player={details} teamId={teamId} onClose={() => setDetails(null)} onSaved={load} />
+      <DeclareSheet
+        player={claim}
+        onClose={() => setClaim(null)}
+        onConfirm={async () => {
+          await claimPlayer(claim!.id);
+          setClaim(null);
+          await load();
+        }}
+      />
 
       <PlayerSheet
         mode={sheet}
@@ -217,6 +281,7 @@ function PlayerSheet({
   const [f, setF] = useState({ first: '', last: '', number: '', position: '', birthYear: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [declared, setDeclared] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -231,6 +296,7 @@ function PlayerSheet({
         birthYear: f.birthYear ? Number(f.birthYear) : null,
       });
       setF({ first: '', last: '', number: '', position: '', birthYear: '' });
+      setDeclared(false);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -260,11 +326,63 @@ function PlayerSheet({
         <Field label="תפקיד">
           <input id="pl-pos" className="ip-input" value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} placeholder="לא חובה" />
         </Field>
+        {mode === 'child' && (
+          <label className="ip-declare">
+            <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
+            <span>{PARENT_DECLARATION}</span>
+          </label>
+        )}
         <Err error={error} />
-        <Button type="submit" variant="primary" block disabled={busy || !f.first.trim()}>
+        <Button type="submit" variant="primary" block disabled={busy || !f.first.trim() || (mode === 'child' && !declared)}>
           {busy ? 'שומרים…' : 'שמירה'}
         </Button>
       </form>
+    </BottomSheet>
+  );
+}
+
+/** "This is my child" on the roster: the parent confirms the declaration first. */
+function DeclareSheet({ player, onClose, onConfirm }: { player: Player | null; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [declared, setDeclared] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setDeclared(false);
+    setError(null);
+  }, [player]);
+  return (
+    <BottomSheet open={player !== null} onClose={onClose} title="זה הילד שלי">
+      <div className="ip-form ip-form--sheet">
+        {player && (
+          <p className="ip-muted">
+            {player.first_name} {player.last_name}
+            {player.birth_year ? ` · שנתון ${player.birth_year}` : ''}
+          </p>
+        )}
+        <label className="ip-declare">
+          <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
+          <span>{PARENT_DECLARATION}</span>
+        </label>
+        <Err error={error} />
+        <Button
+          variant="primary"
+          block
+          disabled={!declared || busy}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              await onConfirm();
+            } catch (e) {
+              setError(joinError(e) ?? friendlyError(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          אישור
+        </Button>
+      </div>
     </BottomSheet>
   );
 }
