@@ -13,6 +13,7 @@ import { MyTeamScreen } from './screens/MyTeamScreen';
 import { ClubScreen } from './screens/ClubScreen';
 import { DemoCoachScreen, TeamCoachScreen } from './screens/CoachScreen';
 import { FindScreen } from './screens/FindScreen';
+import { IfaAdminScreen } from './screens/IfaAdminScreen';
 import { MatchesScreen } from './screens/MatchesScreen';
 import { TeamPageScreen } from './screens/TeamPageScreen';
 import { wasOnboarded } from './lib/joinApi';
@@ -22,8 +23,8 @@ import { clearPendingInvite, readPendingInvite, savePendingInvite, saveStaffInvi
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 
-type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'find' | 't' | 'matches';
-const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'find', 't', 'matches'];
+type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'find' | 't' | 'matches' | 'ifa';
+const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'find', 't', 'matches', 'ifa'];
 /** Routes a signed-in user can open before belonging to any team (search, shared team page). */
 const openRoutes: Route[] = ['find', 't'];
 
@@ -182,7 +183,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
             {joinError}
           </p>
         )}
-        {signedIn && !firstTeam && !['family', 'club', 'find', 't', 'matches'].includes(route) && (
+        {signedIn && !firstTeam && !['family', 'club', 'find', 't', 'matches', 'ifa'].includes(route) && (
           <button type="button" className="ip-demo-banner" onClick={() => (window.location.hash = 'find')}>
             <Icon name="eye" size={18} />
             <span>
@@ -191,7 +192,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
             <Icon name="chevron" size={16} />
           </button>
         )}
-        {signedIn && firstTeam && !['myteam', 'family', 'club', 'find', 't', 'matches'].includes(route) && !coachTeam && (
+        {signedIn && firstTeam && !['myteam', 'family', 'club', 'find', 't', 'matches', 'ifa'].includes(route) && !coachTeam && (
           <button type="button" className="ip-demo-banner" onClick={() => (window.location.hash = `myteam/${firstTeam.id}`)}>
             <Icon name="team" size={18} />
             <span>
@@ -203,6 +204,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'club' && signedIn && <ClubScreen clubId={param} onBack={() => back('family')} />}
         {route === 'club' && !signedIn && <FamilyScreen />}
         {route === 'matches' && (signedIn && param ? <MatchesScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
+        {route === 'ifa' && (signedIn ? <IfaAdminScreen onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'find' && (signedIn ? <FindScreen onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 't' && (signedIn && param ? <TeamPageScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'myteam' && signedIn && param && <MyTeamScreen teamId={param} onBack={() => go('family')} />}
@@ -215,7 +217,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'family' && <FamilyScreen />}
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
-      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' || route === 'matches' ? 'family' : route} onChange={go} />
+      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' ? 'family' : route} onChange={go} />
       <ChildSwitcherSheet open={switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );

@@ -354,3 +354,17 @@ a.ip-dash-match {
 a.ip-dash-match:hover {
   background: var(--ip-bg, #f4f7fb);
 }
+
+/* IFA import (Super Admin) */
+.ip-ifa-names {
+  columns: 2;
+  margin: 0;
+  padding-inline-start: 1.4em;
+  font-size: 14px;
+}
+.ip-ifa-problems {
+  margin: 0;
+  padding-inline-start: 1.2em;
+  color: var(--ip-warning, #b45309);
+  font-size: 13px;
+}

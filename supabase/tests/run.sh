@@ -17,6 +17,7 @@ run supabase/migrations/20261101400000_search_and_join_requests.sql
 run supabase/migrations/20261101500000_matches_lineups_attendance.sql
 run supabase/migrations/20261101600000_open_teams.sql
 run supabase/migrations/20261101700000_team_claims.sql
+run supabase/migrations/20261101800000_ifa_import.sql
 echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
 echo "== M3 tests"
@@ -29,6 +30,10 @@ echo "== open teams tests"
 run supabase/tests/test_open_teams.sql
 echo "== team claims tests"
 run supabase/tests/test_team_claims.sql
+echo "== IFA import tests"
+run supabase/tests/test_ifa.sql
+echo "== rollback IFA import"
+run supabase/rollback/20261101800000_ifa_import.down.sql
 echo "== rollback team claims"
 run supabase/rollback/20261101700000_team_claims.down.sql
 echo "== rollback open teams"
@@ -49,5 +54,6 @@ run supabase/migrations/20261101400000_search_and_join_requests.sql
 run supabase/migrations/20261101500000_matches_lineups_attendance.sql
 run supabase/migrations/20261101600000_open_teams.sql
 run supabase/migrations/20261101700000_team_claims.sql
+run supabase/migrations/20261101800000_ifa_import.sql
 psql -q -d $DB -tc "select 'after re-apply: ' || count(*) || ' requests kept, ' || (select count(*) from team_matches) || ' matches kept' from join_requests"
 echo "ALL TESTS PASSED"
