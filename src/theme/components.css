@@ -2523,6 +2523,27 @@ select.ip-input {
   color: inherit;
 }
 
+/* ---------- Family members (Family tab) ---------- */
+.ip-member--button {
+  width: 100%;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ip-member--button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.ip-family-head {
+  background: var(--ip-bg);
+}
+.ip-family-invite {
+  border: 2px solid var(--ip-lime);
+}
+
 /* ---------- Carpools (real data) ---------- */
 .ip-rides-line {
   display: inline-flex;

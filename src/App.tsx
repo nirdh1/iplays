@@ -24,7 +24,7 @@ import { RealCalendarScreen, RealCareerScreen, RealChildPill, RealFamilyScreen, 
 import { wasOnboarded } from './lib/joinApi';
 import { Logo } from './components/Logo';
 import { Icon } from './components/Icon';
-import { clearPendingInvite, readPendingInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
+import { clearPendingInvite, readFamilyInvite, readPendingInvite, saveFamilyInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 
@@ -50,6 +50,12 @@ function captureInviteFromHash() {
   if (s) {
     saveStaffInvite(s[1]);
     history.replaceState(null, '', '#club');
+  }
+  // Family invites (second parent, grandparents): #fam/ABCDE23456
+  const f = window.location.hash.match(/^#fam\/([A-Za-z0-9]{10})$/);
+  if (f) {
+    saveFamilyInvite(f[1]);
+    history.replaceState(null, '', '#family');
   }
 }
 captureInviteFromHash();
@@ -88,7 +94,8 @@ export function App() {
   // Sign-up is once: a name, then (only the first time) a team step. Someone
   // who opened a shared team page or the search, or already sent a request,
   // is not sent back to the team step.
-  const openRoute = openRoutes.includes(hashRoute);
+  // A family invite link (#fam/...) is accepted on the Family tab, so it skips the team step too.
+  const openRoute = openRoutes.includes(hashRoute) || !!readFamilyInvite();
   // Only decide once the profile and teams have loaded: while loading they are
   // empty, and deciding then sent returning users back into onboarding.
   const ready = !!auth.session && !auth.loading;

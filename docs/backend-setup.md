@@ -309,3 +309,14 @@ Run after `20261101980000_account_types.sql`. Additive: five new tables (`fund_t
 - Every member sees collections, totals (`fund_summary`) and expenses. A parent sees only their own children's payment rows; managers see every family.
 - Money never moves through iplays. Collections are never deleted, only cancelled. The new-collection sheet offers ready titles (food after a game, a gift for the coaches, an end-of-season event…) and takes a PayBox group / Bit request link.
 - Family costs (`#costs/<player>`, linked from the fund screen and from the parent's child row): the program's annual fee per child and season, payments toward it (what's left to pay), and other costs (kit, tournaments, rides, medical). Confirmed team-fund payments are listed too. `child_costs` is visible only to the child's parents.
+
+## Family members and permissions (migration `20261101995000_family_members.sql`)
+
+Run after `20261101990000_team_fund.sql`. Additive: new columns on `player_guardians` and `team_members`, a `family_invites` table, new functions, and replaced policies for trainings and absences. Rollback restores the previous functions and policies and keeps the data.
+
+- **Family tab → "בני משפחה והרשאות"**: everyone linked to each of my children, with a kinship label (אמא, סבתא, ...) and what they may do.
+- **Invite link** (`#fam/<code>`): a parent invites a second parent or a family member for one or more children. One-time, valid 14 days. Opening it after sign-in shows an accept card on the Family tab; no staff approval.
+- **Permissions** for non-parents: `can_report` (absences), `can_rides`, `can_pay` (stored now, enforced when rides / payments are built). Seeing the child, the schedule, matches and results needs none. Parents always have all of them. Helper for policies: `family_can(player, 'view' | 'report' | 'rides' | 'pay')`.
+- A parent edits or removes family members, but cannot limit or remove the other parent; anyone can leave by themselves.
+- A request from a second declared parent can be approved by the child's existing parent too (staff still can).
+- Followers are marked `team_members.is_follower`: they see the team and cannot add, change or delete trainings (`is_team_participant`). Existing followers are marked by the migration.

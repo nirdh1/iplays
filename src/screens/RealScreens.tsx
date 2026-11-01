@@ -15,6 +15,7 @@ import { competitionLabel, getMatches, matchEndsAt, matchIsLive, matchTimeLabel,
 import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
 import { AccountSection, RequestsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
+import { FamilyInviteCard, FamilyMembersSection } from './FamilySection';
 import { isPlatformAdmin } from '../lib/ifaApi';
 import { sportProfile } from '../lib/sports';
 import { getRidesSummary, summaryLabel, type RideSummary } from '../lib/rideApi';
@@ -532,6 +533,7 @@ export function RealFamilyScreen() {
   return (
     <div className="ip-stack">
       <ScreenTitle title="משפחה" subtitle={profile?.full_name || undefined} />
+      <FamilyInviteCard />
       <AccountSection />
       <section>
         <SectionHeader title="הילדים" />
@@ -559,6 +561,7 @@ export function RealFamilyScreen() {
           </Card>
         )}
       </section>
+      <FamilyMembersSection />
     </div>
   );
 }
