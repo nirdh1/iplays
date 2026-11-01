@@ -4,7 +4,7 @@
  * them. A user without a team sees an empty state with a search button and,
  * until they belong to a real team, a link to the sample view.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { InitialsAvatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
 import { Button, Card, EmptyState, ListRow, SectionHeader, Tag, TeamCrest } from '../components/ui';
@@ -16,6 +16,8 @@ import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
 import { AccountSection, RequestsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
 import { sportProfile } from '../lib/sports';
+import { getRidesSummary, summaryLabel, type RideSummary } from '../lib/rideApi';
+import { RidesSheet, type RideEvent } from './RidesSheet';
 
 const goFind = () => (window.location.hash = 'find');
 const goTeam = (id: string) => (window.location.hash = `myteam/${id}`);
@@ -246,6 +248,8 @@ export function RealTeamsScreen({ onShowSample }: { onShowSample: () => void }) 
 type TeamEvent = {
   key: string;
   kind: 'training' | 'match';
+  eventId: string;
+  rides?: RideSummary;
   at: number;
   endsAt: number;
   title: string;
@@ -262,23 +266,29 @@ const dayFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric
 const hhmm = (d: Date) => d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
 /** Upcoming trainings and matches (club + IFA league games) of all my teams. */
-function useTeamEvents(teams: MyTeam[]): TeamEvent[] | null {
+function useTeamEvents(teams: MyTeam[]): [TeamEvent[] | null, () => void] {
   const [events, setEvents] = useState<TeamEvent[] | null>(null);
+  const [version, setVersion] = useState(0);
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
   const key = teams.map((t) => t.id).join(',');
   useEffect(() => {
     let alive = true;
     const now = Date.now();
     Promise.all(
       teams.map(async (t) => {
-        const [matches, sessions] = await Promise.all([
+        const [matches, sessions, rides] = await Promise.all([
           getMatches(t.id).catch(() => [] as Match[]),
           supabaseCoach(t.id).listSessions().catch(() => [] as TrainingSession[]),
+          getRidesSummary(t.id).catch(() => [] as RideSummary[]),
         ]);
+        const rideOf = (kind: 'training' | 'match', id: string) => rides.find((r) => r.kind === kind && r.event_id === id);
         const ms: TeamEvent[] = matches
           .filter((m) => m.status !== 'canceled')
           .map((m) => ({
             key: `m-${m.id}`,
             kind: 'match' as const,
+            eventId: m.id,
+            rides: rideOf('match', m.id),
             at: new Date(m.starts_at).getTime(),
             endsAt: matchEndsAt(m),
             title: `${m.home ? 'נגד' : 'אצל'} ${m.opponent}`,
@@ -295,6 +305,8 @@ function useTeamEvents(teams: MyTeam[]): TeamEvent[] | null {
           return {
             key: `t-${x.id}`,
             kind: 'training' as const,
+            eventId: x.id,
+            rides: rideOf('training', x.id),
             at: d.getTime(),
             endsAt: d.getTime() + (x.duration_min || 90) * 60_000,
             title: x.title || 'אימון',
@@ -318,11 +330,46 @@ function useTeamEvents(teams: MyTeam[]): TeamEvent[] | null {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-  return events;
+  }, [key, version]);
+  return [events, reload];
 }
 
-function EventCard({ label, e }: { label: string; e: TeamEvent }) {
+const rideEventOf = (e: TeamEvent): RideEvent => ({
+  kind: e.kind,
+  id: e.eventId,
+  title: e.title,
+  when: [dayFmt.format(new Date(e.at)), e.time, e.place].filter(Boolean).join(' · '),
+});
+
+/** The rides sheet for one event, with my children in that event's team. */
+function useRidesSheet(onChanged: () => void) {
+  const { session } = useAuth();
+  const kids = useMyKids();
+  const [open, setOpen] = useState<TeamEvent | null>(null);
+  const sheet = (
+    <RidesSheet
+      event={open ? rideEventOf(open) : null}
+      me={session?.user.id ?? ''}
+      myKids={open && kids ? kids.filter((k) => k.team.id === open.team.id).map((k) => ({ id: k.id, first_name: k.first_name })) : []}
+      onClose={() => setOpen(null)}
+      onChanged={onChanged}
+    />
+  );
+  return [sheet, setOpen] as const;
+}
+
+function RidesLine({ e, onOpen }: { e: TeamEvent; onOpen: () => void }) {
+  if (e.canceled) return null;
+  const label = summaryLabel(e.rides);
+  return (
+    <button type="button" className="ip-rides-line" onClick={onOpen}>
+      <Icon name="car" size={16} />
+      <span>{label ? `הסעות: ${label}` : 'הסעות: מציעים או מבקשים הסעה'}</span>
+    </button>
+  );
+}
+
+function EventCard({ label, e, onRides }: { label: string; e: TeamEvent; onRides: () => void }) {
   return (
     <Card className="ip-next-event">
       <div className="ip-next-event-head">
@@ -345,13 +392,15 @@ function EventCard({ label, e }: { label: string; e: TeamEvent }) {
           <Icon name="navigate" size={16} /> ניווט ב-Waze
         </a>
       )}
+      <RidesLine e={e} onOpen={onRides} />
     </Card>
   );
 }
 
 /** Home: the next training and the next match. */
 function NextUp({ teams }: { teams: MyTeam[] }) {
-  const events = useTeamEvents(teams);
+  const [events, reload] = useTeamEvents(teams);
+  const [sheet, openRides] = useRidesSheet(reload);
   if (events === null) return <p className="ip-muted">טוען את האימון והמשחק הקרובים…</p>;
   const training = events.find((e) => e.kind === 'training' && !e.canceled);
   const match = events.find((e) => e.kind === 'match');
@@ -359,7 +408,7 @@ function NextUp({ teams }: { teams: MyTeam[] }) {
     <section>
       <SectionHeader title="הקרוב" icon="calendar" />
       <div className="ip-stack">
-        {training ? <EventCard label="האימון הקרוב" e={training} /> : <Card>
+        {training ? <EventCard label="האימון הקרוב" e={training} onRides={() => openRides(training)} /> : <Card>
             <p className="ip-muted">עוד אין אימון קרוב ביומן.</p>
             <div className="ip-btn-row">
               <Button variant="secondary" icon="whistle" onClick={() => (window.location.hash = `coach/${teams[0].id}`)}>
@@ -367,15 +416,17 @@ function NextUp({ teams }: { teams: MyTeam[] }) {
               </Button>
             </div>
           </Card>}
-        {match ? <EventCard label="המשחק הקרוב" e={match} /> : <Card><p className="ip-muted">אין משחק קרוב ביומן.</p></Card>}
+        {match ? <EventCard label="המשחק הקרוב" e={match} onRides={() => openRides(match)} /> : <Card><p className="ip-muted">אין משחק קרוב ביומן.</p></Card>}
       </div>
+      {sheet}
     </section>
   );
 }
 
 /** Calendar: all upcoming trainings and matches, by day. */
 function Agenda({ teams }: { teams: MyTeam[] }) {
-  const events = useTeamEvents(teams);
+  const [events, reload] = useTeamEvents(teams);
+  const [sheet, openRides] = useRidesSheet(reload);
   if (events === null) return <p className="ip-muted">טוען…</p>;
   if (!events.length) return <EmptyState icon="calendar" title="היומן ריק" text="אימונים ומשחקים של הקבוצות שלך יופיעו כאן, כולל משחקי הליגה מההתאחדות." />;
   const days = new Map<string, TeamEvent[]>();
@@ -390,19 +441,22 @@ function Agenda({ teams }: { teams: MyTeam[] }) {
           <SectionHeader title={day} />
           <Card padded={false}>
             {list.map((e) => (
-              <ListRow
-                key={e.key}
-                icon={e.kind === 'match' ? 'ball' : 'whistle'}
-                iconTone={e.kind === 'match' ? 'blue' : 'lime'}
-                title={e.canceled ? `${e.title} (בוטל)` : e.title}
-                subtitle={[e.time, e.place, teams.length > 1 ? e.team.name : null].filter(Boolean).join(' · ')}
-                trailing={e.tag ? <Tag>{e.tag}</Tag> : undefined}
-                onClick={() => (window.location.hash = e.href)}
-              />
+              <div key={e.key} className="ip-agenda-item">
+                <ListRow
+                  icon={e.kind === 'match' ? 'ball' : 'whistle'}
+                  iconTone={e.kind === 'match' ? 'blue' : 'lime'}
+                  title={e.canceled ? `${e.title} (בוטל)` : e.title}
+                  subtitle={[e.time, e.place, teams.length > 1 ? e.team.name : null].filter(Boolean).join(' · ')}
+                  trailing={e.tag ? <Tag>{e.tag}</Tag> : undefined}
+                  onClick={() => (window.location.hash = e.href)}
+                />
+                <RidesLine e={e} onOpen={() => openRides(e)} />
+              </div>
             ))}
           </Card>
         </section>
       ))}
+      {sheet}
     </>
   );
 }
