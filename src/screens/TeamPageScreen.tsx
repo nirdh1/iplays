@@ -116,10 +116,10 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
 
       {team.is_member ? (
         <Card>
-          <p className="ip-muted">את/ה כבר בקבוצה הזו.</p>
+          <p className="ip-muted">את/ה כבר בקבוצה הזו. בדף הקבוצה רואים את הילד שמקושר אליך (מסומן בירוק), ואפשר לסמן "זה הילד שלי" או להוסיף ילד נוסף.</p>
           <div className="ip-btn-row">
             <Button variant="primary" icon="team" onClick={() => (window.location.hash = `myteam/${team.team_id}`)}>
-              לדף הקבוצה שלי
+              לדף הקבוצה: הילדים שלי
             </Button>
           </div>
         </Card>
