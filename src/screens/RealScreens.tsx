@@ -531,7 +531,7 @@ export function RealFamilyScreen() {
   const { profile } = useAuth();
   return (
     <div className="ip-stack">
-      <ScreenTitle title="משפחה" subtitle={profile?.full_name || undefined} />
+      <ScreenTitle title="החשבון שלי" subtitle={profile?.full_name || undefined} />
       <AccountSection />
       <section>
         <SectionHeader title="הילדים" />

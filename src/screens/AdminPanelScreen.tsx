@@ -47,7 +47,7 @@ export function AdminPanelScreen({ onBack }: { onBack: () => void }) {
               <Icon name="chevron" size={18} className="ip-muted" />
             </button>
           ))}
-          <p className="ip-footnote">בקשות של מאמנים לנהל קבוצה מופיעות לאישורך בראש דף הבית ובלשונית משפחה.</p>
+          <p className="ip-footnote">בקשות של מאמנים לנהל קבוצה מופיעות לאישורך בראש דף הבית ובלשונית החשבון.</p>
         </section>
       )}
     </div>

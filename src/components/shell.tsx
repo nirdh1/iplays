@@ -127,7 +127,7 @@ export const tabs: { id: TabId; label: string; icon: IconName }[] = [
   { id: 'team', label: 'קבוצה', icon: 'team' },
   { id: 'calendar', label: 'יומן', icon: 'calendar' },
   { id: 'career', label: 'קריירה', icon: 'career' },
-  { id: 'family', label: 'משפחה', icon: 'family' },
+  { id: 'family', label: 'חשבון', icon: 'user' },
 ];
 
 export function BottomNav({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {

@@ -50,7 +50,7 @@ export function CalendarScreen({ child }: { child: Child }) {
 export function FamilyScreen() {
   return (
     <div className="ip-stack">
-      <ScreenTitle title="משפחה" subtitle={`משפחת ${parent.lastName}`} />
+      <ScreenTitle title="החשבון שלי" subtitle={`משפחת ${parent.lastName}`} />
       <AccountSection />
       <section>
         <SectionHeader title="הילדים" />
