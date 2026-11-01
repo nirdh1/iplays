@@ -11,7 +11,8 @@ import { Button, Card, EmptyState, ListRow, SectionHeader, Tag, TeamCrest } from
 import { ScreenTitle } from '../components/shell';
 import { useAuth } from '../auth/AuthContext';
 import { getRoster, isStaffRole, roleLabel, sportLabel, type MyTeam, type Player } from '../lib/api';
-import { getMatches, competitionLabel, type Match } from '../lib/matchApi';
+import { competitionLabel, getMatches, matchEndsAt, matchTimeLabel, matchVenueLabel, matchVenueName, wazeUrl, type Match } from '../lib/matchApi';
+import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
 import { AccountSection, RequestsSection } from './AccountSection';
 
 const goFind = () => (window.location.hash = 'find');
@@ -128,6 +129,7 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
         <NoTeam onShowSample={onShowSample} />
       ) : (
         <>
+          <NextUp teams={teams} />
           {kids && kids.length > 0 && (
             <section>
               <SectionHeader title="הילדים שלי" icon="user" />
@@ -150,7 +152,6 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
             <SectionHeader title="הקבוצות שלי" icon="team" />
             <TeamsList teams={teams} />
           </section>
-          <UpcomingMatches teams={teams} limit={3} />
         </>
       )}
     </div>
@@ -178,49 +179,160 @@ export function RealTeamsScreen({ onShowSample }: { onShowSample: () => void }) 
   );
 }
 
-function UpcomingMatches({ teams, limit }: { teams: MyTeam[]; limit?: number }) {
-  const [rows, setRows] = useState<(Match & { team: MyTeam })[] | null>(null);
+type TeamEvent = {
+  key: string;
+  kind: 'training' | 'match';
+  at: number;
+  endsAt: number;
+  title: string;
+  time: string;
+  place: string | null;
+  navigateTo: string;
+  tag?: string;
+  team: MyTeam;
+  href: string;
+  canceled: boolean;
+};
+
+const dayFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' });
+const hhmm = (d: Date) => d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+/** Upcoming trainings and matches (club + IFA league games) of all my teams. */
+function useTeamEvents(teams: MyTeam[]): TeamEvent[] | null {
+  const [events, setEvents] = useState<TeamEvent[] | null>(null);
   const key = teams.map((t) => t.id).join(',');
   useEffect(() => {
     let alive = true;
-    const now = Date.now() - 3 * 3600 * 1000;
-    Promise.all(teams.map((t) => getMatches(t.id).then((m) => m.map((x) => ({ ...x, team: t }))).catch(() => [])))
+    const now = Date.now();
+    Promise.all(
+      teams.map(async (t) => {
+        const [matches, sessions] = await Promise.all([
+          getMatches(t.id).catch(() => [] as Match[]),
+          supabaseCoach(t.id).listSessions().catch(() => [] as TrainingSession[]),
+        ]);
+        const ms: TeamEvent[] = matches
+          .filter((m) => m.status !== 'canceled')
+          .map((m) => ({
+            key: `m-${m.id}`,
+            kind: 'match' as const,
+            at: new Date(m.starts_at).getTime(),
+            endsAt: matchEndsAt(m),
+            title: `${m.home ? 'נגד' : 'אצל'} ${m.opponent}`,
+            time: matchTimeLabel(m),
+            place: matchVenueLabel(m),
+            navigateTo: matchVenueName(m),
+            tag: competitionLabel[m.competition],
+            team: t,
+            href: `matches/${m.team_id}`,
+            canceled: false,
+          }));
+        const ts: TeamEvent[] = sessions.map((x) => {
+          const d = new Date(x.starts_at);
+          return {
+            key: `t-${x.id}`,
+            kind: 'training' as const,
+            at: d.getTime(),
+            endsAt: d.getTime() + (x.duration_min || 90) * 60_000,
+            title: x.title || 'אימון',
+            time: hhmm(d),
+            place: x.location || null,
+            navigateTo: x.location || '',
+            team: t,
+            href: `coach/${t.id}`,
+            canceled: x.canceled,
+          };
+        });
+        return [...ms, ...ts];
+      }),
+    )
       .then((all) => {
         if (!alive) return;
-        const upcoming = all
-          .flat()
-          .filter((m) => m.status !== 'canceled' && new Date(m.starts_at).getTime() >= now)
-          .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
-        setRows(limit ? upcoming.slice(0, limit) : upcoming);
+        setEvents(all.flat().filter((e) => e.endsAt >= now).sort((a, b) => a.at - b.at));
       })
-      .catch(() => alive && setRows([]));
+      .catch(() => alive && setEvents([]));
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, limit]);
+  }, [key]);
+  return events;
+}
 
-  if (rows === null) return null;
-  if (!rows.length) {
-    return limit ? null : <EmptyState icon="calendar" title="אין משחקים קרובים" text="משחקים שהצוות מזין יופיעו כאן." />;
-  }
-  const fmt = new Intl.DateTimeFormat('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+function EventCard({ label, e }: { label: string; e: TeamEvent }) {
+  return (
+    <Card className="ip-next-event">
+      <div className="ip-next-event-head">
+        <Tag tone={e.kind === 'match' ? 'blue' : 'lime'} icon={e.kind === 'match' ? 'ball' : 'whistle'}>
+          {label}
+        </Tag>
+        {e.tag && <Tag>{e.tag}</Tag>}
+        {e.canceled && <Tag tone="warning">בוטל</Tag>}
+      </div>
+      <button type="button" className="ip-next-event-body" onClick={() => (window.location.hash = e.href)}>
+        <strong>{e.title}</strong>
+        <span>
+          {dayFmt.format(new Date(e.at))} · {e.time}
+        </span>
+        {e.place && <span className="ip-muted">{e.place}</span>}
+        <span className="ip-muted">{e.team.name}</span>
+      </button>
+      {e.navigateTo && (
+        <a className="ip-link" href={wazeUrl(e.navigateTo)} target="_blank" rel="noreferrer">
+          <Icon name="navigate" size={16} /> ניווט ב-Waze
+        </a>
+      )}
+    </Card>
+  );
+}
+
+/** Home: the next training and the next match. */
+function NextUp({ teams }: { teams: MyTeam[] }) {
+  const events = useTeamEvents(teams);
+  if (events === null) return <p className="ip-muted">טוען את האימון והמשחק הקרובים…</p>;
+  const training = events.find((e) => e.kind === 'training' && !e.canceled);
+  const match = events.find((e) => e.kind === 'match');
   return (
     <section>
-      <SectionHeader title="משחקים קרובים" icon="calendar" />
-      <Card padded={false}>
-        {rows.map((m) => (
-          <ListRow
-            key={m.id}
-            icon="ball"
-            title={`${m.home ? 'נגד' : 'אצל'} ${m.opponent}`}
-            subtitle={[fmt.format(new Date(m.starts_at)), m.venue, m.team.name].filter(Boolean).join(' · ')}
-            trailing={<Tag>{competitionLabel[m.competition]}</Tag>}
-            onClick={() => (window.location.hash = `matches/${m.team_id}`)}
-          />
-        ))}
-      </Card>
+      <SectionHeader title="הקרוב" icon="calendar" />
+      <div className="ip-stack">
+        {training ? <EventCard label="האימון הקרוב" e={training} /> : <Card><p className="ip-muted">עוד אין אימון קרוב ביומן. המאמן מזין אימונים בלוח הקבוצה.</p></Card>}
+        {match ? <EventCard label="המשחק הקרוב" e={match} /> : <Card><p className="ip-muted">אין משחק קרוב ביומן.</p></Card>}
+      </div>
     </section>
+  );
+}
+
+/** Calendar: all upcoming trainings and matches, by day. */
+function Agenda({ teams }: { teams: MyTeam[] }) {
+  const events = useTeamEvents(teams);
+  if (events === null) return <p className="ip-muted">טוען…</p>;
+  if (!events.length) return <EmptyState icon="calendar" title="היומן ריק" text="אימונים ומשחקים של הקבוצות שלך יופיעו כאן, כולל משחקי הליגה מההתאחדות." />;
+  const days = new Map<string, TeamEvent[]>();
+  for (const e of events) {
+    const k = dayFmt.format(new Date(e.at));
+    days.set(k, [...(days.get(k) ?? []), e]);
+  }
+  return (
+    <>
+      {[...days.entries()].map(([day, list]) => (
+        <section key={day}>
+          <SectionHeader title={day} />
+          <Card padded={false}>
+            {list.map((e) => (
+              <ListRow
+                key={e.key}
+                icon={e.kind === 'match' ? 'ball' : 'whistle'}
+                iconTone={e.kind === 'match' ? 'blue' : 'lime'}
+                title={e.canceled ? `${e.title} (בוטל)` : e.title}
+                subtitle={[e.time, e.place, teams.length > 1 ? e.team.name : null].filter(Boolean).join(' · ')}
+                trailing={e.tag ? <Tag>{e.tag}</Tag> : undefined}
+                onClick={() => (window.location.hash = e.href)}
+              />
+            ))}
+          </Card>
+        </section>
+      ))}
+    </>
   );
 }
 
@@ -228,8 +340,8 @@ export function RealCalendarScreen({ onShowSample }: { onShowSample: () => void 
   const { teams } = useAuth();
   return (
     <div className="ip-stack">
-      <ScreenTitle title="יומן" subtitle={teams.length ? 'המשחקים הקרובים של הקבוצות שלך' : undefined} />
-      {!teams.length ? <NoTeam onShowSample={onShowSample} /> : <UpcomingMatches teams={teams} />}
+      <ScreenTitle title="יומן" subtitle={teams.length ? 'אימונים ומשחקים של הקבוצות שלך' : undefined} />
+      {!teams.length ? <NoTeam onShowSample={onShowSample} /> : <Agenda teams={teams} />}
     </div>
   );
 }

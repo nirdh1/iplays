@@ -2318,3 +2318,25 @@ select.ip-input {
   border-color: #2f5c12;
   font-weight: 700;
 }
+
+/* Home: next training / next match */
+.ip-next-event {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+}
+.ip-next-event-head {
+  display: flex;
+  gap: var(--ip-s2);
+  flex-wrap: wrap;
+}
+.ip-next-event-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: start;
+}
+.ip-next-event-body strong {
+  font-size: var(--ip-fs-h, 1.1rem);
+}
