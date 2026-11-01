@@ -11,7 +11,7 @@ import { BottomSheet } from '../components/shell';
 import { Button, Card, EmptyState, MetaRow, SectionHeader, Segmented, Tag, TeamCrest } from '../components/ui';
 import { Err, Field } from '../components/form';
 import { useAuth } from '../auth/AuthContext';
-import { friendlyError, getRoster } from '../lib/api';
+import { friendlyError, getRoster, isStaffRole } from '../lib/api';
 import {
   absenceCovers,
   addDays,
@@ -103,7 +103,7 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
   const { session, teams } = useAuth();
   const me = session!.user.id;
   const team = teams.find((x) => x.id === teamId);
-  const staff = team?.role === 'admin' || team?.role === 'coach';
+  const staff = isStaffRole(team?.role);
   const backend = useMemo(() => supabaseCoach(teamId), [teamId]);
   const [myPlayers, setMyPlayers] = useState<PlayerRef[] | null>(null);
   const [error, setError] = useState<string | null>(null);

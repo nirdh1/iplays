@@ -119,3 +119,40 @@ trainings and absences stay. A second, parallel team of a player is lost on roll
 **Tests**: `supabase/tests/run.sh` runs both migrations, the RLS tests (club isolation, transfers,
 history, permissions), the rollback and a re-apply on a throwaway local Postgres:
 `PGHOST=… PGPORT=… PGUSER=postgres supabase/tests/run.sh`.
+
+## Permission tree (migration `20261101300000_permissions.sql`)
+
+All access goes through one database function, `can(team, domain, level)`. Levels: 1 view, 2 create,
+3 edit, 4 manage. A person gets the **highest** of:
+
+1. **Club owner / admin**: everything in their club.
+2. **Explicit grants** (`permission_grants`), given by a club admin on the whole club, one program
+   (league / academy, which covers all of its teams) or one team.
+3. **Role in the team** (`team_members.role`) → default levels:
+
+| Domain | coach | assistant_coach | instructor | team_manager |
+|---|---|---|---|---|
+| roster (סגל) | edit | view | view | edit |
+| training | manage | edit | edit | edit |
+| matches | manage | edit | – | view |
+| attendance | manage | edit | edit | edit |
+| metrics | manage | edit | edit | – |
+| communication | manage | create | create | manage |
+| finance | view | – | – | edit |
+| equipment | view | – | – | edit |
+| medical | view | view | view | edit |
+| staff / invites | edit | – | – | create |
+| reports | view | – | – | view |
+
+The team `admin` (whoever opened the team) manages everything in the team. Parents get access only
+to their own children.
+
+Every RLS policy for teams, members, invites, players, trainings, announcements and absences now asks
+`can()` for the matching domain. So a coach of one team can't see another team unless a club admin
+gave them a grant. Moving players needs roster **manage**, which by default only club admins have.
+
+Club staff join with a one-time link `#staff/CODE` (14 days), created in **ניהול מועדון → צוות**.
+
+Run order: `20261101300000_permissions.sql` after `20261101200000_clubs_and_assignments.sql`.
+Rollback: `supabase/rollback/20261101300000_permissions.down.sql`. It turns the new roles into
+`coach` and removes the grants.

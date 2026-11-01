@@ -78,3 +78,48 @@
 .ip-club .ip-roster li .ip-btn {
   flex: none;
 }
+.ip-club-h3 {
+  font-size: var(--ip-fs-sm, 15px);
+  font-weight: 800;
+  margin-top: var(--ip-s2);
+}
+.ip-club-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--ip-s2);
+}
+.ip-club-grants {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ip-club-grants li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-s2);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ip-line, rgba(11, 31, 59, 0.08));
+}
+.ip-club-grants .ip-btn {
+  flex: none;
+}
+.ip-club-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ip-s2);
+}
+.ip-club-invite bdi {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--ip-fs-xs);
+}
+.ip-club-invite p {
+  flex-basis: 100%;
+  font-size: var(--ip-fs-xs);
+}

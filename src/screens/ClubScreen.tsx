@@ -29,11 +29,12 @@ import {
   type ClubData,
   type ClubTeam,
 } from '../lib/clubApi';
+import { ClubStaffSection } from './ClubStaffSection';
 import '../theme/club.css';
 
 const errText = (e: unknown) => clubError(e) ?? friendlyError(e);
 
-type Tab = 'overview' | 'teams' | 'players' | 'transfers';
+type Tab = 'overview' | 'teams' | 'players' | 'transfers' | 'staff';
 
 interface ClubPlayer {
   id: string;
@@ -235,6 +236,7 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
           { id: 'teams', label: 'קבוצות' },
           { id: 'players', label: 'שחקנים' },
           { id: 'transfers', label: 'מעברים' },
+          ...(manage ? [{ id: 'staff' as const, label: 'צוות' }] : []),
         ]}
       />
 
@@ -336,6 +338,8 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
             )}
           </Card>
         </section>
+      ) : tab === 'staff' ? (
+        <ClubStaffSection club={club} data={data} />
       ) : (
         <section className="ip-stack">
           <SectionHeader title="היסטוריית מעברים" icon="arrow" />

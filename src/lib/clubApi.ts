@@ -80,6 +80,9 @@ export function clubError(e: unknown): string | null {
   if (msg.includes('player_assignments_shirt_idx')) return 'מספר החולצה הזה תפוס בקבוצת היעד.';
   if (msg.includes('not allowed') || msg.includes('only a club admin') || msg.includes('only the team admin')) return 'אין לך הרשאה לפעולה הזו.';
   if (msg.includes('clubs_verified_name_idx')) return 'כבר קיים מועדון מאומת בשם הזה.';
+  if (msg.includes('invalid or expired invite')) return 'קישור ההזמנה לא תקין, כבר נוצל או שפג תוקפו. בקשו קישור חדש ממנהל המועדון.';
+  if (msg.includes('only the club owner')) return 'רק בעלי המועדון יכולים להזמין מנהלי מועדון.';
+  if (msg.includes('not on the club staff')) return 'אפשר לתת הרשאות רק לאנשי צוות של המועדון.';
   return null;
 }
 
@@ -188,4 +191,114 @@ export async function transferPlayer(input: {
 export async function endAssignment(playerId: string, teamId: string, reason: string) {
   const { error } = await db().rpc('end_player_assignment', { p_player: playerId, p_team: teamId, p_reason: reason });
   if (error) throw error;
+}
+
+/* ------------------------------------------------------------ permissions */
+
+export type TeamRole = 'admin' | 'coach' | 'assistant_coach' | 'instructor' | 'team_manager' | 'parent';
+export type StaffTeamRole = Exclude<TeamRole, 'admin' | 'parent'>;
+
+export const teamRoleLabel: Record<TeamRole, string> = {
+  admin: 'מנהל/ת קבוצה',
+  coach: 'מאמן/ת',
+  assistant_coach: 'עוזר/ת מאמן',
+  instructor: 'מדריך/ה',
+  team_manager: 'מנהל/ת אדמיניסטרטיבי',
+  parent: 'הורה',
+};
+
+export const levelLabel: Record<number, string> = { 1: 'צפייה', 2: 'יצירה', 3: 'עריכה', 4: 'ניהול' };
+
+export interface Domain {
+  domain: string;
+  label: string;
+}
+
+export interface ClubPerson {
+  user_id: string;
+  full_name: string;
+  club_role: ClubRole | null;
+  team_roles: { team_id: string; role: TeamRole }[];
+}
+
+export interface Grant {
+  id: string;
+  user_id: string;
+  program_id: string | null;
+  team_id: string | null;
+  domain: string;
+  level: number;
+}
+
+export async function getDomains(): Promise<Domain[]> {
+  const { data, error } = await db().from('permission_domains').select('domain, label').order('sort');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getClubPeople(clubId: string): Promise<ClubPerson[]> {
+  const { data, error } = await db().rpc('club_people', { p_club: clubId });
+  if (error) throw error;
+  return (data ?? []) as ClubPerson[];
+}
+
+export async function getGrants(clubId: string): Promise<Grant[]> {
+  const { data, error } = await db()
+    .from('permission_grants')
+    .select('id, user_id, program_id, team_id, domain, level')
+    .eq('club_id', clubId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function setPermission(input: {
+  clubId: string;
+  userId: string;
+  domain: string;
+  level: number;
+  programId?: string | null;
+  teamId?: string | null;
+}) {
+  const { error } = await db().rpc('set_permission', {
+    p_club: input.clubId,
+    p_user: input.userId,
+    p_domain: input.domain,
+    p_level: input.level,
+    p_program: input.programId ?? null,
+    p_team: input.teamId ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function setTeamRole(teamId: string, userId: string, role: TeamRole) {
+  const { error } = await db().rpc('set_team_role', { p_team: teamId, p_user: userId, p_role: role });
+  if (error) throw error;
+}
+
+export async function createClubInvite(input: {
+  clubId: string;
+  clubRole: 'admin' | 'staff';
+  teamId?: string | null;
+  teamRole?: StaffTeamRole | null;
+  note?: string;
+}): Promise<string> {
+  const { data, error } = await db().rpc('create_club_invite', {
+    p_club: input.clubId,
+    p_club_role: input.clubRole,
+    p_team: input.teamId ?? null,
+    p_team_role: input.teamId ? input.teamRole ?? 'coach' : null,
+    p_note: input.note ?? '',
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function acceptClubInvite(code: string): Promise<string> {
+  const { data, error } = await db().rpc('accept_club_invite', { p_code: code });
+  if (error) throw error;
+  return data as string;
+}
+
+export function staffInviteLink(code: string) {
+  return `${window.location.origin}${window.location.pathname}#staff/${code}`;
 }

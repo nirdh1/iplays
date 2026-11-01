@@ -5,7 +5,10 @@
 import { supabase } from './supabase';
 
 export type Sport = 'football' | 'basketball' | 'other';
-export type Role = 'admin' | 'coach' | 'parent';
+export type Role = 'admin' | 'coach' | 'assistant_coach' | 'instructor' | 'team_manager' | 'parent';
+
+/** Team staff roles (everyone except parents). Exact access per domain is enforced in the database. */
+export const isStaffRole = (r: Role | undefined) => !!r && r !== 'parent';
 
 export interface Profile {
   id: string;
@@ -45,7 +48,14 @@ export interface Member {
 }
 
 export const sportLabel: Record<Sport, string> = { football: 'כדורגל', basketball: 'כדורסל', other: 'ענף אחר' };
-export const roleLabel: Record<Role, string> = { admin: 'מנהל/ת קבוצה', coach: 'מאמן/ת', parent: 'הורה' };
+export const roleLabel: Record<Role, string> = {
+  admin: 'מנהל/ת קבוצה',
+  coach: 'מאמן/ת',
+  assistant_coach: 'עוזר/ת מאמן',
+  instructor: 'מדריך/ה',
+  team_manager: 'מנהל/ת אדמיניסטרטיבי',
+  parent: 'הורה',
+};
 
 function db() {
   if (!supabase) throw new Error('backend not configured');
