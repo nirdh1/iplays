@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppHeader, BottomNav, ChildSwitcherSheet, type TabId } from './components/shell';
+import { NotificationsSheet, useUnread } from './components/NotificationsSheet';
 import { children, parent } from './data/demo';
 import { HomeScreen } from './screens/HomeScreen';
 import { CareerScreen } from './screens/CareerScreen';
@@ -147,6 +148,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
   const [param, setParam] = useState(initial.param);
   const [childId, setChildId] = useState(children.some((c) => c.id === initial.child) ? initial.child! : children[0].id);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const closeBell = useCallback(() => setBellOpen(false), []);
   const [sample, setSampleState] = useState(readSample);
   const setSample = useCallback((on: boolean) => {
     writeSample(on);
@@ -183,6 +186,13 @@ function MainApp({ joinError }: { joinError: string | null }) {
   };
 
   const openSwitcher = () => setSwitcherOpen(true);
+  const signedIn = !!auth.session;
+  const hasTeam = auth.teams.length > 0;
+  // Signed-in users see only their own data. The sample data shows when not
+  // signed in (demo from the login screen, or no backend), or when a user
+  // without a team asked for it; joining a real team ends it.
+  const demoMode = !signedIn || (!hasTeam && sample);
+  const { unread, refresh: refreshUnread } = useUnread(!demoMode);
   const closeSwitcher = useCallback(() => setSwitcherOpen(false), []);
 
   if (route === 'brand') {
@@ -195,12 +205,6 @@ function MainApp({ joinError }: { joinError: string | null }) {
     );
   }
 
-  const signedIn = !!auth.session;
-  const hasTeam = auth.teams.length > 0;
-  // Signed-in users see only their own data. The sample data shows when not
-  // signed in (demo from the login screen, or no backend), or when a user
-  // without a team asked for it; joining a real team ends it.
-  const demoMode = !signedIn || (!hasTeam && sample);
   const parentName = signedIn && auth.profile?.full_name ? auth.profile.full_name : `${parent.firstName} ${parent.lastName}`;
   // #coach/<teamId> opens a real team's board; #coach/<childId> opens the demo one.
   const coachTeam = route === 'coach' && signedIn ? auth.teams.find((t) => t.id === param) : undefined;
@@ -210,10 +214,11 @@ function MainApp({ joinError }: { joinError: string | null }) {
     <div className="ip-app">
       <AppHeader
         parentName={parentName}
-        unread={demoMode ? parent.unread : 0}
+        unread={demoMode ? parent.unread : unread}
         child={demoMode ? child : undefined}
         slot={!signedIn && auth.enabled ? <SignInPill onClick={() => auth.setDemo(false)} /> : !demoMode ? <RealChildPill /> : undefined}
         onOpenSwitcher={openSwitcher}
+        onOpenBell={() => setBellOpen(true)}
       />
       <main className="ip-main">
         {joinError && (
@@ -253,6 +258,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
       <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' ? 'family' : route} onChange={go} />
+      <NotificationsSheet open={bellOpen} onClose={closeBell} demo={demoMode ? child.notifications : undefined} onRead={refreshUnread} />
       <ChildSwitcherSheet open={demoMode && switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );
