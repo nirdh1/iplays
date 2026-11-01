@@ -41,6 +41,15 @@ Use a **separate project for iplays** (don't reuse a project that belongs to ano
   below; otherwise Supabase uses the Site URL). The app reads `token_hash` from the address and
   signs in, in any browser.
 
+  **Password (optional)**: parents can set a password in the Family tab (or the one-time popup
+  after sign-up) and then sign in with email + password on any other device. Keep **Email** provider
+  password sign-in enabled (the default). The app stores `has_password` in the user's metadata.
+
+  **Why a parent may be asked again** (each is a separate browser storage, so a session in one is not
+  in the other): opening the email link inside the Gmail/Outlook app's built-in browser; the iPhone
+  home-screen app vs Safari; `iplays.onrender.com` vs `iplays.vercel.app` (use one address, and list
+  both under Redirect URLs). A password avoids all three.
+
   **Stay signed in**: the app keeps the session on the device and renews it automatically, so a
   parent signs in once per device. Under **Authentication → Sessions** keep *Time-box user
   sessions* and *Inactivity timeout* off (0 / never).
