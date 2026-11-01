@@ -4,18 +4,30 @@ import { InitialsAvatar } from '../components/Avatar';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError, roleLabel, sportLabel } from '../lib/api';
 import { useEffect, useState } from 'react';
-import { joinError, myFollowRequests, myJoinRequests, reviewJoinRequest, type FollowRequest, type MyRequest } from '../lib/joinApi';
+import {
+  joinError,
+  myFollowRequests,
+  myJoinRequests,
+  pendingTeamClaims,
+  reviewJoinRequest,
+  reviewTeamClaim,
+  type FollowRequest,
+  type MyRequest,
+  type TeamClaim,
+} from '../lib/joinApi';
 
 /** Follow requests waiting for me (as the child's parent) and my own pending requests. */
 function RequestsSection() {
   const [follow, setFollow] = useState<FollowRequest[]>([]);
   const [mine, setMine] = useState<MyRequest[]>([]);
+  const [claims, setClaims] = useState<TeamClaim[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // Both lists need the search migration; before it they stay empty.
+  // The lists need their migrations; before them they stay empty.
   const load = () =>
-    Promise.all([myFollowRequests().catch(() => []), myJoinRequests().catch(() => [])]).then(([f, m]) => {
+    Promise.all([myFollowRequests().catch(() => []), myJoinRequests().catch(() => []), pendingTeamClaims().catch(() => [])]).then(([f, m, c]) => {
       setFollow(f);
       setMine(m.filter((r) => r.status === 'pending'));
+      setClaims(c);
     });
   useEffect(() => {
     void load();
@@ -25,9 +37,41 @@ function RequestsSection() {
       .then(load)
       .catch((e) => setError(joinError(e) ?? friendlyError(e)));
 
-  if (!follow.length && !mine.length) return null;
+  const reviewClaim = (id: string, ok: boolean) =>
+    reviewTeamClaim(id, ok)
+      .then(load)
+      .catch((e) => setError(joinError(e) ?? friendlyError(e)));
+
+  if (!follow.length && !mine.length && !claims.length) return null;
   return (
     <>
+      {claims.length > 0 && (
+        <section>
+          <SectionHeader title={`מאמנים שמבקשים לנהל קבוצה · ${claims.length}`} icon="whistle" />
+          <Card padded={false}>
+            {claims.map((r) => (
+              <div key={r.id} className="ip-member ip-request">
+                <InitialsAvatar name={r.requester || 'מאמן'} size={40} tone="navy" />
+                <span className="ip-list-row-text">
+                  <span className="ip-list-row-title">
+                    {r.requester || 'מאמן'} · {r.team_name}
+                  </span>
+                  <span className="ip-list-row-sub">{[r.club_name, r.message].filter(Boolean).join(' · ')}</span>
+                </span>
+                <span className="ip-find-actions">
+                  <Button variant="primary" size="sm" onClick={() => reviewClaim(r.id, true)}>
+                    אישור
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => reviewClaim(r.id, false)}>
+                    דחייה
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </Card>
+          {!follow.length && error && <p className="ip-error" role="alert">{error}</p>}
+        </section>
+      )}
       {follow.length > 0 && (
         <section>
           <SectionHeader title={`בקשות מעקב לאישורך · ${follow.length}`} icon="bell" />

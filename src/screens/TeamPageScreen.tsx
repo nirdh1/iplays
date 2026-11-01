@@ -18,6 +18,8 @@ import {
   joinError,
   markOnboarded,
   myJoinRequests,
+  myTeamClaim,
+  requestTeamClaim,
   PARENT_DECLARATION,
   programLabel,
   requestJoin,
@@ -37,7 +39,8 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<null | { relation: Relation; player?: RosterName }>(null);
   const [sent, setSent] = useState<string | null>(null);
-  const { refresh } = useAuth();
+  const { refresh, teams } = useAuth();
+  const [claim, setClaim] = useState<'none' | 'pending' | 'sheet'>('none');
 
   const load = useCallback(async () => {
     try {
@@ -45,6 +48,8 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
       setTeam(t);
       setRoster(r);
       setMine(m.filter((x) => x.team_id === teamId && x.status === 'pending'));
+      const c = await myTeamClaim(teamId).catch(() => null);
+      setClaim(c ? 'pending' : 'none');
     } catch (e) {
       setTeam(null);
       setError(joinError(e) ?? friendlyError(e));
@@ -179,12 +184,41 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
         </>
       )}
 
+      {!teams.some((t) => t.id === team.team_id && (t.role === 'admin' || t.role === 'coach')) && (
+        <Card className="ip-find-open">
+          {claim === 'pending' ? (
+            <p>
+              <Tag tone="warning" icon="clock">ממתין</Tag> ביקשת לנהל את הקבוצה כמאמן. מנהל המועדון או מנהל המערכת יאשרו.
+            </p>
+          ) : (
+            <>
+              <p>
+                <strong>את/ה המאמן של הקבוצה?</strong> בקשו לנהל אותה. אחרי אישור של המועדון (או של מנהל המערכת, אם אין מועדון) תקבלו את ניהול הקבוצה, וההורים שכבר הצטרפו יישארו.
+              </p>
+              <Button variant="secondary" icon="whistle" onClick={() => setClaim('sheet')}>
+                אני המאמן של הקבוצה
+              </Button>
+            </>
+          )}
+        </Card>
+      )}
+
       <section>
         <SectionHeader title="שליחת הקבוצה להורים אחרים" icon="chat" />
         <Card>
           <TeamLinkShare teamId={team.team_id} teamName={team.name} />
         </Card>
       </section>
+
+      <ClaimSheet
+        open={claim === 'sheet'}
+        teamName={team.name}
+        onClose={() => setClaim('none')}
+        onSend={async (message) => {
+          await requestTeamClaim(team.team_id, message);
+          setClaim('pending');
+        }}
+      />
 
       <RequestSheet
         open={sheet !== null}
@@ -308,6 +342,41 @@ export function RequestSheet({
         {relation === 'family' && <p className="ip-footnote">ההורה הרשום של הילד יקבל את הבקשה ויאשר אותה. עוקבים רואים את הילד ואת לוח הקבוצה, בלי לערוך ובלי לדווח היעדרות.</p>}
         <Err error={error} />
         <Button type="submit" variant="primary" block disabled={busy || (relation === 'parent' && !declared) || (isNew && !f.first.trim())}>
+          {busy ? 'שולחים…' : 'שליחת בקשה'}
+        </Button>
+      </form>
+    </BottomSheet>
+  );
+}
+
+function ClaimSheet({ open, teamName, onClose, onSend }: { open: boolean; teamName: string; onClose: () => void; onSend: (message: string) => Promise<void> }) {
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await onSend(message);
+      setMessage('');
+    } catch (err) {
+      setError(joinError(err) ?? friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="בקשה לנהל את הקבוצה">
+      <form className="ip-form ip-form--sheet" onSubmit={submit}>
+        <p className="ip-muted">{teamName}</p>
+        <Field label="פרטים למאשר (תפקיד, טלפון במועדון)">
+          <input id="claim-msg" className="ip-input" value={message} onChange={(e) => setMessage(e.target.value.slice(0, 300))} placeholder="לדוגמה: מאמן ראשי, עונה שנייה בקבוצה" />
+        </Field>
+        <Err error={error} />
+        <Button type="submit" variant="primary" block disabled={busy}>
           {busy ? 'שולחים…' : 'שליחת בקשה'}
         </Button>
       </form>
