@@ -302,3 +302,112 @@ export async function attendanceSummary(teamId: string, from: string, to: string
   if (error) throw error;
   return (data ?? []) as SummaryRow[];
 }
+
+/* ------------------------------------------------------------ live reporting
+ * Server side: supabase/migrations/20261101971000_match_events.sql
+ * Any team member reports goals / baskets as they happen; the live score is
+ * the sum of the reports. score_for / score_against stay the official result.
+ */
+
+export type Side = 'home' | 'away';
+
+export interface MatchEvent {
+  id: string;
+  side: Side;
+  points: number;
+  shirt_number: number | null;
+  player_id: string | null;
+  scorer_name: string | null;
+  minute: number | null;
+  created_at: string;
+  created_by: string | null;
+  reporter_name: string | null;
+}
+
+/** Reporting is open from 2 hours before kickoff to a day after (same window as the server). */
+export function matchReportable(m: Pick<Match, 'starts_at' | 'status'>, now = Date.now()): boolean {
+  const start = new Date(m.starts_at).getTime();
+  return m.status !== 'canceled' && now >= start - 2 * 3600_000 && now <= start + 24 * 3600_000;
+}
+
+/** "LIVE" in lists: from 15 minutes before kickoff until the match counts as over. */
+export function matchIsLive(m: Pick<Match, 'starts_at' | 'status' | 'time_confirmed'>, now = Date.now()): boolean {
+  if (m.status === 'canceled') return false;
+  if (m.time_confirmed === false) return false; // no kickoff time yet: don't claim it's on now
+  return now >= new Date(m.starts_at).getTime() - 15 * 60_000 && now <= matchEndsAt(m);
+}
+
+/** Our goals / their goals from a list of reports. */
+export function liveScore(events: Pick<MatchEvent, 'side' | 'points'>[], home: boolean) {
+  let h = 0;
+  let a = 0;
+  for (const e of events) {
+    if (e.side === 'home') h += e.points;
+    else a += e.points;
+  }
+  return { home: h, away: a, for: home ? h : a, against: home ? a : h };
+}
+
+const liveMissing = (e: { code?: string; message?: string }) =>
+  e.code === '42P01' || e.code === 'PGRST202' || e.code === 'PGRST205' || /match_events/.test(e.message ?? '');
+
+export async function getMatchEvents(matchId: string): Promise<MatchEvent[]> {
+  const { data, error } = await db().rpc('match_events_feed', { p_match: matchId });
+  if (error) {
+    if (liveMissing(error)) return []; // migration not run yet
+    throw error;
+  }
+  return (data ?? []) as MatchEvent[];
+}
+
+/** Live totals per match of one team (for lists), from the reports. */
+export async function getTeamLiveScores(teamId: string): Promise<Map<string, { home: number; away: number }>> {
+  const { data, error } = await db().from('match_events').select('match_id, side, points').eq('team_id', teamId).is('deleted_at', null);
+  const out = new Map<string, { home: number; away: number }>();
+  if (error) return out;
+  for (const r of (data ?? []) as { match_id: string; side: Side; points: number }[]) {
+    const cur = out.get(r.match_id) ?? { home: 0, away: 0 };
+    cur[r.side] += r.points;
+    out.set(r.match_id, cur);
+  }
+  return out;
+}
+
+export async function reportGoal(matchId: string, side: Side, shirt?: number | null, points = 1): Promise<string> {
+  const { data, error } = await db().rpc('report_match_goal', { p_match: matchId, p_side: side, p_shirt: shirt ?? null, p_points: points });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function setGoalScorer(eventId: string, shirt: number | null) {
+  const { error } = await db().rpc('set_match_goal_scorer', { p_event: eventId, p_shirt: shirt });
+  if (error) throw error;
+}
+
+export async function removeMatchEvent(eventId: string) {
+  const { error } = await db().rpc('remove_match_event', { p_event: eventId });
+  if (error) throw error;
+}
+
+/** Calls onChange whenever a report of this match is added, changed or removed (Supabase Realtime). */
+export function subscribeMatchEvents(matchId: string, onChange: () => void): () => void {
+  if (!supabase) return () => {};
+  const client = supabase;
+  const ch = client
+    .channel(`match-events-${matchId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_events', filter: `match_id=eq.${matchId}` }, () => onChange())
+    .subscribe();
+  return () => {
+    void client.removeChannel(ch);
+  };
+}
+
+export function liveError(e: unknown): string | null {
+  const msg = (e as { message?: string })?.message ?? String(e);
+  if (msg.includes('match not live')) return 'אפשר לדווח רק סביב מועד המשחק (משעתיים לפני ועד יום אחרי).';
+  if (msg.includes('match canceled')) return 'המשחק בוטל.';
+  if (msg.includes('too many reports')) return 'יותר מדי דיווחים למשחק הזה.';
+  if (msg.includes('report not found')) return 'הדיווח כבר הוסר.';
+  if (msg.includes('report_match_goal') || msg.includes('match_events')) return 'הדיווח בזמן אמת עוד לא הופעל בשרת (צריך להריץ את קובץ ה־SQL).';
+  return null;
+}

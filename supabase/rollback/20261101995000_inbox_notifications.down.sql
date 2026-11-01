@@ -1,4 +1,4 @@
--- Rollback of 20261101970000_inbox_notifications.sql.
+-- Rollback of 20261101995000_inbox_notifications.sql.
 -- Removes the triggers and functions. The added columns (read_at, ref_id,
 -- team_updates) are kept so no data is lost; the kind check is put back only
 -- if no row uses a new kind (otherwise it is left wide, with a notice).

@@ -2515,3 +2515,99 @@ select.ip-input {
   text-align: start;
   color: inherit;
 }
+
+/* ---------- Carpools (real data) ---------- */
+.ip-rides-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  color: var(--ip-blue-700);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: start;
+  cursor: pointer;
+}
+.ip-agenda-item {
+  display: flex;
+  flex-direction: column;
+}
+.ip-agenda-item .ip-rides-line {
+  padding: 0 var(--ip-s4) var(--ip-s2);
+  padding-inline-start: calc(var(--ip-s4) + 48px);
+}
+.ip-ride {
+  padding: var(--ip-s3);
+  border: 1px solid var(--ip-border);
+  border-radius: var(--ip-r-md, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+}
+.ip-ride .ip-carpool-head {
+  margin-bottom: 0;
+}
+.ip-ride .ip-seats {
+  margin: 0;
+}
+.ip-ride .ip-btn-row:empty {
+  display: none;
+}
+.ip-ride-pass,
+.ip-ride-needs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.ip-ride-pass li {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.ip-ride-kid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ip-ride-kid-name {
+  font-weight: 600;
+}
+.ip-ride-kid .ip-muted {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.ip-ride-offer {
+  padding: var(--ip-s3);
+  border-radius: var(--ip-r-md, 12px);
+  background: var(--ip-bg, #f4f7fb);
+}
+
+.ip-hero-admin {
+  color: var(--ip-lime);
+  margin-top: var(--ip-s2);
+}
+
+.ip-kind-picker {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+}
+.ip-kind-picker legend {
+  font-weight: 700;
+  margin-bottom: var(--ip-s2);
+}
+.ip-declare.is-off {
+  background: var(--ip-surface);
+  border: 1px solid var(--ip-border);
+}

@@ -1,7 +1,7 @@
 -- iplays — the bell in the header: a real in-app inbox.
 --
--- Run after 20261101960000_parent_trainings.sql.
--- Rollback: supabase/rollback/20261101970000_inbox_notifications.down.sql
+-- Run after 20261101990000_team_fund.sql.
+-- Rollback: supabase/rollback/20261101995000_inbox_notifications.down.sql
 -- Additive only: two columns on notification_outbox, one on notification_prefs,
 -- a wider "kind" list, a helper, triggers and one RPC. No data is changed or
 -- removed.
