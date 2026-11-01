@@ -42,10 +42,12 @@ echo "== IFA import tests"
 run supabase/tests/test_ifa.sql
 echo "== IFA games sync tests"
 run supabase/tests/test_ifa_games.sql
-echo "== family members tests"
+echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
+run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
 echo "== rollback family members"
 run supabase/rollback/20261101996000_family_members.down.sql
+run supabase/rollback/20261101995000_inbox_notifications.down.sql
 echo "== rollback team fund, match events, rides"
 run supabase/rollback/20261101990000_team_fund.down.sql
 run supabase/rollback/20261101971000_match_events.down.sql
