@@ -43,6 +43,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
   const [requests, setRequests] = useState<PendingRequest[]>([]);
   const [details, setDetails] = useState<Player | null>(null);
   const [claim, setClaim] = useState<Player | null>(null);
+  const [showRoster, setShowRoster] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -73,6 +74,8 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
   }
 
   const mineCount = roster?.filter((p) => p.guardians.includes(me)).length ?? 0;
+  // A parent whose child is already linked sees their child first; the full roster stays folded.
+  const collapse = !staff && mineCount > 0;
 
   return (
     <div className="ip-stack">
@@ -148,7 +151,36 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
       )}
 
       <section>
-        <SectionHeader title={roster ? `סגל · ${roster.length} שחקנים` : 'סגל'} icon="team" />
+        {collapse && (
+          <>
+            <SectionHeader title={mineCount > 1 ? 'הילדים שלי' : 'הילד שלי'} icon="user" />
+            <Card padded={false}>
+              <ul className="ip-roster">
+                {roster!.filter((p) => p.guardians.includes(me)).map((p) => (
+                  <li key={p.id} className="is-mine">
+                    <span className="ip-roster-no">{p.shirt_number ?? '–'}</span>
+                    <InitialsAvatar name={`${p.first_name} ${p.last_name}`} size={40} tone="lime" />
+                    <span className="ip-list-row-text">
+                      <span className="ip-list-row-title">
+                        {p.first_name} {p.last_name}
+                      </span>
+                      <span className="ip-list-row-sub">{[p.position, p.birth_year && `שנתון ${p.birth_year}`].filter(Boolean).join(' · ') || ' '}</span>
+                    </span>
+                    <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
+                      חולצה וציוד
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            <button type="button" className="ip-link" onClick={() => setShowRoster((v) => !v)} aria-expanded={showRoster}>
+              {showRoster ? 'הסתרת הסגל' : `הסגל המלא · ${roster!.length} שחקנים`}
+            </button>
+          </>
+        )}
+        {(!collapse || showRoster) && (
+        <>
+        {!collapse && <SectionHeader title={roster ? `סגל · ${roster.length} שחקנים` : 'סגל'} icon="team" />}
         <Card padded={false}>
           {roster === null ? (
             <p className="ip-muted ip-pad">טוען…</p>
@@ -183,6 +215,8 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
             </ul>
           )}
         </Card>
+        </>
+        )}
         <div className="ip-btn-row">
           {staff && (
             <Button variant="primary" icon="plus" onClick={() => setSheet('player')}>

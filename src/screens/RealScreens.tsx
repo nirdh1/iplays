@@ -117,6 +117,23 @@ function TeamsList({ teams }: { teams: MyTeam[] }) {
   );
 }
 
+/** Home with one child: the child and their team, no lists. */
+function ChildHero({ k }: { k: Player & { team: MyTeam } }) {
+  const name = `${k.first_name} ${k.last_name}`.trim();
+  return (
+    <Card tone="navy" className="ip-team-hero">
+      <button type="button" className="ip-team-hero-id ip-child-hero" onClick={() => goTeam(k.team.id)}>
+        <InitialsAvatar name={name} size={56} tone="lime" />
+        <div>
+          <h1>{name}</h1>
+          <p>{k.team.name}</p>
+          <p className="ip-on-navy-muted">{[k.team.league, k.birth_year && `שנתון ${k.birth_year}`, k.shirt_number != null && `חולצה ${k.shirt_number}`].filter(Boolean).join(' · ')}</p>
+        </div>
+      </button>
+    </Card>
+  );
+}
+
 export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
   const { profile, teams } = useAuth();
   const kids = useMyKids();
@@ -129,8 +146,9 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
         <NoTeam onShowSample={onShowSample} />
       ) : (
         <>
+          {kids && kids.length === 1 && <ChildHero k={kids[0]} />}
           <NextUp teams={teams} />
-          {kids && kids.length > 0 && (
+          {kids && kids.length > 1 && (
             <section>
               <SectionHeader title="הילדים שלי" icon="user" />
               <Card padded={false}>
@@ -148,10 +166,22 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
               </Card>
             </section>
           )}
-          <section>
-            <SectionHeader title="הקבוצות שלי" icon="team" />
-            <TeamsList teams={teams} />
-          </section>
+          {(!kids || teams.some((t) => !kids.some((k) => k.team.id === t.id))) && (
+            <section>
+              <SectionHeader title="הקבוצות שלי" icon="team" />
+              <TeamsList teams={kids ? teams.filter((t) => !kids.some((k) => k.team.id === t.id)) : teams} />
+            </section>
+          )}
+          {kids && kids.length === 0 && (
+            <Card>
+              <p className="ip-muted">עוד לא סימנת את הילד שלך בקבוצה.</p>
+              <div className="ip-btn-row">
+                <Button variant="primary" icon="user" onClick={() => goTeam(teams[0].id)}>
+                  סימון הילד שלי
+                </Button>
+              </div>
+            </Card>
+          )}
         </>
       )}
     </div>

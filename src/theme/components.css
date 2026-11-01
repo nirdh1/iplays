@@ -2440,3 +2440,9 @@ select.ip-input {
     animation: none;
   }
 }
+
+.ip-child-hero {
+  width: 100%;
+  text-align: start;
+  color: inherit;
+}
