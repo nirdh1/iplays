@@ -2,7 +2,7 @@
  * Player career: stats, monthly trend and athletic progress, all computed on
  * the server from real data (matches, lineups, attendance, live goals,
  * coach assessments, fitness tests).
- * Server side: supabase/migrations/20261101980000_player_career.sql
+ * Server side: supabase/migrations/20261101985000_player_career.sql
  */
 import { supabase } from './supabase';
 import type { Sport } from './api';

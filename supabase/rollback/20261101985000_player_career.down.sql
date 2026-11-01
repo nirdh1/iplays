@@ -1,4 +1,4 @@
--- Rollback for 20261101980000_player_career.sql.
+-- Rollback for 20261101985000_player_career.sql.
 -- Removes the career functions and the read policies. The tables and their
 -- data (assessments, fitness tests) are kept; running the migration again
 -- picks them up.

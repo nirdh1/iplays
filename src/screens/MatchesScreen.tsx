@@ -20,7 +20,9 @@ import {
   eventAttendance,
   getLineups,
   getMatches,
+  getTeamLiveScores,
   getVenueLocations,
+  matchIsLive,
   matchEndsAt,
   matchError,
   matchTimeLabel,
@@ -42,13 +44,16 @@ import {
 } from '../lib/matchApi';
 import { slotLabel, sportProfile, type SportProfile } from '../lib/sports';
 import { AttendanceSheet } from './AttendanceSheet';
+import { LiveMatch } from './LiveMatch';
 import '../theme/club.css';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' });
 const errText = (e: unknown) => matchError(e) ?? friendlyError(e);
 
-export function MatchesScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
+type LiveTotals = Map<string, { home: number; away: number }>;
+
+export function MatchesScreen({ teamId, matchId, onBack }: { teamId: string; matchId?: string; onBack: () => void }) {
   const { session, teams } = useAuth();
   const team = teams.find((t) => t.id === teamId);
   const staff = isStaffRole(team?.role);
@@ -59,14 +64,16 @@ export function MatchesScreen({ teamId, onBack }: { teamId: string; onBack: () =
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [roster, setRoster] = useState<Player[]>([]);
   const [open, setOpen] = useState<Match | null>(null);
+  const [liveTotals, setLiveTotals] = useState<LiveTotals>(new Map());
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [m, r] = await Promise.all([getMatches(teamId), getRoster(teamId)]);
+      const [m, r, lt] = await Promise.all([getMatches(teamId), getRoster(teamId), getTeamLiveScores(teamId)]);
       setMatches(m);
       setRoster(r);
+      setLiveTotals(lt);
       setOpen((cur) => (cur ? m.find((x) => x.id === cur.id) ?? null : null));
     } catch (e) {
       setMatches([]);
@@ -77,6 +84,11 @@ export function MatchesScreen({ teamId, onBack }: { teamId: string; onBack: () =
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Deep link #matches/<team>/<match> (e.g. the LIVE card on the home screen).
+  useEffect(() => {
+    if (matchId && matches) setOpen((cur) => cur ?? matches.find((x) => x.id === matchId) ?? null);
+  }, [matchId, matches]);
 
   if (!team) {
     return (
@@ -91,11 +103,16 @@ export function MatchesScreen({ teamId, onBack }: { teamId: string; onBack: () =
     return (
       <MatchDetail
         match={open}
+        teamName={team.name}
         profile={profile}
         staff={staff}
         roster={roster}
         me={me}
-        onBack={() => setOpen(null)}
+        onBack={() => {
+          setOpen(null);
+          if (matchId) window.location.hash = `matches/${teamId}`;
+          void load();
+        }}
         onChanged={load}
       />
     );
@@ -141,7 +158,7 @@ export function MatchesScreen({ teamId, onBack }: { teamId: string; onBack: () =
             ) : (
               <div className="ip-stack ip-stack--tight">
                 {upcoming.map((m) => (
-                  <MatchCard key={m.id} m={m} profile={profile} onOpen={() => setOpen(m)} />
+                  <MatchCard key={m.id} m={m} profile={profile} live={liveTotals.get(m.id)} onOpen={() => setOpen(m)} />
                 ))}
               </div>
             )}
@@ -151,7 +168,7 @@ export function MatchesScreen({ teamId, onBack }: { teamId: string; onBack: () =
               <SectionHeader title="תוצאות" icon="trophy" />
               <div className="ip-stack ip-stack--tight">
                 {past.map((m) => (
-                  <MatchCard key={m.id} m={m} profile={profile} onOpen={() => setOpen(m)} />
+                  <MatchCard key={m.id} m={m} profile={profile} live={liveTotals.get(m.id)} onOpen={() => setOpen(m)} />
                 ))}
               </div>
             </section>
@@ -197,7 +214,8 @@ function Score({ m }: { m: Match }) {
   );
 }
 
-function MatchCard({ m, profile, onOpen }: { m: Match; profile: SportProfile; onOpen: () => void }) {
+function MatchCard({ m, profile, live, onOpen }: { m: Match; profile: SportProfile; live?: { home: number; away: number }; onOpen: () => void }) {
+  const onNow = matchIsLive(m);
   return (
     <button type="button" className={`ip-card ip-card--padded ip-match-card ${m.status === 'canceled' ? 'is-canceled' : ''}`} onClick={onOpen}>
       <div className="ip-carpool-head">
@@ -206,6 +224,18 @@ function MatchCard({ m, profile, onOpen }: { m: Match; profile: SportProfile; on
         </strong>
         {m.status === 'canceled' ? (
           <Tag tone="warning">בוטל</Tag>
+        ) : onNow ? (
+          <Tag tone="live" icon="live">
+            LIVE
+            {live && (
+              <bdi dir="ltr">
+                {' '}
+                {m.home ? live.home : live.away} : {m.home ? live.away : live.home}
+              </bdi>
+            )}
+          </Tag>
+        ) : m.score_for == null && live ? (
+          <Score m={{ ...m, score_for: m.home ? live.home : live.away, score_against: m.home ? live.away : live.home }} />
         ) : m.score_for != null ? (
           <Score m={m} />
         ) : (
@@ -298,6 +328,7 @@ function VenueCard({ match }: { match: Match }) {
 
 function MatchDetail({
   match,
+  teamName,
   profile,
   staff,
   roster,
@@ -306,6 +337,7 @@ function MatchDetail({
   onChanged,
 }: {
   match: Match;
+  teamName: string;
   profile: SportProfile;
   staff: boolean;
   roster: Player[];
@@ -371,6 +403,8 @@ function MatchDetail({
         </div>
       </Card>
       {error && <p className="ip-error" role="alert">{error}</p>}
+
+      {profile.hasMatches && <LiveMatch match={match} teamName={teamName} profile={profile} roster={roster} me={me} />}
 
       <VenueCard match={match} />
 

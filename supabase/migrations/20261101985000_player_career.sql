@@ -1,7 +1,7 @@
 -- iplays — player career: stats, monthly trend and athletic progress.
 --
 -- Run after 20261101971000_match_events.sql (live goal reporting).
--- Rollback: supabase/rollback/20261101980000_player_career.down.sql
+-- Rollback: supabase/rollback/20261101985000_player_career.down.sql
 -- Additive only: two new tables, one small lookup table, RPCs. No existing
 -- table or row changes.
 --
