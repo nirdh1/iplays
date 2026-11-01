@@ -27,6 +27,7 @@ import { Icon } from './components/Icon';
 import { clearPendingInvite, readFamilyInvite, readPendingInvite, saveFamilyInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
+import { startPresence } from './lib/adminStats';
 
 type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'fund' | 'costs';
 const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'find', 't', 'matches', 'ifa', 'admin', 'fund', 'costs'];
@@ -91,6 +92,9 @@ export function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+  // "Online now" in the Super Admin panel: a heartbeat while the app is open.
+  const userId = auth.session?.user.id;
+  useEffect(() => (userId && !auth.demo ? startPresence() : undefined), [userId, auth.demo]);
   // Sign-up is once: a name, then (only the first time) a team step. Someone
   // who opened a shared team page or the search, or already sent a request,
   // is not sent back to the team step.
