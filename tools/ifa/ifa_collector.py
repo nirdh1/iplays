@@ -23,7 +23,7 @@ def load_saved(path):
     # A page the owner saved from their own browser (Ctrl+S). No network access.
     return BeautifulSoup(Path(path).read_text(encoding='utf-8',errors='replace'),'html.parser')
 
-def roster_players(soup):
+def roster_players(soup,team_id=None,season_id=None):
     # Players only: links inside #teamPlayers (staff are in #teamStaff and are skipped).
     box=soup.select_one('#teamPlayers')
     if box is None:return None
@@ -33,8 +33,11 @@ def roster_players(soup):
         pid=parse_qs(urlparse(url).query).get('player_id',[None])[0]
         if not pid or pid in seen:continue
         seen.add(pid)
-        t=a.select_one('.text')
-        out.append({'ifa_player_id':pid,'name':clean(t.get_text(' ',strip=True)) if t else clean(a.get_text(' ',strip=True)),'profile_url':url})
+        t=a.select_one('.text');img=a.select_one('img')
+        name=clean(t.get_text(' ',strip=True)) if t else (clean(img.get('alt','')) if img else clean(a.get_text(' ',strip=True)))
+        if not name:continue
+        out.append({'source':'ifa','ifa_player_id':pid,'ifa_team_id':team_id,'ifa_season_id':season_id,'name':name,'profile_url':url,
+                    'image_url':urljoin(BASE,img['src']) if img and img.get('src') else None})
     return out
 
 def discover(soup,source):
@@ -106,7 +109,7 @@ def main():
     roster=section(pages['roster'],r'סגל שחקנים') if 'roster' in pages else []
     players=None
     for name in ('roster','team'):
-        if name in pages and players is None:players=roster_players(pages[name])
+        if name in pages and players is None:players=roster_players(pages[name],args.team,args.season)
     if players is None and pages:errors['players']='#teamPlayers not found in the saved pages; inspect roster.html'
     # Only treat extracted names as candidates until verified against saved HTML.
     result={
@@ -122,7 +125,9 @@ def main():
                'Game tables are raw rows, not normalized fixtures.',
                'Discovery covers links on the fetched pages, not every team or league in Israel.']
     }
+    if players:
+        (out/'players.json').write_text(json.dumps(players,ensure_ascii=False,indent=2),encoding='utf-8')
     (out/'result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
-    print(json.dumps({'output':str(out/'result.json'),'links':len(uniq),'roster_candidates':len(roster),'game_tables':len(result['games_table_rows']),'errors':errors},ensure_ascii=False,indent=2))
+    print(json.dumps({'output':str(out/'result.json'),'players':len(players or []),'player_names':[p['name'] for p in (players or [])],'links':len(uniq),'roster_candidates':len(roster),'game_tables':len(result['games_table_rows']),'errors':errors},ensure_ascii=False,indent=2))
 
 if __name__=='__main__':main()
