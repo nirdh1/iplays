@@ -21,6 +21,7 @@ run supabase/migrations/20261101800000_ifa_import.sql
 run supabase/migrations/20261101900000_ifa_games_sync.sql
 run supabase/migrations/20261101950000_join_no_staff_parent.sql
 run supabase/migrations/20261101960000_parent_trainings.sql
+run supabase/migrations/20261101980000_account_types.sql
 echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
 echo "== M3 tests"
@@ -37,6 +38,11 @@ echo "== IFA import tests"
 run supabase/tests/test_ifa.sql
 echo "== IFA games sync tests"
 run supabase/tests/test_ifa_games.sql
+echo "== account types tests (re-apply: backfill club staff created by the tests above)"
+run supabase/migrations/20261101980000_account_types.sql
+run supabase/tests/test_account_types.sql
+echo "== rollback account types"
+run supabase/rollback/20261101980000_account_types.down.sql
 echo "== rollback parent trainings"
 run supabase/rollback/20261101960000_parent_trainings.down.sql
 echo "== rollback join no-staff parent"
