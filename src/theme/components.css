@@ -2412,6 +2412,8 @@ select.ip-input {
 }
 .ip-next-event-body strong {
   font-size: var(--ip-fs-h, 1.1rem);
+}
+
 @keyframes ip-a2hs-in {
   from {
     opacity: 0;
