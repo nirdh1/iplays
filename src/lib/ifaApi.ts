@@ -76,6 +76,8 @@ export function parseRosterHtml(html: string): ParsedRoster {
       problems.push(`שחקן ${id} בלי שם.`);
       continue;
     }
+    // the IFA site masks some children's names ("*****"): not imported
+    if (!/[A-Za-z\u0590-\u05FF]/.test(name)) continue;
     players.push({ ifa_player_id: id, name, profile_url: new URL(href, BASE).toString() });
   }
 

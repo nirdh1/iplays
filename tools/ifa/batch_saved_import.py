@@ -22,6 +22,14 @@ from urllib.parse import parse_qs, urlparse
 
 from ifa_collector import load_saved, roster_players
 
+# The IFA site shows some children's names masked ("*****"). Such a name is not
+# imported: no letter (Hebrew or Latin) means no real name to show.
+HAS_LETTER = re.compile(r'[A-Za-z\u0590-\u05FF]')
+
+
+def is_masked(name):
+    return not HAS_LETTER.search(name or '')
+
 
 def team_name(soup):
     heading = soup.select_one('h1')
@@ -34,7 +42,7 @@ def team_name(soup):
 
 def validate_roster(soup, team_id, season, source_url, fallback_soup=None):
     """Parsed roster page -> import_ifa_team payload, or ValueError. Shared with ifa_agent.py."""
-    players = roster_players(soup, team_id, season)
+    players = [p for p in roster_players(soup, team_id, season) if not is_masked(p['name'])]
     if not players:
         raise ValueError('no verified #teamPlayers entries; refusing empty import')
     name = team_name(soup)
