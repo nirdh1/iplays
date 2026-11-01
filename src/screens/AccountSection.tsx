@@ -2,7 +2,8 @@
 import { Button, Card, ListRow, SectionHeader, Tag } from '../components/ui';
 import { InitialsAvatar } from '../components/Avatar';
 import { useAuth } from '../auth/AuthContext';
-import { friendlyError, roleLabel, sportLabel } from '../lib/api';
+import { friendlyError, roleLabel, sportLabel, updateMyAccountTypes, type AccountType } from '../lib/api';
+import { AccountTypePicker } from './OnboardingScreen';
 import { useEffect, useState } from 'react';
 import {
   joinError,
@@ -198,6 +199,16 @@ export function AccountSection() {
   useEffect(() => {
     if (auth.session) void isPlatformAdmin().then(setSuperAdmin);
   }, [auth.session]);
+  const kinds: AccountType[] = auth.profile?.account_types?.length ? auth.profile.account_types : ['parent'];
+  const [kindError, setKindError] = useState<string | null>(null);
+  const toggleKind = (k: AccountType) => {
+    const next = kinds.includes(k) ? kinds.filter((x) => x !== k) : [...kinds, k];
+    if (!next.length || !auth.session) return;
+    setKindError(null);
+    updateMyAccountTypes(auth.session.user.id, next)
+      .then(() => auth.refresh())
+      .catch(() => setKindError('לא נשמר. ייתכן שעדיין לא הורץ עדכון השרת (account_types).'));
+  };
 
   if (!auth.enabled) {
     return (
@@ -267,8 +278,17 @@ export function AccountSection() {
         </Card>
       </section>
       <section>
-        <SectionHeader title="מועדון" icon="shield" />
+        <SectionHeader title="סוג החשבון" icon="user" />
+        <Card>
+          <AccountTypePicker value={kinds} onToggle={toggleKind} />
+          {kindError && <p className="ip-error" role="alert">{kindError}</p>}
+        </Card>
+      </section>
+      {(kinds.includes('club') || superAdmin) && (
+      <section>
+        <SectionHeader title={kinds.includes('club') ? 'מועדון' : 'ניהול'} icon="shield" />
         <Card padded={false}>
+          {kinds.includes('club') && (
           <ListRow
             icon="shield"
             iconTone="navy"
@@ -276,6 +296,7 @@ export function AccountSection() {
             subtitle="קבוצות ליגה ואקדמיה, שחקנים ומעברים"
             onClick={() => (window.location.hash = 'club')}
           />
+          )}
           {superAdmin && (
             <ListRow
               icon="shield"
@@ -287,6 +308,7 @@ export function AccountSection() {
           )}
         </Card>
       </section>
+      )}
     </>
   );
 }

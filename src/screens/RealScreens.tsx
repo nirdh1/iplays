@@ -185,12 +185,26 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
   const { profile, teams } = useAuth();
   const kids = useMyKids();
   const first = profile?.full_name?.split(' ')[0];
+  const isClub = !!profile?.account_types?.includes('club');
+  const isParent = !profile?.account_types?.length || profile.account_types.includes('parent');
   return (
     <div className="ip-stack">
       <ScreenTitle title={first ? `שלום ${first}` : 'שלום'} subtitle={teams.length ? 'הקבוצות והילדים שלך' : undefined} />
       <RequestsSection />
+      {isClub && (
+        <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = 'club')}>
+          <span className="ip-icon-tile ip-icon-tile--navy">
+            <Icon name="shield" size={20} />
+          </span>
+          <span className="ip-list-row-text">
+            <span className="ip-list-row-title">ניהול מועדון</span>
+            <span className="ip-list-row-sub">קבוצות ליגה ואקדמיה, צוות, שחקנים ומעברים</span>
+          </span>
+          <Icon name="chevron" size={18} className="ip-muted" />
+        </button>
+      )}
       {!teams.length ? (
-        <NoTeam onShowSample={onShowSample} />
+        isParent ? <NoTeam onShowSample={onShowSample} /> : null
       ) : (
         <>
           {kids && kids.length === 1 && <ChildHero k={kids[0]} />}

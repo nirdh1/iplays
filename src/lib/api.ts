@@ -10,11 +10,15 @@ export type Role = 'admin' | 'coach' | 'assistant_coach' | 'instructor' | 'team_
 /** Team staff roles (everyone except parents). Exact access per domain is enforced in the database. */
 export const isStaffRole = (r: Role | undefined) => !!r && r !== 'parent';
 
+export type AccountType = 'parent' | 'club';
+
 export interface Profile {
   id: string;
   full_name: string;
   phone: string | null;
   email: string | null;
+  /** what the user uses the app for; ['parent'] before the account-types migration */
+  account_types: AccountType[];
 }
 
 export interface Team {
@@ -75,9 +79,17 @@ export function friendlyError(e: unknown): string {
 }
 
 export async function getMyProfile(userId: string): Promise<Profile | null> {
+  const withTypes = await db().from('profiles').select('id, full_name, phone, email, account_types').eq('id', userId).maybeSingle();
+  if (!withTypes.error) return withTypes.data as Profile | null;
+  // before 20261101980000_account_types.sql the column doesn't exist
   const { data, error } = await db().from('profiles').select('id, full_name, phone, email').eq('id', userId).maybeSingle();
   if (error) throw error;
-  return data;
+  return data ? { ...data, account_types: ['parent'] } : null;
+}
+
+export async function updateMyAccountTypes(userId: string, types: AccountType[]) {
+  const { error } = await db().from('profiles').update({ account_types: types }).eq('id', userId);
+  if (error) throw error;
 }
 
 export async function updateMyName(userId: string, fullName: string) {

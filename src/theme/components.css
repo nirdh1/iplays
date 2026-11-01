@@ -2525,3 +2525,20 @@ select.ip-input {
   color: var(--ip-lime);
   margin-top: var(--ip-s2);
 }
+
+.ip-kind-picker {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+}
+.ip-kind-picker legend {
+  font-weight: 700;
+  margin-bottom: var(--ip-s2);
+}
+.ip-declare.is-off {
+  background: var(--ip-surface);
+  border: 1px solid var(--ip-border);
+}
