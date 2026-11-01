@@ -8,7 +8,7 @@ import { Err, Field } from '../components/form';
 import { Logo } from '../components/Logo';
 import { Icon } from '../components/Icon';
 import { Button, Card } from '../components/ui';
-import { addMyChild, claimPlayer, createTeam, friendlyError, getRoster, joinTeam, sportLabel, updateMyName, type Player, type Sport } from '../lib/api';
+import { addMyChild, claimPlayer, createTeam, friendlyError, getRoster, joinTeam, sportLabel, updateMyAccountTypes, updateMyName, type AccountType, type Player, type Sport } from '../lib/api';
 import { clearPendingInvite, readPendingInvite, useAuth } from '../auth/AuthContext';
 import { InviteShare } from './MyTeamScreen';
 import { joinError, markOnboarded, PARENT_DECLARATION, setShirtNumber } from '../lib/joinApi';
@@ -22,6 +22,9 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
   const pending = readPendingInvite();
   const [step, setStep] = useState<Step>(!profile?.full_name ? 'name' : teams.length ? 'child' : pending ? 'join' : 'choose');
   const [name, setName] = useState(profile?.full_name ?? '');
+  const [kinds, setKinds] = useState<AccountType[]>(profile?.account_types?.length ? profile.account_types : ['parent']);
+  const toggleKind = (k: AccountType) =>
+    setKinds((cur) => (cur.includes(k) ? (cur.length > 1 ? cur.filter((x) => x !== k) : cur) : [...cur, k]));
   const [code, setCode] = useState(pending ?? '');
   const [teamId, setTeamId] = useState<string | null>(teams[0]?.id ?? null);
   const [invite, setInvite] = useState<string | null>(null);
@@ -72,6 +75,16 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
     e.preventDefault();
     run(async () => {
       await updateMyName(userId, name);
+      // before the account-types migration the column is missing; the choice then simply isn't saved
+      await updateMyAccountTypes(userId, kinds).catch(() => undefined);
+      if (!kinds.includes('parent') && !pending) {
+        // club only: no child / team step
+        markOnboarded();
+        await refresh();
+        window.location.hash = 'club';
+        onDone();
+        return;
+      }
       if (skipTeamStep && !teams.length && !pending) {
         await refresh();
         onDone();
@@ -151,6 +164,7 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
           <Field label="שם מלא">
             <input id="ob-name" className="ip-input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="לדוגמה: רונית לוי" required />
           </Field>
+          <AccountTypePicker value={kinds} onToggle={toggleKind} />
           <Err error={error} />
           <Button type="submit" variant="primary" block disabled={busy || name.trim().length < 2}>
             המשך
@@ -353,5 +367,28 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
         </p>
       </Card>
     </div>
+  );
+}
+
+/** "I'm here as": parent of a player and / or club (multi-select, at least one). */
+export function AccountTypePicker({ value, onToggle }: { value: AccountType[]; onToggle: (k: AccountType) => void }) {
+  const opts: { id: AccountType; title: string; sub: string }[] = [
+    { id: 'parent', title: 'הורה לשחקן', sub: 'הילד שלי, אימונים, משחקים והודעות' },
+    { id: 'club', title: 'מועדון', sub: 'ניהול מועדון, קבוצות וצוות' },
+  ];
+  return (
+    <fieldset className="ip-kind-picker">
+      <legend>אני משתמש/ת באפליקציה בתור (אפשר לבחור את שניהם)</legend>
+      {opts.map((o) => (
+        <label key={o.id} className={`ip-declare ${value.includes(o.id) ? '' : 'is-off'}`}>
+          <input type="checkbox" checked={value.includes(o.id)} onChange={() => onToggle(o.id)} />
+          <span>
+            <strong>{o.title}</strong>
+            <br />
+            <span className="ip-muted">{o.sub}</span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
   );
 }

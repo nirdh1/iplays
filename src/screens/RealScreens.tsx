@@ -15,6 +15,7 @@ import { competitionLabel, getMatches, matchEndsAt, matchIsLive, matchTimeLabel,
 import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
 import { AccountSection, RequestsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
+import { isPlatformAdmin } from '../lib/ifaApi';
 import { sportProfile } from '../lib/sports';
 import { getRidesSummary, summaryLabel, type RideSummary } from '../lib/rideApi';
 import { RidesSheet, type RideEvent } from './RidesSheet';
@@ -151,6 +152,7 @@ function TeamShortcuts({ team, showName }: { team: MyTeam; showName?: boolean })
 /** Home with one child: the child and their team, no lists. */
 function ChildHero({ k }: { k: Player & { team: MyTeam } }) {
   const name = `${k.first_name} ${k.last_name}`.trim();
+  const superAdmin = useSuperAdmin();
   return (
     <Card tone="navy" className="ip-team-hero">
       <button type="button" className="ip-team-hero-id ip-child-hero" onClick={() => goTeam(k.team.id)}>
@@ -161,20 +163,48 @@ function ChildHero({ k }: { k: Player & { team: MyTeam } }) {
           <p className="ip-on-navy-muted">{[k.team.league, k.birth_year && `שנתון ${k.birth_year}`, k.shirt_number != null && `חולצה ${k.shirt_number}`].filter(Boolean).join(' · ')}</p>
         </div>
       </button>
+      {superAdmin && (
+        <button type="button" className="ip-link ip-hero-admin" onClick={() => (window.location.hash = 'admin')}>
+          <Icon name="shield" size={16} /> פאנל ניהול על
+        </button>
+      )}
     </Card>
   );
+}
+
+/** Platform admin (Super Admin); false for everyone else and while loading. */
+function useSuperAdmin() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    void isPlatformAdmin().then(setOn);
+  }, []);
+  return on;
 }
 
 export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
   const { profile, teams } = useAuth();
   const kids = useMyKids();
   const first = profile?.full_name?.split(' ')[0];
+  const isClub = !!profile?.account_types?.includes('club');
+  const isParent = !profile?.account_types?.length || profile.account_types.includes('parent');
   return (
     <div className="ip-stack">
       <ScreenTitle title={first ? `שלום ${first}` : 'שלום'} subtitle={teams.length ? 'הקבוצות והילדים שלך' : undefined} />
       <RequestsSection />
+      {isClub && (
+        <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = 'club')}>
+          <span className="ip-icon-tile ip-icon-tile--navy">
+            <Icon name="shield" size={20} />
+          </span>
+          <span className="ip-list-row-text">
+            <span className="ip-list-row-title">ניהול מועדון</span>
+            <span className="ip-list-row-sub">קבוצות ליגה ואקדמיה, צוות, שחקנים ומעברים</span>
+          </span>
+          <Icon name="chevron" size={18} className="ip-muted" />
+        </button>
+      )}
       {!teams.length ? (
-        <NoTeam onShowSample={onShowSample} />
+        isParent ? <NoTeam onShowSample={onShowSample} /> : null
       ) : (
         <>
           {kids && kids.length === 1 && <ChildHero k={kids[0]} />}
