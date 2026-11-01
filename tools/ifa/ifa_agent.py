@@ -23,12 +23,18 @@ Run:
   .venv/bin/python tools/ifa/ifa_agent.py            # one pass, then exit
   .venv/bin/python tools/ifa/ifa_agent.py --headed   # show the browser window
   .venv/bin/python tools/ifa/ifa_agent.py --check 7491   # load one page, print, send nothing
+  .venv/bin/python tools/ifa/ifa_agent.py --from-files tools/ifa/saved   # no network: answer from
+      authorized-source JSON (<team_id>.json) or saved pages (<team_id>/roster.html)
+
+Status 2026-11-01: headless loads get a Cloudflare block page, so live fetching is paused
+until the IFA grants access (see README). Do not switch to --headed to get past a block.
 
 A launchd example (every 5 minutes while the Mac is awake) is in tools/ifa/README.md.
 """
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -94,7 +100,11 @@ def fetch_roster(page, team_id, season):
     title = page.title()
     head = page.content()[:20000]
     if status in BLOCK_STATUS or any(m.lower() in (title + head).lower() for m in CHALLENGE_MARKS):
-        raise Blocked(f'blocked or challenge page (HTTP {status}, title {title!r}); stopped, not retried')
+        # keep the evidence (for the site owner / an access request), never retry
+        ray = resp.headers.get('cf-ray') if resp else None
+        code = re.search(r'Error code:?\s*(?:<[^>]+>\s*)*(\d{3,4})', head)
+        raise Blocked(f'blocked or challenge page (HTTP {status}, title {title!r}, cf-ray {ray}, '
+                      f'cloudflare code {code.group(1) if code else None}); stopped, not retried')
     try:
         page.wait_for_selector('#teamPlayers', timeout=15000)
     except Exception:
@@ -113,6 +123,44 @@ def robots_allows(page):
     return rp.can_fetch('*', BASE + '/team-details/')
 
 
+def payload_from_file(folder, team, season):
+    """Authorized source or saved page -> validated payload. No network."""
+    js = folder / f'{team}.json'
+    html = folder / str(team) / 'roster.html'
+    if js.is_file():
+        p = json.loads(js.read_text(encoding='utf-8'))
+        if int(p.get('ifa_team_id', 0)) != team or int(p.get('ifa_season_id', 0)) != season:
+            raise ValueError(f'{js.name} is for another team or season')
+        players = p.get('players') or []
+        if not players or any(not str(x.get('ifa_player_id', '')).isdigit() or not str(x.get('name', '')).strip() for x in players):
+            raise ValueError(f'{js.name}: empty roster or a player without numeric id / name')
+        p['players'] = [{'ifa_player_id': str(x['ifa_player_id']), 'name': str(x['name']).strip(),
+                         'profile_url': str(x.get('profile_url', ''))} for x in players]  # id, name, link only
+        p.setdefault('sport', 'football')
+        p.setdefault('source_url', f'file:{js.name}')
+        return p, {'source': 'file', 'file': js.name}
+    if html.is_file():
+        soup = BeautifulSoup(html.read_text(encoding='utf-8', errors='replace'), 'html.parser')
+        return validate_roster(soup, team, season, f'saved-page:{team}/roster.html'), {'source': 'saved_page', 'file': f'{team}/roster.html'}
+    raise FileNotFoundError(f'no {team}.json or {team}/roster.html in {folder}')
+
+
+def answer_from_files(api, folder, max_pages):
+    jobs = api.call('agent_claim_ifa_requests', p_limit=max_pages) or []
+    log('claimed', count=len(jobs), mode='files')
+    for job in jobs:
+        team, season = int(job['ifa_team_id']), int(job['ifa_season_id'])
+        try:
+            payload, info = payload_from_file(folder, team, season)
+        except (ValueError, FileNotFoundError, json.JSONDecodeError) as exc:
+            log('file_failed', team=team, error=str(exc))
+            api.call('agent_fail_ifa_request', p_request=job['id'], p_error=f'file: {exc}', p_fetch_info={'source': 'file'})
+            continue
+        info['players'] = len(payload['players'])
+        res = api.call('agent_submit_ifa_roster', p_request=job['id'], p_payload=payload, p_fetch_info=info)
+        log('submitted', team=team, players=info['players'], ok=res.get('ok'), summary=res.get('summary'), error=res.get('error'))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--env', type=Path, default=Path(__file__).resolve().parent / 'agent.env')
@@ -121,9 +169,17 @@ def main():
     ap.add_argument('--max-pages', type=int, default=5, help='pages per run (maximum 20)')
     ap.add_argument('--check', type=int, metavar='TEAM_ID', help='load one roster page, print the parsed result, send nothing')
     ap.add_argument('--season', type=int, default=28)
+    ap.add_argument('--from-files', type=Path, metavar='DIR',
+                    help='no network: answer requests from files instead of the site. For each request, '
+                         'DIR/<team_id>.json (import payload from an authorized source, e.g. an IFA data export) '
+                         'or DIR/<team_id>/roster.html (a page saved in the browser)')
     a = ap.parse_args()
     delay = max(a.delay, 5.0)
     max_pages = min(max(a.max_pages, 1), 20)
+
+    if a.from_files is not None:
+        load_env(a.env)
+        return answer_from_files(Api(), a.from_files, max_pages)
 
     from playwright.sync_api import sync_playwright
 

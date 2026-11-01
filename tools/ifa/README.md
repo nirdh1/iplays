@@ -117,3 +117,35 @@ Pilot scope: one team (7491), on demand. Wider use (teams from league pages, sch
 checks) waits for the pilot result and, preferably, the IFA's reply to the data request:
 the terms of use say nothing about automated access, and reuse of IFA content and images
 needs their consent.
+
+### Pilot result (2026-11-01): headless agent blocked; live fetching paused
+
+`ifa_agent.py --check 7491` (headless, the default) got HTTP 403 "Attention Required! |
+Cloudflare" and stopped. The two successful loads that day were the same Playwright (1.64.1,
+Chromium 156), same URL, locale and fresh profile, but **headed**. Headless Playwright runs a
+different binary (`chromium_headless_shell`) whose user agent says `HeadlessChrome`.
+"Attention Required" is Cloudflare's block page (firewall rule, browser signature or IP
+reputation), not a JS challenge, and it came before any parsing: not a bug in the URL,
+waits or parser. Load was 3 roster pages in 20 minutes, so rate limiting is unlikely.
+No Ray ID was kept then; the agent now records `cf-ray` and the Cloudflare error code in
+the failure.
+
+Conclusion: the site deliberately blocks automated browsers. Running headed to get past it
+would be evading that protection, so live fetching stays off until the IFA grants access.
+`--headed` is only for watching a run you are already allowed to make.
+
+### Authorized source (ready, no network)
+
+`ifa_agent.py --from-files DIR` answers the panel's "הרץ בדיקה" requests from files instead
+of the site, through the same validation, dry run and "ייבוא" click:
+
+* `DIR/<team_id>.json`: a roster from an authorized source (an IFA export or API, converted).
+  Only `ifa_player_id`, `name` and `profile_url` are kept:
+
+      {"ifa_team_id": 7491, "ifa_season_id": 28, "team_name": "...",
+       "players": [{"ifa_player_id": "308953", "name": "...", "profile_url": "..."}]}
+
+* `DIR/<team_id>/roster.html`: a page saved in the browser (as with `batch_saved_import.py`).
+
+A future authorized API needs only an adapter that writes this JSON; validation, the dry
+run, the change log and the panel stay as they are.
