@@ -2295,3 +2295,26 @@ select.ip-input {
   padding: 4px;
   cursor: pointer;
 }
+
+/* Onboarding: pick the child from the team roster */
+.ip-pick-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ip-s2);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.ip-choice-chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ip-border);
+  background: var(--ip-surface);
+  color: var(--ip-text-1, inherit);
+  font-size: var(--ip-fs-sm);
+}
+.ip-choice-chip.is-on {
+  background: var(--ip-lime-100);
+  border-color: #2f5c12;
+  font-weight: 700;
+}
