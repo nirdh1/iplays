@@ -217,3 +217,12 @@ Other sports get the core only.
 Run after `20261101400000_search_and_join_requests.sql`. Rollback:
 `supabase/rollback/20261101500000_matches_lineups_attendance.down.sql`. It keeps the tables and their
 data.
+
+## Teams without a coach (migration `20261101600000_open_teams.sql`)
+
+Run after the M4 migration. Rollback: `supabase/rollback/20261101600000_open_teams.down.sql` (keeps every team, child and membership).
+
+- **Search teams by birth year.** `search_teams(query, birth_year, sport)` finds teams by the child's birth year alone, or by team / club / city name. A team matches a year by its `birth_year_from/to` or by the birth years of its players. The search screen opens on the "קבוצה" tab.
+- **A parent opens a team.** `open_team(...)` creates the team (`opened_by = 'parent'`) with the parent's child. The parent is a regular parent member, not staff, and needs the parent declaration. The same name, club and birth year can't be opened twice.
+- **Auto-approval while nobody manages the team.** `team_has_staff(team)` is true when the team has an admin / coach, its club has an owner / admin, or a staff grant covers it. While it is false, `request_join` approves a declared parent right away. An existing child that already has a declared parent still waits, and follow requests still go to the parent. Once the team has staff, requests wait for staff as before.
+- **A club adopts the team.** `adopt_team(team, club, program)` lets a club admin take a team with no staff and no club into the club.

@@ -139,6 +139,14 @@
   gap: var(--ip-s2);
   align-items: flex-start;
 }
+.ip-find-open {
+  display: grid;
+  gap: var(--ip-s3);
+  margin-top: var(--ip-s3);
+}
+.ip-find-open p {
+  margin: 0;
+}
 .ip-declare {
   display: flex;
   gap: var(--ip-s2);
