@@ -1,7 +1,7 @@
 /**
  * Family members of a child (parents, grandparents, ...), their permissions
  * and one-time family invite links.
- * Server side: supabase/migrations/20261101995000_family_members.sql
+ * Server side: supabase/migrations/20261101996000_family_members.sql
  */
 import { supabase } from './supabase';
 import type { Relation } from './joinApi';

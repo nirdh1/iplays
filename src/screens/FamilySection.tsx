@@ -1,7 +1,7 @@
 /**
  * Family tab: the people linked to each of my children (parents, grandparents,
  * ...), what each may do, one-time invite links, and accepting an invite.
- * Server side: supabase/migrations/20261101995000_family_members.sql
+ * Server side: supabase/migrations/20261101996000_family_members.sql
  */
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Button, Card, SectionHeader, Segmented, Tag } from '../components/ui';

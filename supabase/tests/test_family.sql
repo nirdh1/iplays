@@ -47,7 +47,7 @@ insert into player_guardians (player_id, user_id, relation) values (:KID, :MOM, 
 -- --------------------------------------------- backfill of old followers
 insert into team_members (team_id, user_id, role) values (:FT, :OLD, 'parent');
 insert into player_guardians (player_id, user_id, relation) values (:KID, :OLD, 'family');
-\i supabase/migrations/20261101995000_family_members.sql
+\i supabase/migrations/20261101996000_family_members.sql
 select pg_temp.check((select is_follower from team_members where team_id = :FT and user_id = :OLD), 'backfill: old follower marked');
 select pg_temp.check(not (select is_follower from team_members where team_id = :FT and user_id = :MOM), 'backfill: parent not marked');
 
