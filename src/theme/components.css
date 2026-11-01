@@ -2244,3 +2244,54 @@ select.ip-input {
   align-items: flex-start;
   gap: var(--ip-s3);
 }
+
+/* ---------- Install hint (components/InstallHint.tsx) ---------- */
+.ip-install {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+  padding: var(--ip-s3);
+  border-radius: var(--ip-r-lg);
+  background: var(--ip-surface);
+  box-shadow: var(--ip-shadow-2);
+}
+.ip-install--dark {
+  margin: var(--ip-s4) var(--ip-s4) 0;
+}
+.ip-install-icon {
+  flex: none;
+  border-radius: 10px;
+}
+.ip-install-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+}
+.ip-install-text strong {
+  color: var(--ip-text);
+  font-size: var(--ip-fs-sm, 15px);
+}
+.ip-install-btn {
+  flex: none;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ip-lime);
+  color: var(--ip-navy);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ip-install-close {
+  flex: none;
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  color: var(--ip-text-2);
+  padding: 4px;
+  cursor: pointer;
+}

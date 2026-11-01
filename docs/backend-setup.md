@@ -30,10 +30,15 @@ Use a **separate project for iplays** (don't reuse a project that belongs to ano
   parents, add your own SMTP under **Authentication → Emails → SMTP Settings** (e.g. Resend).
 
 - **Phone / SMS** (optional, paid): enable **Phone** and connect an SMS provider
-  (Twilio, MessageBird, Vonage or Textlocal). Until then, use the **אימייל** tab on the login screen.
+  (Twilio, MessageBird, Vonage or Textlocal). The login screen shows email only; once SMS works,
+  add `VITE_ENABLE_SMS=true` to the site's environment variables and redeploy to show the phone tab.
 
 **Authentication → URL Configuration → Site URL**: your site address, e.g.
-`https://iplays.onrender.com`.
+`https://iplays.vercel.app`. Under **Redirect URLs** add every address the app runs on
+(`https://iplays.onrender.com/**`, `https://iplays.vercel.app/**`, `https://*-nirhq.vercel.app/**`).
+
+**Home screen**: the site is installable (`public/manifest.webmanifest`). The login and home screens
+show a "save to home screen" hint until it is installed or closed.
 
 ## 3. Connect the site (Render)
 

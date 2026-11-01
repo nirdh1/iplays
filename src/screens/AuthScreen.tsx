@@ -1,4 +1,8 @@
-/** Login / sign-up in one flow: phone (SMS) or email, then a one-time code. No passwords. */
+/**
+ * Login / sign-up in one flow: email, then a one-time code. No passwords.
+ * Phone (SMS) login needs a paid SMS provider in Supabase; it is hidden until
+ * VITE_ENABLE_SMS=true is set at build time.
+ */
 import { useState, type FormEvent } from 'react';
 import { Logo } from '../components/Logo';
 import { Icon } from '../components/Icon';
@@ -6,12 +10,15 @@ import { Button, Segmented } from '../components/ui';
 import { normalizeIlPhone, supabase } from '../lib/supabase';
 import { friendlyError } from '../lib/api';
 import { readPendingInvite, useAuth } from '../auth/AuthContext';
+import { InstallHint } from '../components/InstallHint';
+
+const smsEnabled = import.meta.env.VITE_ENABLE_SMS === 'true';
 
 type Method = 'phone' | 'email';
 
 export function AuthScreen() {
   const { setDemo } = useAuth();
-  const [method, setMethod] = useState<Method>('phone');
+  const [method, setMethod] = useState<Method>(smsEnabled ? 'phone' : 'email');
   const [value, setValue] = useState('');
   const [target, setTarget] = useState<string | null>(null); // normalized phone / email the code was sent to
   const [code, setCode] = useState('');
@@ -65,20 +72,22 @@ export function AuthScreen() {
         {!target ? (
           <form onSubmit={sendCode} className="ip-form" noValidate>
             <h1>כניסה או הרשמה</h1>
-            <p className="ip-muted">נשלח אליכם קוד חד-פעמי. אין צורך בסיסמה.</p>
-            <Segmented
-              items={[
-                { id: 'phone', label: 'טלפון' },
-                { id: 'email', label: 'אימייל' },
-              ]}
-              value={method}
-              onChange={(m) => {
-                setMethod(m);
-                setValue('');
-                setError(null);
-              }}
-              label="שיטת כניסה"
-            />
+            <p className="ip-muted">נשלח קוד חד-פעמי למייל. אין צורך בסיסמה.</p>
+            {smsEnabled && (
+              <Segmented
+                items={[
+                  { id: 'phone', label: 'טלפון' },
+                  { id: 'email', label: 'אימייל' },
+                ]}
+                value={method}
+                onChange={(m) => {
+                  setMethod(m);
+                  setValue('');
+                  setError(null);
+                }}
+                label="שיטת כניסה"
+              />
+            )}
             <label className="ip-field">
               <span>{method === 'phone' ? 'מספר נייד' : 'כתובת אימייל'}</span>
               <input
@@ -103,7 +112,7 @@ export function AuthScreen() {
           <form onSubmit={verify} className="ip-form" noValidate>
             <h1>הזינו את הקוד</h1>
             <p className="ip-muted">
-              שלחנו קוד בן 6 ספרות אל <bdi dir="ltr">{target}</bdi>
+              שלחנו קוד למייל <bdi dir="ltr">{target}</bdi>
             </p>
             <label className="ip-field">
               <span>קוד אימות</span>
@@ -113,15 +122,15 @@ export function AuthScreen() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 dir="ltr"
-                maxLength={6}
+                maxLength={8}
                 placeholder="••••••"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
                 autoFocus
               />
             </label>
             {error && <p className="ip-error" role="alert">{error}</p>}
-            <Button type="submit" variant="primary" block disabled={busy || code.length !== 6}>
+            <Button type="submit" variant="primary" block disabled={busy || code.length < 6}>
               {busy ? 'בודקים…' : 'כניסה'}
             </Button>
             <div className="ip-form-links">
@@ -135,6 +144,8 @@ export function AuthScreen() {
           </form>
         )}
       </div>
+
+      <InstallHint tone="dark" />
 
       <button type="button" className="ip-auth-demo" onClick={() => setDemo(true)}>
         רק רוצים להציץ? <strong>לצפייה בהדגמה</strong>
