@@ -16,6 +16,75 @@ import {
   type TeamClaim,
 } from '../lib/joinApi';
 import { isPlatformAdmin } from '../lib/ifaApi';
+import '../theme/coach.css';
+import { disablePush, enablePush, getPrefs, pushState, savePrefs, type NotificationPrefs, type PushState } from '../lib/push';
+
+/** Game-change notifications: this device on/off, and what to get. */
+function NotificationsSection() {
+  const [state, setState] = useState<PushState | null>(null);
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void pushState().then(setState);
+    getPrefs().then(setPrefs, () => setPrefs(null));
+  }, []);
+
+  async function toggle() {
+    setError(null);
+    try {
+      setState(state === 'on' ? await disablePush() : await enablePush());
+    } catch {
+      setError('לא הצלחנו להפעיל התראות במכשיר הזה.');
+    }
+  }
+
+  async function change(p: NotificationPrefs) {
+    setPrefs(p);
+    try {
+      await savePrefs(p);
+    } catch {
+      setError('ההעדפה לא נשמרה. נסו שוב.');
+    }
+  }
+
+  const note: Record<PushState, string> = {
+    unsupported: 'הדפדפן הזה לא תומך בהתראות. באייפון: קודם "הוספה למסך הבית", ואז פותחים את iplays מהאייקון.',
+    'not-configured': 'התראות למכשיר עוד לא הופעלו בשרת. העדכונים מופיעים בינתיים באפליקציה.',
+    denied: 'ההתראות חסומות בהגדרות הדפדפן של המכשיר.',
+    off: 'נשלח התראה רק כשמשהו באמת משתנה: תאריך, שעה, מגרש או תוצאה.',
+    on: 'ההתראות פעילות במכשיר הזה.',
+  };
+
+  return (
+    <section>
+      <SectionHeader title="התראות על משחקים" icon="bell" />
+      <Card>
+        <div className="ip-form">
+          {state && <p className="ip-muted">{note[state]}</p>}
+          {(state === 'on' || state === 'off') && (
+            <Button variant={state === 'on' ? 'secondary' : 'primary'} size="sm" icon="bell" onClick={() => void toggle()}>
+              {state === 'on' ? 'כיבוי התראות במכשיר הזה' : 'הפעלת התראות במכשיר הזה'}
+            </Button>
+          )}
+          {prefs && (
+            <>
+              <label className="ip-check">
+                <input type="checkbox" checked={prefs.match_changes} onChange={(e) => void change({ ...prefs, match_changes: e.target.checked })} />
+                <span>שינויים במועד או במגרש</span>
+              </label>
+              <label className="ip-check">
+                <input type="checkbox" checked={prefs.match_results} onChange={(e) => void change({ ...prefs, match_results: e.target.checked })} />
+                <span>תוצאות משחקים</span>
+              </label>
+            </>
+          )}
+          {error && <p className="ip-error">{error}</p>}
+        </div>
+      </Card>
+    </section>
+  );
+}
 
 /** Follow requests waiting for me (as the child's parent) and my own pending requests. */
 function RequestsSection() {
@@ -172,6 +241,7 @@ export function AccountSection() {
         </Card>
       </section>
       <RequestsSection />
+      <NotificationsSection />
       <section>
         <SectionHeader title="הקבוצות שלי" icon="team" />
         <Card padded={false}>

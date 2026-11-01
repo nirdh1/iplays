@@ -8,10 +8,21 @@ import { Card, EmptyState, SectionHeader, Segmented, StatTile, Tag } from '../co
 import { friendlyError } from '../lib/api';
 import { addDays, todayYmd } from '../lib/coachApi';
 import { programKindLabel, type ClubTeam, type Program } from '../lib/clubApi';
-import { attendanceSummary, competitionLabel, getClubMatches, type Match } from '../lib/matchApi';
+import {
+  attendanceSummary,
+  changeFieldLabel,
+  competitionLabel,
+  getClubMatches,
+  getGameHistory,
+  matchEndsAt,
+  matchTimeLabel,
+  matchVenueLabel,
+  type GameUpdate,
+  type Match,
+} from '../lib/matchApi';
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' });
-const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+const fmtWhen = (iso: string) => new Date(iso).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
 
 interface TeamWeek {
   teamId: string;
@@ -19,11 +30,17 @@ interface TeamWeek {
   rate: number | null;
 }
 
-export function ClubDashboard({ programs, teams }: { programs: Program[]; teams: ClubTeam[] }) {
+export function ClubDashboard({ clubId, programs, teams }: { clubId: string; programs: Program[]; teams: ClubTeam[] }) {
   const [programId, setProgramId] = useState(programs[0]?.id ?? '');
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [week, setWeek] = useState<TeamWeek[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<GameUpdate[] | null>(null);
+
+  useEffect(() => {
+    // older databases have no IFA history yet: just hide the section
+    getGameHistory({ clubId, limit: 30 }).then(setHistory, () => setHistory([]));
+  }, [clubId]);
 
   const active = teams.filter((t) => !t.archived_at);
   const teamName = (id: string) => active.find((t) => t.id === id)?.name ?? '';
@@ -58,7 +75,7 @@ export function ClubDashboard({ programs, teams }: { programs: Program[]; teams:
   }, [ids]);
 
   const now = Date.now();
-  const upcoming = (matches ?? []).filter((m) => m.status === 'scheduled' && new Date(m.starts_at).getTime() >= now);
+  const upcoming = (matches ?? []).filter((m) => m.status === 'scheduled' && (m.time_confirmed === false ? matchEndsAt(m) : new Date(m.starts_at).getTime()) >= now);
   const results = (matches ?? []).filter((m) => m.status === 'played').reverse();
   const wins = results.filter((m) => (m.score_for ?? 0) > (m.score_against ?? 0)).length;
   const rated = (week ?? []).filter((w) => w.rate !== null);
@@ -90,7 +107,9 @@ export function ClubDashboard({ programs, teams }: { programs: Program[]; teams:
                   {teamName(m.team_id)} נגד {m.opponent}
                 </span>
                 <span className="ip-list-row-sub">
-                  {[`${fmtDate(m.starts_at)} ${fmtTime(m.starts_at)}`, m.home ? 'בית' : 'חוץ', competitionLabel[m.competition], m.venue].filter(Boolean).join(' · ')}
+                  {[`${fmtDate(m.starts_at)} ${matchTimeLabel(m)}`, m.home ? 'בית' : 'חוץ', m.source === 'ifa' ? 'ליגה · התאחדות' : competitionLabel[m.competition], matchVenueLabel(m)]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
               </span>
             </a>
@@ -121,6 +140,35 @@ export function ClubDashboard({ programs, teams }: { programs: Program[]; teams:
             );
           })}
         </Card>
+      )}
+
+      {history && history.length > 0 && (
+        <>
+          <SectionHeader title="עדכוני משחקים מההתאחדות" icon="bell" />
+          <Card padded={false}>
+            {history.map((u) => (
+              <div key={`${u.update_id}-${u.team_id}`} className="ip-club-row">
+                <span className="ip-list-row-text">
+                  <span className="ip-list-row-title">
+                    {u.team_name}: {u.home_name} – {u.away_name}
+                  </span>
+                  <ul className="ip-change-list">
+                    {u.changes.map((c) => (
+                      <li key={c.field}>
+                        {changeFieldLabel[c.field] ?? c.field}: {c.old ? <del>{c.old}</del> : 'אין'} ← {c.new || 'אין'}
+                      </li>
+                    ))}
+                  </ul>
+                  <span className="ip-list-row-sub">
+                    זוהה {fmtWhen(u.detected_at)}
+                    {u.notify ? ` · נשלחה התראה ל־${u.sent}/${u.queued}` : ' · ללא התראה'}
+                  </span>
+                </span>
+                {u.significant && <Tag tone="warning">מהותי</Tag>}
+              </div>
+            ))}
+          </Card>
+        </>
       )}
 
       <SectionHeader title="נוכחות השבוע לפי קבוצה" icon="check" />
