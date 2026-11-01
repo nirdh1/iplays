@@ -11,16 +11,18 @@ import { friendlyError } from '../lib/api';
 import {
   getSyncOverview,
   getSyncRuns,
-  importIfaTeam,
   isPlatformAdmin,
   parseRosterHtml,
-  type ImportResult,
+  syncIfaRoster,
   type ParsedRoster,
+  type RosterChangeRow,
+  type RosterSyncResult,
   type SyncedTeam,
   type SyncRun,
 } from '../lib/ifaApi';
 import { IfaGamesAdmin, PushControl } from './IfaGamesAdmin';
 import '../theme/club.css';
+import '../theme/coach.css';
 
 const runStatus: Record<string, { label: string; tone: 'lime' | 'warning' | 'live' | 'neutral' }> = {
   ok: { label: 'תקין', tone: 'lime' },
@@ -37,7 +39,9 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
   const [parsed, setParsed] = useState<ParsedRoster | null>(null);
   const [fileName, setFileName] = useState('');
   const [form, setForm] = useState({ teamId: '', seasonId: '', teamName: '' });
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [check, setCheck] = useState<RosterSyncResult | null>(null);
+  const [result, setResult] = useState<RosterSyncResult | null>(null);
+  const [allowDrop, setAllowDrop] = useState(false);
   const [runs, setRuns] = useState<SyncRun[]>([]);
   const [teams, setTeams] = useState<SyncedTeam[]>([]);
   const [busy, setBusy] = useState(false);
@@ -63,6 +67,8 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     setResult(null);
+    setCheck(null);
+    setAllowDrop(false);
     setError(null);
     if (!file) return;
     setFileName(file.name);
@@ -71,28 +77,43 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
     setForm({ teamId: p.teamId ? String(p.teamId) : '', seasonId: p.seasonId ? String(p.seasonId) : '', teamName: p.teamName ?? '' });
   }
 
-  async function runImport() {
+  // dry run first, then apply the same payload; nothing is ever deleted
+  async function runSync(apply: boolean) {
     if (!parsed) return;
     setBusy(true);
     setError(null);
     try {
       const teamId = Number(form.teamId);
       const seasonId = Number(form.seasonId);
-      setResult(
-        await importIfaTeam({
+      const r = await syncIfaRoster(
+        {
           teamId,
           seasonId,
           teamName: form.teamName.trim(),
           sourceUrl: `saved-page:${fileName} (https://www.football.org.il/team-details/?team_id=${teamId}&season_id=${seasonId})`,
           players: parsed.players,
-        }),
+          allowLargeDrop: allowDrop,
+        },
+        apply,
       );
+      if (apply) {
+        setResult(r);
+        setCheck(null);
+      } else {
+        setCheck(r);
+        setResult(null);
+      }
       await loadLog();
     } catch (e) {
       setError(friendlyError(e));
     } finally {
       setBusy(false);
     }
+  }
+
+  function editForm(next: typeof form) {
+    setForm(next);
+    setCheck(null);
   }
 
   const ready = parsed && parsed.players.length > 0 && /^\d+$/.test(form.teamId) && /^\d+$/.test(form.seasonId) && form.teamName.trim().length > 0;
@@ -131,14 +152,14 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
                   <>
                     <div className="ip-field-row">
                       <Field label="מזהה קבוצה בהתאחדות">
-                        <input id="ifa-team" className="ip-input" dir="ltr" inputMode="numeric" value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value.replace(/\D/g, '') })} />
+                        <input id="ifa-team" className="ip-input" dir="ltr" inputMode="numeric" value={form.teamId} onChange={(e) => editForm({ ...form, teamId: e.target.value.replace(/\D/g, '') })} />
                       </Field>
                       <Field label="מזהה עונה">
-                        <input id="ifa-season" className="ip-input" dir="ltr" inputMode="numeric" value={form.seasonId} onChange={(e) => setForm({ ...form, seasonId: e.target.value.replace(/\D/g, '') })} />
+                        <input id="ifa-season" className="ip-input" dir="ltr" inputMode="numeric" value={form.seasonId} onChange={(e) => editForm({ ...form, seasonId: e.target.value.replace(/\D/g, '') })} />
                       </Field>
                     </div>
                     <Field label="שם הקבוצה (מכותרת הדף)">
-                      <input id="ifa-name" className="ip-input" value={form.teamName} onChange={(e) => setForm({ ...form, teamName: e.target.value.slice(0, 60) })} />
+                      <input id="ifa-name" className="ip-input" value={form.teamName} onChange={(e) => editForm({ ...form, teamName: e.target.value.slice(0, 60) })} />
                     </Field>
                     <p className="ip-muted">
                       נמצאו <strong>{parsed.players.length}</strong> שחקנים ב-#teamPlayers. {parsed.staffSkipped} בעלי תפקידים ב-#teamStaff לא נכללו.
@@ -162,22 +183,33 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
                     <p className="ip-footnote">
                       נשמרים רק מזהה, שם כפי שכתוב בדף וקישור לפרופיל. לא נשמרות תמונות, והשם לא מפוצל לשם פרטי ושם משפחה. ילד שאף הורה לא אישר לא יופיע בחיפוש הפתוח.
                     </p>
-                    <Button variant="primary" block disabled={!ready || busy} onClick={() => void runImport()}>
-                      {busy ? 'מייבאים…' : `ייבוא ${parsed.players.length} שחקנים`}
+                    <Button variant="secondary" block disabled={!ready || busy} onClick={() => void runSync(false)}>
+                      {busy && !check ? 'בודקים…' : 'בדיקה: מה ישתנה'}
                     </Button>
+                    {check && <RosterCheck r={check} />}
+                    {check && !check.ok && check.error?.startsWith('roster dropped') && (
+                      <label className="ip-check">
+                        <input type="checkbox" checked={allowDrop} onChange={(e) => { setAllowDrop(e.target.checked); setCheck(null); }} />
+                        <span>בדקתי את הדף באתר, והסגל באמת קטן. לבדוק שוב עם אישור לירידה.</span>
+                      </label>
+                    )}
+                    {check?.ok && (
+                      <Button variant="primary" block disabled={busy} onClick={() => void runSync(true)}>
+                        {busy ? 'מייבאים…' : 'ייבוא השינויים'}
+                      </Button>
+                    )}
                   </>
                 )}
                 <Err error={error} />
                 {result && (
                   <div className="ip-find-sent">
-                    <Tag tone={result.errors.length ? 'warning' : 'lime'} icon="check">
-                      {result.errors.length ? 'יובא עם שגיאות' : 'יובא'}
+                    <Tag tone={result.errors?.length ? 'warning' : 'lime'} icon="check">
+                      {result.errors?.length ? 'יובא עם שגיאות' : 'יובא'}
                     </Tag>
                     <p>
-                      {result.new_team ? 'קבוצה חדשה נוצרה. ' : 'הקבוצה כבר הייתה קיימת. '}
-                      {result.players_seen} שחקנים בסגל, {result.new_players} חדשים.
-                      {result.not_in_payload.length > 0 && ` ${result.not_in_payload.length} שחקנים מייבוא קודם לא הופיעו הפעם ולא נמחקו.`}
-                      {result.errors.length > 0 && ` ${result.errors.length} שגיאות, ראו ביומן.`}
+                      {result.summary?.players_in_payload ?? 0} שחקנים בסגל. {result.summary?.added ?? 0} נוספו, {result.summary?.missing ?? 0} סומנו כלא מופיעים
+                      (לא נמחקו), {result.summary?.returned ?? 0} חזרו, {result.summary?.renamed ?? 0} שינויי שם.
+                      {result.errors?.length ? ` ${result.errors.length} שגיאות, ראו ביומן.` : ''}
                     </p>
                   </div>
                 )}
@@ -224,7 +256,9 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
                       <span className="ip-list-row-sub">
                         {r.kind === 'games'
                           ? `${String(r.counts.new ?? 0)} חדשים · ${String(r.counts.changed ?? 0)} שינויים · ${String(r.counts.queued ?? 0)} התראות`
-                          : `${String(r.counts.players_seen ?? 0)} בסגל · ${String(r.counts.new_players ?? 0)} חדשים`}
+                          : r.kind === 'roster'
+                            ? `${String(r.counts.players_in_payload ?? 0)} בדף · ${String(r.counts.added ?? 0)} נוספו · ${String(r.counts.missing ?? 0)} לא מופיעים · ${String(r.counts.returned ?? 0)} חזרו · ${String(r.counts.renamed ?? 0)} שינויי שם`
+                            : `${String(r.counts.players_seen ?? 0)} בסגל · ${String(r.counts.new_players ?? 0)} חדשים`}
                         {r.errors.length > 0 && ` · ${r.errors.map((x) => x.error).join('; ')}`}
                       </span>
                     </span>
@@ -239,6 +273,53 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+const changeLabels: { key: 'added' | 'missing' | 'returned' | 'renamed'; label: string }[] = [
+  { key: 'added', label: 'שחקנים חדשים' },
+  { key: 'missing', label: 'לא מופיעים יותר בדף (יסומנו, לא יימחקו)' },
+  { key: 'returned', label: 'חזרו לסגל' },
+  { key: 'renamed', label: 'שינוי שם בהתאחדות (השם שההורה ערך באפליקציה לא ישתנה)' },
+];
+
+function RosterCheck({ r }: { r: RosterSyncResult }) {
+  if (!r.ok) {
+    return (
+      <div className="ip-roster-check">
+        <Tag tone="live" icon="shield">נעצר, שום דבר לא השתנה</Tag>
+        <p dir="auto">{r.error}</p>
+      </div>
+    );
+  }
+  const s = r.summary;
+  const none = s && s.added + s.missing + s.returned + s.renamed === 0;
+  return (
+    <div className="ip-roster-check">
+      <Tag tone="neutral" icon="check">בדיקה בלבד, שום דבר לא נשמר</Tag>
+      <p>
+        {s?.players_in_payload} שחקנים בדף, {s?.active_before} פעילים היום באפליקציה.
+        {none && ' אין שינויים.'}
+      </p>
+      {changeLabels.map(({ key, label }) => {
+        const rows: RosterChangeRow[] = r[key] ?? [];
+        if (rows.length === 0) return null;
+        return (
+          <div key={key}>
+            <strong>
+              {label}: {rows.length}
+            </strong>
+            <ul className="ip-change-list">
+              {rows.map((x) => (
+                <li key={x.ifa_player_id}>
+                  {key === 'renamed' ? `${x.old} ← ${x.new}` : x.name} <span className="ip-muted" dir="ltr">#{x.ifa_player_id}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }

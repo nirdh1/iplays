@@ -40,3 +40,30 @@ python3 -I tools/ifa/ifa_games.py --games team_games.html --league league_games.
 `team_games.html` = the saved "כל משחקי קבוצה" page (`/team-details/team-games/?team_id=…&season_id=…`);
 `league_games.html` = the saved league games page, needed for the team ids in its dropdown.
 The output is the payload of `import_ifa_games()`. See `docs/ifa-games-sync.md`.
+
+## Roster sync from saved pages (change detection)
+
+Folder layout: `saved/<ifa_team_id>/roster.html` (Ctrl+S on the team page; optional `team.html`).
+
+    python3 tools/ifa/batch_saved_import.py --saved tools/ifa/saved --out out/
+
+Steps, kept apart:
+
+1. **Extract** — `ifa_collector.roster_players` reads `#teamPlayers` (staff in `#teamStaff` are skipped).
+2. **Validate** — numeric team folder, team name from the page heading (never guessed), at least one
+   player, every player id matches its profile link on football.org.il. Rejected folders are listed
+   in `out/review.json` with the reason.
+3. **Detect** — run `out/review_dryrun.sql` in the Supabase SQL Editor: `sync_ifa_roster(p, false)`
+   returns added / missing / returned / renamed players per team and writes only a `dry_run` row
+   in `ifa_sync_runs`.
+4. **Apply** — after checking the dry run, run `out/review_apply.sql` (`sync_ifa_roster(p, true)`).
+
+The database never deletes a player. One no longer on the page is marked `missing` in
+`ifa_rosters` (and `returned` if it comes back); parent links and names edited in the app are
+kept. An empty roster, or one that drops below half of the active roster (6+ players), is
+refused and logged as `failed`; after checking the page, resend with `"allow_large_drop": true`.
+Every change is logged in `ifa_roster_changes` (platform admins only). The same flow is in the
+app: `#ifa` → "ייבוא סגל מדף שמור" → "בדיקה: מה ישתנה" → "ייבוא השינויים".
+
+There is no scheduled run: the IFA site returns 403 to servers (also to Playwright, checked
+2026-11-01), and we do not get around that.
