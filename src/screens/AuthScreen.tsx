@@ -29,6 +29,9 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(linkError);
   const standalone = isStandaloneApp();
+  // Email: the main path is the link in the email. Code entry is a fallback,
+  // shown up front only in the home-screen app (where the link opens Safari).
+  const [showCode, setShowCode] = useState(standalone);
   const invite = readPendingInvite();
 
   async function sendCode(e?: FormEvent) {
@@ -48,6 +51,7 @@ export function AuthScreen() {
     if (method === 'email') rememberEmail(t);
     setTarget(t);
     setCode('');
+    setShowCode(method === 'phone' || standalone);
   }
 
   async function verify(e: FormEvent) {
@@ -137,39 +141,48 @@ export function AuthScreen() {
           </form>
         ) : (
           <form onSubmit={verify} className="ip-form" noValidate>
-            <h1>{method === 'email' ? 'בדקו את המייל' : 'הזינו את הקוד'}</h1>
+            <h1>{method === 'email' ? 'המשיכו מהמייל' : 'הזינו את הקוד'}</h1>
             {method === 'email' ? (
               <p className="ip-muted">
                 שלחנו מייל ל-<bdi dir="ltr">{target}</bdi>.{' '}
                 {standalone
-                  ? 'באפליקציה שבמסך הבית הקלידו כאן את הקוד מהמייל (הכפתור במייל נפתח בדפדפן ולא כאן).'
-                  : 'לחצו על הכפתור במייל ותיכנסו מיד, או הקלידו כאן את הקוד.'}
+                  ? 'הכפתור במייל נפתח בדפדפן ולא באפליקציה שבמסך הבית, לכן כאן הקלידו את הקוד שמופיע במייל.'
+                  : 'פתחו אותו ולחצו על "כניסה ל-iplays". תיכנסו מיד, ומעכשיו המכשיר יזכור אתכם. אפשר לסגור את המסך הזה.'}
               </p>
             ) : (
               <p className="ip-muted">
                 שלחנו קוד למספר <bdi dir="ltr">{target}</bdi>
               </p>
             )}
-            <label className="ip-field">
-              <span>קוד אימות</span>
-              <input
-                id="auth-code"
-                className="ip-input ip-input--otp"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                dir="ltr"
-                maxLength={8}
-                placeholder="••••••"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                autoFocus
-              />
-            </label>
+            {showCode && (
+              <label className="ip-field">
+                <span>קוד אימות</span>
+                <input
+                  id="auth-code"
+                  className="ip-input ip-input--otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  dir="ltr"
+                  maxLength={8}
+                  placeholder="••••••"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  autoFocus
+                />
+              </label>
+            )}
             {error && <p className="ip-error" role="alert">{error}</p>}
-            <Button type="submit" variant="primary" block disabled={busy || code.length < 6}>
-              {busy ? 'בודקים…' : 'כניסה'}
-            </Button>
+            {showCode && (
+              <Button type="submit" variant="primary" block disabled={busy || code.length < 6}>
+                {busy ? 'בודקים…' : 'כניסה'}
+              </Button>
+            )}
             <div className="ip-form-links">
+              {!showCode && (
+                <button type="button" className="ip-link" onClick={() => setShowCode(true)}>
+                  יש לי קוד מהמייל
+                </button>
+              )}
               <button type="button" className="ip-link" onClick={() => sendCode()} disabled={busy}>
                 {method === 'email' ? 'שליחת מייל חדש' : 'שליחת קוד חדש'}
               </button>
