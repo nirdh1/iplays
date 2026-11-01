@@ -2523,6 +2523,8 @@ select.ip-input {
   background: var(--ip-navy);
   border-color: var(--ip-navy);
   color: #fff;
+}
+
 /* ---------- Carpools (real data) ---------- */
 .ip-rides-line {
   display: inline-flex;
@@ -2617,4 +2619,74 @@ select.ip-input {
 .ip-declare.is-off {
   background: var(--ip-surface);
   border: 1px solid var(--ip-border);
+}
+
+/* ---------- Career: profile, body, medical ---------- */
+.ip-profile-facts,
+.ip-measure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--ip-s3);
+}
+.ip-profile-facts div,
+.ip-measure-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ip-profile-facts span,
+.ip-measure-grid span {
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+  font-weight: 600;
+}
+.ip-profile-facts strong,
+.ip-measure-grid strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.ip-measure-grid small {
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+  font-weight: 600;
+}
+.ip-measure-grid em {
+  font-style: normal;
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+  unicode-bidi: isolate;
+  align-self: flex-start;
+}
+.ip-medical-status {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+  flex-wrap: wrap;
+}
+.ip-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ip-chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--ip-r-pill);
+  border: 1px solid var(--ip-border);
+  background: var(--ip-surface);
+  color: var(--ip-text);
+  font: inherit;
+  font-size: var(--ip-fs-sm);
+  cursor: pointer;
+}
+.ip-chip.is-on {
+  background: var(--ip-navy);
+  border-color: var(--ip-navy);
+  color: #fff;
+}
+.ip-field-row--wrap {
+  flex-wrap: wrap;
+}
+.ip-field-row--wrap > * {
+  flex: 1 1 120px;
 }

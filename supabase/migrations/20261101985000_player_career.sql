@@ -2,8 +2,8 @@
 --
 -- Run after 20261101971000_match_events.sql (live goal reporting).
 -- Rollback: supabase/rollback/20261101985000_player_career.down.sql
--- Additive only: two new tables, one small lookup table, RPCs. No existing
--- table or row changes.
+-- Additive only: new tables, one small lookup table, one nullable column
+-- (players.strong_foot), RPCs. No existing row changes.
 --
 -- Everything shown on the career screen is computed from real data:
 --   * appearances: a past, not-canceled match where the player was marked
@@ -21,6 +21,10 @@
 --     parents and team staff with metrics >= 1 see them.
 --   * highlights: derived (first goal, 2+ / 3+ goals in a match, personal
 --     best in a fitness test).
+--   * profile: strong foot (new nullable players.strong_foot) and position
+--     (players.position), edited by parents and roster staff.
+--   * measurements (height, weight, tape circumferences): parents + metrics
+--     staff. Medical clearance: parents + medical staff only.
 -- There is no minutes-played source, so the career shows starts instead.
 
 begin;
@@ -180,6 +184,147 @@ begin
 end;
 $$;
 
+-- ------------------------------------------------------ profile on the pitch
+
+-- Strong foot sits on the player next to position (parents and roster staff
+-- can already edit players; see players_update).
+alter table public.players add column if not exists strong_foot text
+  check (strong_foot in ('right', 'left', 'both'));
+
+-- ----------------------------------------------------------- measurements
+
+-- Height, weight and tape-measure circumferences. A child's body data:
+-- only the child's parents and staff with metrics >= 1 see it; parents and
+-- staff with metrics >= 3 add it.
+create table if not exists public.player_measurements (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references public.players (id) on delete restrict,
+  measured_on date not null default current_date,
+  height_cm numeric(5, 1) check (height_cm between 50 and 250),
+  weight_kg numeric(5, 1) check (weight_kg between 10 and 200),
+  thigh_cm numeric(4, 1) check (thigh_cm between 10 and 120),
+  calf_cm numeric(4, 1) check (calf_cm between 10 and 80),
+  arm_cm numeric(4, 1) check (arm_cm between 5 and 60),
+  note text not null default '' check (char_length(note) <= 200),
+  created_by uuid references auth.users (id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  deleted_by uuid references auth.users (id) on delete set null,
+  check (num_nonnulls(height_cm, weight_kg, thigh_cm, calf_cm, arm_cm) > 0)
+);
+create index if not exists player_measurements_player_idx on public.player_measurements (player_id, measured_on);
+
+-- ------------------------------------------------------- medical clearance
+
+-- The yearly sports medical clearance (אישור רפואי). Health data of a
+-- minor: only the child's parents and staff with medical >= 1 see it;
+-- parents and staff with medical >= 3 record it. No file is stored, only
+-- the dates and who issued it.
+create table if not exists public.player_medical_clearances (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references public.players (id) on delete restrict,
+  issued_on date not null,
+  valid_until date not null,
+  issuer text not null default '' check (char_length(issuer) <= 80),
+  note text not null default '' check (char_length(note) <= 200),
+  created_by uuid references auth.users (id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  deleted_by uuid references auth.users (id) on delete set null,
+  check (valid_until >= issued_on)
+);
+create index if not exists player_medical_player_idx on public.player_medical_clearances (player_id, valid_until);
+
+create or replace function public.can_view_player_medical(p_player uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select is_player_parent(p_player)
+      or is_platform_admin()
+      or exists (select 1 from player_assignments a
+                 where a.player_id = p_player and a.ended_on is null and can(a.team_id, 'medical', 1));
+$$;
+
+-- Who may add: the child's parent, or staff of a current team at p_level in p_domain.
+create or replace function public.can_edit_player_domain(p_player uuid, p_domain text, p_level int)
+returns boolean language sql stable security definer set search_path = public as $$
+  select is_player_parent(p_player)
+      or exists (select 1 from player_assignments a
+                 where a.player_id = p_player and a.ended_on is null and can(a.team_id, p_domain, p_level));
+$$;
+
+alter table public.player_measurements enable row level security;
+drop policy if exists player_measurements_read on public.player_measurements;
+create policy player_measurements_read on public.player_measurements for select to authenticated
+  using (deleted_at is null and can_view_player_metrics(player_id));
+
+alter table public.player_medical_clearances enable row level security;
+drop policy if exists player_medical_read on public.player_medical_clearances;
+create policy player_medical_read on public.player_medical_clearances for select to authenticated
+  using (deleted_at is null and can_view_player_medical(player_id));
+
+create or replace function public.add_player_measurement(
+  p_player uuid, p_on date, p_height numeric, p_weight numeric,
+  p_thigh numeric, p_calf numeric, p_arm numeric, p_note text default ''
+)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid;
+begin
+  if not can_edit_player_domain(p_player, 'metrics', 3) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if p_on is null or p_on > current_date then
+    raise exception 'date in the future' using errcode = '22023';
+  end if;
+  insert into player_measurements (player_id, measured_on, height_cm, weight_kg, thigh_cm, calf_cm, arm_cm, note)
+  values (p_player, p_on, p_height, p_weight, p_thigh, p_calf, p_arm, left(coalesce(p_note, ''), 200))
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+create or replace function public.add_medical_clearance(
+  p_player uuid, p_issued date, p_valid_until date, p_issuer text default '', p_note text default ''
+)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid;
+begin
+  if not can_edit_player_domain(p_player, 'medical', 3) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if p_issued is null or p_issued > current_date then
+    raise exception 'date in the future' using errcode = '22023';
+  end if;
+  insert into player_medical_clearances (player_id, issued_on, valid_until, issuer, note)
+  values (p_player, p_issued, coalesce(p_valid_until, (p_issued + interval '1 year')::date),
+          left(coalesce(p_issuer, ''), 80), left(coalesce(p_note, ''), 200))
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- Soft-remove a mistaken measurement / clearance.
+create or replace function public.remove_player_record(p_kind text, p_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_player uuid;
+begin
+  if p_kind = 'measurement' then
+    select player_id into v_player from player_measurements where id = p_id and deleted_at is null;
+    if v_player is null then raise exception 'not found' using errcode = 'P0002'; end if;
+    if not can_edit_player_domain(v_player, 'metrics', 3) then raise exception 'not allowed' using errcode = '42501'; end if;
+    update player_measurements set deleted_at = now(), deleted_by = auth.uid() where id = p_id;
+  elsif p_kind = 'medical' then
+    select player_id into v_player from player_medical_clearances where id = p_id and deleted_at is null;
+    if v_player is null then raise exception 'not found' using errcode = 'P0002'; end if;
+    if not can_edit_player_domain(v_player, 'medical', 3) then raise exception 'not allowed' using errcode = '42501'; end if;
+    update player_medical_clearances set deleted_at = now(), deleted_by = auth.uid() where id = p_id;
+  else
+    raise exception 'unknown kind' using errcode = '22023';
+  end if;
+end;
+$$;
+
 -- -------------------------------------------------------------- the career
 
 -- Israeli season label for a date: Aug-Jul, e.g. 2026-10-01 -> '2026/27'.
@@ -195,12 +340,14 @@ create or replace function public.player_career(p_player uuid)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare
   v_metrics boolean;
+  v_medical boolean;
   v_out jsonb;
 begin
   if auth.uid() is null or not can_view_player(p_player) then
     return '{}'::jsonb;
   end if;
   v_metrics := can_view_player_metrics(p_player);
+  v_medical := can_view_player_medical(p_player);
 
   with
   -- every past, not-canceled match the player is linked to in any way
@@ -259,7 +406,7 @@ begin
   )
   select jsonb_build_object(
     'player', (select jsonb_build_object('id', p.id, 'first_name', p.first_name, 'last_name', p.last_name,
-                        'birth_year', p.birth_year, 'shirt_number', a.shirt_number, 'position', p.position,
+                        'birth_year', p.birth_year, 'shirt_number', a.shirt_number, 'position', p.position, 'strong_foot', p.strong_foot,
                         'team_id', t.id, 'team_name', t.name, 'club', coalesce(c.name, t.club), 'sport', t.sport)
                from players p
                left join lateral (select * from player_assignments x where x.player_id = p.id and x.ended_on is null
@@ -314,7 +461,21 @@ begin
     -- the team through which the caller may add assessments / tests (null = read only)
     'edit_team_id', (select a.team_id from player_assignments a
                      where a.player_id = p_player and a.ended_on is null and can(a.team_id, 'metrics', 3)
-                     order by a.is_primary desc limit 1)
+                     order by a.is_primary desc limit 1),
+    'measurements', case when v_metrics then coalesce((
+      select jsonb_agg(jsonb_build_object('id', x.id, 'date', x.measured_on, 'height_cm', x.height_cm, 'weight_kg', x.weight_kg,
+               'thigh_cm', x.thigh_cm, 'calf_cm', x.calf_cm, 'arm_cm', x.arm_cm, 'note', x.note)
+             order by x.measured_on, x.created_at)
+      from player_measurements x where x.player_id = p_player and x.deleted_at is null), '[]'::jsonb) end,
+    'medical', case when v_medical then coalesce((
+      select jsonb_agg(jsonb_build_object('id', x.id, 'issued_on', x.issued_on, 'valid_until', x.valid_until,
+               'issuer', x.issuer, 'note', x.note)
+             order by x.valid_until desc, x.created_at desc)
+      from player_medical_clearances x where x.player_id = p_player and x.deleted_at is null), '[]'::jsonb) end,
+    'can_edit_profile', (is_player_parent(p_player) or exists (select 1 from player_assignments a
+                         where a.player_id = p_player and a.ended_on is null and can(a.team_id, 'roster', 3))),
+    'can_edit_measurements', can_edit_player_domain(p_player, 'metrics', 3),
+    'can_edit_medical', can_edit_player_domain(p_player, 'medical', 3)
   ) into v_out;
   return v_out;
 end;
@@ -329,5 +490,11 @@ grant execute on function public.add_fitness_test(uuid, uuid, text, numeric, dat
 revoke all on function public.remove_player_metric(text, uuid) from public, anon;
 grant execute on function public.remove_player_metric(text, uuid) to authenticated;
 revoke all on function public.metrics_check_player(uuid, uuid) from public, anon;
+revoke all on function public.add_player_measurement(uuid, date, numeric, numeric, numeric, numeric, numeric, text) from public, anon;
+grant execute on function public.add_player_measurement(uuid, date, numeric, numeric, numeric, numeric, numeric, text) to authenticated;
+revoke all on function public.add_medical_clearance(uuid, date, date, text, text) from public, anon;
+grant execute on function public.add_medical_clearance(uuid, date, date, text, text) to authenticated;
+revoke all on function public.remove_player_record(text, uuid) from public, anon;
+grant execute on function public.remove_player_record(text, uuid) to authenticated;
 
 commit;

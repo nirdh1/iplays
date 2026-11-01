@@ -74,6 +74,7 @@ export interface Career {
     team_name: string | null;
     club: string | null;
     sport: Sport | null;
+    strong_foot: StrongFoot | null;
   };
   sport: Sport | null;
   totals: CareerTotals;
@@ -85,6 +86,48 @@ export interface Career {
   fitness: FitnessResult[] | null;
   /** The team through which the caller may add assessments / tests; null = read only. */
   edit_team_id: string | null;
+  /** null: the caller may not see body measurements (parents + metrics staff only). */
+  measurements: Measurement[] | null;
+  /** null: the caller may not see medical data (parents + medical staff only). */
+  medical: MedicalClearance[] | null;
+  can_edit_profile: boolean;
+  can_edit_measurements: boolean;
+  can_edit_medical: boolean;
+}
+
+export type StrongFoot = 'right' | 'left' | 'both';
+export const footLabel: Record<StrongFoot, string> = { right: 'ימין', left: 'שמאל', both: 'שתי הרגליים' };
+
+export const positionsBySport: Record<string, string[]> = {
+  football: ['שוער', 'בלם', 'מגן ימני', 'מגן שמאלי', 'קשר אחורי', 'קשר', 'קשר התקפי', 'כנף ימין', 'כנף שמאל', 'חלוץ'],
+  basketball: ['רכז', 'קלע', 'סמול פורוורד', 'פאוור פורוורד', 'סנטר'],
+};
+
+export interface Measurement {
+  id: string;
+  date: string;
+  height_cm: number | null;
+  weight_kg: number | null;
+  thigh_cm: number | null;
+  calf_cm: number | null;
+  arm_cm: number | null;
+  note: string;
+}
+
+export const measurementFields: { key: 'height_cm' | 'weight_kg' | 'thigh_cm' | 'calf_cm' | 'arm_cm'; label: string; unit: string }[] = [
+  { key: 'height_cm', label: 'גובה', unit: 'ס״מ' },
+  { key: 'weight_kg', label: 'משקל', unit: 'ק״ג' },
+  { key: 'thigh_cm', label: 'היקף ירך', unit: 'ס״מ' },
+  { key: 'calf_cm', label: 'היקף שוק', unit: 'ס״מ' },
+  { key: 'arm_cm', label: 'היקף זרוע', unit: 'ס״מ' },
+];
+
+export interface MedicalClearance {
+  id: string;
+  issued_on: string;
+  valid_until: string;
+  issuer: string;
+  note: string;
 }
 
 export async function getCareer(playerId: string): Promise<Career | null> {
@@ -95,6 +138,13 @@ export async function getCareer(playerId: string): Promise<Career | null> {
   return {
     ...c,
     fitness: c.fitness ? c.fitness.map((f) => ({ ...f, value: Number(f.value) })) : null,
+    measurements: c.measurements
+      ? c.measurements.map((m) => {
+          const n = (v: unknown) => (v == null ? null : Number(v));
+          return { ...m, height_cm: n(m.height_cm), weight_kg: n(m.weight_kg), thigh_cm: n(m.thigh_cm), calf_cm: n(m.calf_cm), arm_cm: n(m.arm_cm) };
+        })
+      : c.measurements ?? null,
+    medical: c.medical ?? null,
   };
 }
 
@@ -188,3 +238,45 @@ export function fitnessSummary(list: FitnessResult[]) {
 const monthNames = ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני', 'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳'];
 export const monthLabel = (ym: string) => monthNames[Number(ym.slice(5, 7)) - 1] ?? ym;
 export const dayLabel = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(2, 4)}`;
+
+export async function setPlayerProfile(playerId: string, position: string, strongFoot: StrongFoot | null) {
+  const { error } = await db().from('players').update({ position: position.slice(0, 30), strong_foot: strongFoot }).eq('id', playerId);
+  if (error) throw error;
+}
+
+export async function addMeasurement(input: { playerId: string; date: string; values: Partial<Record<(typeof measurementFields)[number]['key'], number | null>>; note: string }) {
+  const v = input.values;
+  const { error } = await db().rpc('add_player_measurement', {
+    p_player: input.playerId,
+    p_on: input.date,
+    p_height: v.height_cm ?? null,
+    p_weight: v.weight_kg ?? null,
+    p_thigh: v.thigh_cm ?? null,
+    p_calf: v.calf_cm ?? null,
+    p_arm: v.arm_cm ?? null,
+    p_note: input.note,
+  });
+  if (error) throw error;
+}
+
+export async function addMedicalClearance(input: { playerId: string; issued: string; validUntil: string; issuer: string }) {
+  const { error } = await db().rpc('add_medical_clearance', {
+    p_player: input.playerId,
+    p_issued: input.issued,
+    p_valid_until: input.validUntil,
+    p_issuer: input.issuer,
+    p_note: '',
+  });
+  if (error) throw error;
+}
+
+export async function removeRecord(kind: 'measurement' | 'medical', id: string) {
+  const { error } = await db().rpc('remove_player_record', { p_kind: kind, p_id: id });
+  if (error) throw error;
+}
+
+/** Days from today (Israel) to a date; negative = past. */
+export function daysUntil(d: string) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+  return Math.round((Date.parse(d) - Date.parse(today)) / 86400000);
+}
