@@ -18,6 +18,8 @@ import { AdminPanelScreen } from './screens/AdminPanelScreen';
 import { MatchesScreen } from './screens/MatchesScreen';
 import { TeamPageScreen } from './screens/TeamPageScreen';
 import { RealCareerScreen } from './screens/RealCareerScreen';
+import { FundScreen } from './screens/FundScreen';
+import { CostsScreen } from './screens/CostsScreen';
 import { RealCalendarScreen, RealChildPill, RealFamilyScreen, RealHomeScreen, RealTeamsScreen, SignInPill } from './screens/RealScreens';
 import { wasOnboarded } from './lib/joinApi';
 import { Logo } from './components/Logo';
@@ -26,8 +28,8 @@ import { clearPendingInvite, readPendingInvite, savePendingInvite, saveStaffInvi
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 
-type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'find' | 't' | 'matches' | 'ifa' | 'admin';
-const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'find', 't', 'matches', 'ifa', 'admin'];
+type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'fund' | 'costs';
+const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'find', 't', 'matches', 'ifa', 'admin', 'fund', 'costs'];
 /** Routes a signed-in user can open before belonging to any team (search, shared team page). */
 const openRoutes: Route[] = ['find', 't'];
 
@@ -237,6 +239,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'club' && signedIn && <ClubScreen clubId={param} onBack={() => back('family')} />}
         {route === 'club' && !signedIn && <FamilyScreen />}
         {route === 'matches' && (signedIn && param ? <MatchesScreen key={param} teamId={param} matchId={sub} onBack={() => back('family')} /> : <FamilyScreen />)}
+        {route === 'costs' && (signedIn && param ? <CostsScreen playerId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
+        {route === 'fund' && (signedIn && param ? <FundScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'ifa' && (signedIn ? <IfaAdminScreen onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 'admin' && (signedIn ? <AdminPanelScreen onBack={() => back('home')} /> : <FamilyScreen />)}
         {route === 'find' && (signedIn ? <FindScreen onBack={() => back('family')} /> : <FamilyScreen />)}
@@ -257,7 +261,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {demoMode && route === 'family' && <FamilyScreen />}
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
-      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' || route === 'admin' ? 'family' : route} onChange={go} />
+      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' || route === 'admin' || route === 'fund' || route === 'costs' ? 'family' : route} onChange={go} />
       <ChildSwitcherSheet open={demoMode && switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>
   );
