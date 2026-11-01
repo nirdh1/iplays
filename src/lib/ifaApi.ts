@@ -113,6 +113,47 @@ export async function importIfaTeam(input: { teamId: number; seasonId: number; t
   return data as ImportResult;
 }
 
+export interface RosterChangeRow {
+  ifa_player_id: number;
+  name?: string;
+  old?: string;
+  new?: string;
+}
+
+export interface RosterSyncResult {
+  ok: boolean;
+  applied?: boolean;
+  run_id: string;
+  error?: string;
+  summary?: { players_in_payload: number; active_before: number; added: number; missing: number; returned: number; renamed: number };
+  added?: RosterChangeRow[];
+  missing?: RosterChangeRow[];
+  returned?: RosterChangeRow[];
+  renamed?: RosterChangeRow[];
+  errors?: { player: unknown; error: string }[];
+}
+
+/** Dry run (apply=false) or apply. Never deletes: a player gone from the page is marked missing. */
+export async function syncIfaRoster(
+  input: { teamId: number; seasonId: number; teamName: string; sourceUrl: string; players: ParsedPlayer[]; allowLargeDrop?: boolean },
+  apply: boolean,
+): Promise<RosterSyncResult> {
+  const { data, error } = await db().rpc('sync_ifa_roster', {
+    p: {
+      ifa_team_id: input.teamId,
+      ifa_season_id: input.seasonId,
+      team_name: input.teamName,
+      source_url: input.sourceUrl,
+      sport: 'football',
+      players: input.players.map((x) => ({ ifa_player_id: x.ifa_player_id, name: x.name, profile_url: x.profile_url })),
+      ...(input.allowLargeDrop ? { allow_large_drop: true } : {}),
+    },
+    p_apply: apply,
+  });
+  if (error) throw error;
+  return data as RosterSyncResult;
+}
+
 export interface SyncRun {
   id: string;
   kind: string;
