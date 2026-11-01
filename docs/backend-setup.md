@@ -278,4 +278,4 @@ Signed-in users see only their own data: their teams, their linked children and 
 
 Run after `20261101950000_join_no_staff_parent.sql`. Adds three policies; rollback removes them and keeps the trainings.
 
-While a team has no staff (`team_has_staff` false, e.g. an IFA-imported team), any member of the team can add, cancel and delete trainings in the team board (`#coach/<team>`), and everyone in the team sees them on Home and in the Calendar. Once a coach or club admin takes over, only staff edit the schedule.
+Any member of a team (parents too) can add, cancel and delete trainings in the team board (`#coach/<team>`), with or without a coach; everyone in the team sees them on Home and in the Calendar. A coach may still update parents elsewhere (e.g. WhatsApp). Staff keep their own training permissions.

@@ -107,7 +107,11 @@ select pg_temp.as_user(null);
 
 select pg_temp.as_user(:C);
 select pg_temp.fails(format('select create_invite(%L, %L)', :T1, 'coach'), 'parent creating a coach invite');
-select pg_temp.fails(format('insert into training_sessions (team_id, starts_at, created_by) values (%L, now(), %L)', :T1, :C), 'parent creating a training');
+-- since 20261101960000 a parent in the team keeps the schedule too
+insert into training_sessions (team_id, starts_at, created_by, title) values (:T1, now() + interval '30 days', :C, 'אימון מהורה');
+select pg_temp.check((select count(*) from training_sessions where team_id = :T1 and title = 'אימון מהורה') = 1, 'parent: adds a training to own team');
+delete from training_sessions where team_id = :T1 and title = 'אימון מהורה';
+select pg_temp.check((select count(*) from training_sessions where team_id = :T1 and title = 'אימון מהורה') = 0, 'parent: deletes a training');
 insert into player_absences (player_id, from_date, to_date, reason, reported_by) values (:NOAM, current_date + 5, current_date + 5, 'family_event', :C);
 select pg_temp.check(true, 'parent: still reports an absence for own child');
 select pg_temp.as_user(null);

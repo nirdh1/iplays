@@ -12,7 +12,6 @@ import { Button, Card, EmptyState, MetaRow, SectionHeader, Segmented, Tag, TeamC
 import { Err, Field } from '../components/form';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError, getRoster, isStaffRole } from '../lib/api';
-import { teamPublic } from '../lib/joinApi';
 import {
   absenceCovers,
   addDays,
@@ -109,14 +108,6 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
   const backend = useMemo(() => supabaseCoach(teamId), [teamId]);
   const [myPlayers, setMyPlayers] = useState<PlayerRef[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // While no coach manages the team, any parent in it keeps the training schedule.
-  const [noCoach, setNoCoach] = useState(false);
-  useEffect(() => {
-    teamPublic(teamId)
-      .then((t) => setNoCoach(!!t && !t.has_staff))
-      .catch(() => setNoCoach(false));
-  }, [teamId]);
-
   useEffect(() => {
     getRoster(teamId)
       .then((r) => setMyPlayers(r.filter((p) => p.guardians.includes(me)).map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}`.trim() }))))
@@ -133,7 +124,7 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
   }
   if (error) return <p className="ip-error" role="alert">{error}</p>;
   if (!myPlayers) return <p className="ip-muted ip-pad">טוען…</p>;
-  return <CoachBoard backend={backend} teamName={team.name} club={team.club} staff={staff} canSchedule={staff || noCoach} myPlayers={myPlayers} onBack={onBack} withAttendance />;
+  return <CoachBoard backend={backend} teamName={team.name} club={team.club} staff={staff} canSchedule myPlayers={myPlayers} onBack={onBack} withAttendance />;
 }
 
 /* --------------------------------------------------------------- board */
@@ -151,7 +142,7 @@ interface BoardProps {
   demoSwitch?: ReactNode;
   /** real teams: staff mark attendance per training */
   withAttendance?: boolean;
-  /** may add / cancel / delete trainings: staff, or any parent while the team has no coach */
+  /** may add / cancel / delete trainings: staff, and on real teams every member (parents too) */
   canSchedule?: boolean;
 }
 
@@ -265,7 +256,7 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
                 הוספת לוח אימונים
               </Button>
             </div>
-            <p className="ip-footnote">לקבוצה אין עדיין מאמן באפליקציה, ולכן כל הורה בקבוצה יכול להזין את האימונים. כל ההורים בקבוצה יראו אותם מיד.</p>
+            <p className="ip-footnote">כל הורה בקבוצה יכול להזין, לבטל ולמחוק אימונים. כל ההורים בקבוצה רואים אותם מיד.</p>
           </>
         )
       )}
