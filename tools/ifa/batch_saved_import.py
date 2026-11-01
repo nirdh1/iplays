@@ -32,31 +32,42 @@ def team_name(soup):
     return value or None
 
 
-def prepare(folder, season):
-    roster = folder / 'roster.html'
-    if not roster.is_file():
-        raise ValueError('missing roster.html')
-    soup = load_saved(roster)
-    players = roster_players(soup, int(folder.name), season)
+def validate_roster(soup, team_id, season, source_url, fallback_soup=None):
+    """Parsed roster page -> import_ifa_team payload, or ValueError. Shared with ifa_agent.py."""
+    players = roster_players(soup, team_id, season)
     if not players:
         raise ValueError('no verified #teamPlayers entries; refusing empty import')
     name = team_name(soup)
-    if not name and (folder / 'team.html').exists():
-        name = team_name(load_saved(folder / 'team.html'))
+    if not name and fallback_soup is not None:
+        name = team_name(fallback_soup)
     if not name:
         raise ValueError('team name missing from h1; refusing guessed name')
+    seen = set()
     for player in players:
         url = player['profile_url']
         if urlparse(url).hostname not in ('www.football.org.il', 'football.org.il'):
             raise ValueError('invalid player profile host')
         if str(player['ifa_player_id']) != parse_qs(urlparse(url).query).get('player_id', [None])[0]:
             raise ValueError('player id/profile mismatch')
+        if player['ifa_player_id'] in seen:
+            raise ValueError('duplicate player id')
+        seen.add(player['ifa_player_id'])
     return {
-        'ifa_team_id': int(folder.name), 'ifa_season_id': season,
+        'ifa_team_id': team_id, 'ifa_season_id': season,
         'team_name': name, 'sport': 'football',
-        'source_url': f'https://www.football.org.il/team-details/?team_id={folder.name}&season_id={season}',
+        'source_url': source_url,
         'players': [{'ifa_player_id': p['ifa_player_id'], 'name': p['name'], 'profile_url': p['profile_url']} for p in players],
     }
+
+
+def prepare(folder, season):
+    roster = folder / 'roster.html'
+    if not roster.is_file():
+        raise ValueError('missing roster.html')
+    team = folder / 'team.html'
+    return validate_roster(load_saved(roster), int(folder.name), season,
+                           f'https://www.football.org.il/team-details/?team_id={folder.name}&season_id={season}',
+                           load_saved(team) if team.exists() else None)
 
 
 def build(saved, season):

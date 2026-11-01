@@ -363,3 +363,70 @@ export async function getQueueStats(): Promise<{ status: string; n: number; olde
   if (error) return [];
   return data ?? [];
 }
+
+// ------------------------------------------------------------ local agent (pilot)
+
+export interface SyncRequest {
+  id: string;
+  kind: 'roster';
+  ifa_team_id: number;
+  ifa_season_id: number;
+  status: 'pending' | 'claimed' | 'checked' | 'applied' | 'failed' | 'canceled';
+  requested_at: string;
+  claimed_at: string | null;
+  finished_at: string | null;
+  result: RosterSyncResult | null;
+  error: string | null;
+  fetch_info: { http_status?: number; players?: number; fetched_at?: string; url?: string };
+  applied_at: string | null;
+  applied_result: RosterSyncResult | null;
+}
+
+export interface AgentKey {
+  id: string;
+  name: string;
+  created_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+}
+
+export async function requestIfaSync(teamId: number, seasonId: number): Promise<string> {
+  const { data, error } = await db().rpc('request_ifa_sync', { p_ifa_team_id: teamId, p_ifa_season_id: seasonId });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function getSyncRequests(): Promise<SyncRequest[]> {
+  const { data, error } = await db().from('ifa_sync_requests').select('*').order('requested_at', { ascending: false }).limit(10);
+  if (error) throw error;
+  return (data ?? []) as SyncRequest[];
+}
+
+export async function applyIfaRequest(id: string, allowLargeDrop = false): Promise<RosterSyncResult> {
+  const { data, error } = await db().rpc('apply_ifa_request', { p_request: id, p_allow_large_drop: allowLargeDrop });
+  if (error) throw error;
+  return data as RosterSyncResult;
+}
+
+export async function cancelIfaRequest(id: string) {
+  const { error } = await db().rpc('cancel_ifa_request', { p_request: id });
+  if (error) throw error;
+}
+
+export async function getAgentKeys(): Promise<AgentKey[]> {
+  const { data, error } = await db().from('ifa_agent_keys').select('id, name, created_at, last_seen_at, revoked_at').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as AgentKey[];
+}
+
+/** The key is returned once; only its hash is stored. */
+export async function createAgentKey(name: string): Promise<string> {
+  const { data, error } = await db().rpc('create_ifa_agent_key', { p_name: name });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function revokeAgentKey(id: string) {
+  const { error } = await db().rpc('revoke_ifa_agent_key', { p_id: id });
+  if (error) throw error;
+}

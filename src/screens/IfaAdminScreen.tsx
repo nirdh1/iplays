@@ -15,12 +15,12 @@ import {
   parseRosterHtml,
   syncIfaRoster,
   type ParsedRoster,
-  type RosterChangeRow,
   type RosterSyncResult,
   type SyncedTeam,
   type SyncRun,
 } from '../lib/ifaApi';
 import { IfaGamesAdmin, PushControl } from './IfaGamesAdmin';
+import { IfaAgentAdmin, RosterCheck } from './IfaAgentAdmin';
 import '../theme/club.css';
 import '../theme/coach.css';
 
@@ -217,6 +217,7 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
             </Card>
           </section>
 
+          <IfaAgentAdmin onChanged={() => void loadLog()} />
           <IfaGamesAdmin onImported={() => void loadLog()} />
           <PushControl />
 
@@ -273,53 +274,6 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
           </section>
         </>
       )}
-    </div>
-  );
-}
-
-const changeLabels: { key: 'added' | 'missing' | 'returned' | 'renamed'; label: string }[] = [
-  { key: 'added', label: 'שחקנים חדשים' },
-  { key: 'missing', label: 'לא מופיעים יותר בדף (יסומנו, לא יימחקו)' },
-  { key: 'returned', label: 'חזרו לסגל' },
-  { key: 'renamed', label: 'שינוי שם בהתאחדות (השם שההורה ערך באפליקציה לא ישתנה)' },
-];
-
-function RosterCheck({ r }: { r: RosterSyncResult }) {
-  if (!r.ok) {
-    return (
-      <div className="ip-roster-check">
-        <Tag tone="live" icon="shield">נעצר, שום דבר לא השתנה</Tag>
-        <p dir="auto">{r.error}</p>
-      </div>
-    );
-  }
-  const s = r.summary;
-  const none = s && s.added + s.missing + s.returned + s.renamed === 0;
-  return (
-    <div className="ip-roster-check">
-      <Tag tone="neutral" icon="check">בדיקה בלבד, שום דבר לא נשמר</Tag>
-      <p>
-        {s?.players_in_payload} שחקנים בדף, {s?.active_before} פעילים היום באפליקציה.
-        {none && ' אין שינויים.'}
-      </p>
-      {changeLabels.map(({ key, label }) => {
-        const rows: RosterChangeRow[] = r[key] ?? [];
-        if (rows.length === 0) return null;
-        return (
-          <div key={key}>
-            <strong>
-              {label}: {rows.length}
-            </strong>
-            <ul className="ip-change-list">
-              {rows.map((x) => (
-                <li key={x.ifa_player_id}>
-                  {key === 'renamed' ? `${x.old} ← ${x.new}` : x.name} <span className="ip-muted" dir="ltr">#{x.ifa_player_id}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })}
     </div>
   );
 }
