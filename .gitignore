@@ -3,3 +3,7 @@ dist
 *.log
 .DS_Store
 .env.local
+
+# IFA local agent: secrets and saved pages stay on the computer
+tools/ifa/agent.env
+tools/ifa/saved/

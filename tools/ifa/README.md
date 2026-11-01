@@ -67,3 +67,53 @@ app: `#ifa` → "ייבוא סגל מדף שמור" → "בדיקה: מה ישת
 
 There is no scheduled run: the IFA site returns 403 to servers (also to Playwright, checked
 2026-11-01), and we do not get around that.
+
+## Local agent (pilot): "הרץ בדיקה" from the admin panel
+
+The IFA site returns 403 to cloud servers, but a plain browser on the owner's home
+connection loads the pages normally (one test from the owner's Mac, 2026-11-01: HTTP 200,
+no challenge, 24 players). The agent runs there and never gets around a block.
+
+Flow: panel `#ifa` → "הרץ בדיקה" (team id) → request row → `ifa_agent.py` on the Mac claims
+it, loads the roster page, validates it (`validate_roster`, shared with
+`batch_saved_import.py`) and sends a **dry run** → the panel shows what will change →
+"ייבוא השינויים" (platform admin only) applies it through `sync_ifa_roster`.
+
+The agent signs with its own key (`#ifa` → "מפתח לסוכן" → "יצירת מפתח"; shown once, stored
+hashed). The key can claim requests, submit a dry run and report a failure; it cannot import
+or read anything else. Never put service_role on the computer.
+
+Built-in limits: plain Chromium (no stealth, user agent or proxy changes), one load per page,
+no retries, stop the whole run on HTTP 403 / 429 / 503 or a challenge page, robots.txt
+respected, at least 5 s between pages (default 8), at most 20 pages per run (default 5).
+Only id, name and profile link are sent (no photos).
+
+Setup on the Mac:
+
+    python3 -m venv .venv
+    .venv/bin/pip install -r tools/ifa/requirements.txt playwright
+    .venv/bin/playwright install chromium
+    cp tools/ifa/agent.env.example tools/ifa/agent.env      # fill in; ignored by git
+    .venv/bin/python tools/ifa/ifa_agent.py --check 7491     # one page, prints, sends nothing
+    .venv/bin/python tools/ifa/ifa_agent.py                  # one pass over open requests
+
+Every 5 minutes while the Mac is awake (`~/Library/LaunchAgents/il.iplays.ifa-agent.plist`,
+then `launchctl load` it; adjust the paths):
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0"><dict>
+      <key>Label</key><string>il.iplays.ifa-agent</string>
+      <key>ProgramArguments</key><array>
+        <string>/Users/YOU/iplays/.venv/bin/python</string>
+        <string>/Users/YOU/iplays/tools/ifa/ifa_agent.py</string>
+      </array>
+      <key>StartInterval</key><integer>300</integer>
+      <key>StandardOutPath</key><string>/tmp/iplays-ifa-agent.log</string>
+      <key>StandardErrorPath</key><string>/tmp/iplays-ifa-agent.log</string>
+    </dict></plist>
+
+Pilot scope: one team (7491), on demand. Wider use (teams from league pages, scheduled
+checks) waits for the pilot result and, preferably, the IFA's reply to the data request:
+the terms of use say nothing about automated access, and reuse of IFA content and images
+needs their consent.
