@@ -18,9 +18,10 @@ import {
 } from '../lib/joinApi';
 import { isPlatformAdmin } from '../lib/ifaApi';
 import '../theme/coach.css';
+import { PasswordCard } from '../components/PasswordSetup';
 import { disablePush, enablePush, getPrefs, pushState, savePrefs, type NotificationPrefs, type PushState } from '../lib/push';
 
-/** Game-change notifications: this device on/off, and what to get. */
+/** Notifications: push on this device on/off, and what to get (bell and push alike). */
 function NotificationsSection() {
   const [state, setState] = useState<PushState | null>(null);
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
@@ -53,13 +54,13 @@ function NotificationsSection() {
     unsupported: 'הדפדפן הזה לא תומך בהתראות. באייפון: קודם "הוספה למסך הבית", ואז פותחים את iplays מהאייקון.',
     'not-configured': 'התראות למכשיר עוד לא הופעלו בשרת. העדכונים מופיעים בינתיים באפליקציה.',
     denied: 'ההתראות חסומות בהגדרות הדפדפן של המכשיר.',
-    off: 'נשלח התראה רק כשמשהו באמת משתנה: תאריך, שעה, מגרש או תוצאה.',
+    off: 'ההתראות מופיעות בפעמון למעלה. אפשר לקבל אותן גם כהודעה במכשיר.',
     on: 'ההתראות פעילות במכשיר הזה.',
   };
 
   return (
     <section>
-      <SectionHeader title="התראות על משחקים" icon="bell" />
+      <SectionHeader title="התראות" icon="bell" />
       <Card>
         <div className="ip-form">
           {state && <p className="ip-muted">{note[state]}</p>}
@@ -78,6 +79,12 @@ function NotificationsSection() {
                 <input type="checkbox" checked={prefs.match_results} onChange={(e) => void change({ ...prefs, match_results: e.target.checked })} />
                 <span>תוצאות משחקים</span>
               </label>
+              {prefs.team_updates !== undefined && (
+                <label className="ip-check">
+                  <input type="checkbox" checked={prefs.team_updates} onChange={(e) => void change({ ...prefs, team_updates: e.target.checked })} />
+                  <span>עדכוני קבוצה: אימונים, הודעות והיעדרויות</span>
+                </label>
+              )}
             </>
           )}
           {error && <p className="ip-error">{error}</p>}
@@ -155,7 +162,7 @@ export function RequestsSection() {
                     {r.relation === 'parent' ? `${r.requester || 'משתמש'} הצהיר/ה שהוא/היא הורה של ${r.child_name}` : `${r.requester || 'בן משפחה'} רוצה לעקוב אחרי ${r.child_name}`}
                   </span>
                   <span className="ip-list-row-sub">
-                    {r.relation === 'parent' ? r.message || 'לקבוצה אין עדיין מאמן, ולכן ההורה הרשום (את/ה) מאשר/ת' : r.message || 'צפייה בילד ובלוח הקבוצה, בלי עריכה'}
+                    {r.relation === 'parent' ? r.message || 'את/ה ההורה הרשום/ה של הילד ולכן יכול/ה לאשר. אפשר גם להזמין הורה שני ישירות, בקישור מ"בני משפחה והרשאות".' : r.message || 'צפייה בילד ובלוח הקבוצה, בלי עריכה'}
                   </span>
                 </span>
                 <span className="ip-find-actions">
@@ -253,6 +260,7 @@ export function AccountSection() {
           </div>
         </Card>
       </section>
+      <PasswordCard />
       <RequestsSection />
       <NotificationsSection />
       <section>

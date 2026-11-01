@@ -5,6 +5,7 @@
  * The server returns null for a part the viewer may not see, and the part
  * is then not rendered at all.
  */
+import '../theme/career.css';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Icon } from '../components/Icon';
 import { BottomSheet } from '../components/shell';

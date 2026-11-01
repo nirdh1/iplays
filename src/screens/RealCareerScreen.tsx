@@ -5,6 +5,7 @@
  * staff open any player of their team through #career/<player id>.
  * Nothing here is invented: a number with no source is not shown.
  */
+import '../theme/career.css';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { InitialsAvatar } from '../components/Avatar';
 import { BarChart, CHART_BLUE, CHART_LIME, type ChartSeries } from '../components/CareerChart';

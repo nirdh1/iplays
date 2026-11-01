@@ -258,6 +258,75 @@
   font-size: var(--ip-fs-sm);
 }
 
+/* ===================== Notifications (bell) ===================== */
+.ip-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s1);
+  max-height: 65vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ip-inbox-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: var(--ip-s3);
+  padding: var(--ip-s3);
+  border-radius: var(--ip-r-md);
+  background: transparent;
+  border: 0;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+}
+button.ip-inbox-item {
+  cursor: pointer;
+}
+button.ip-inbox-item:hover {
+  background: var(--ip-surface-2);
+}
+.ip-inbox-item.is-unread {
+  background: var(--ip-blue-100);
+}
+.ip-inbox-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ip-bg);
+  color: var(--ip-navy);
+}
+.ip-inbox-item.is-unread .ip-inbox-icon {
+  background: var(--ip-navy);
+  color: var(--ip-lime);
+}
+.ip-inbox-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--ip-fs-sm);
+}
+.ip-inbox-text strong {
+  font-weight: 700;
+}
+.ip-inbox-text span {
+  color: var(--ip-text-2);
+  overflow-wrap: anywhere;
+}
+.ip-inbox-item time {
+  color: var(--ip-text-3);
+  font-size: var(--ip-fs-xs);
+  white-space: nowrap;
+}
+.ip-inbox-loading {
+  padding: var(--ip-s4) 0;
+  text-align: center;
+}
+
 /* ===================== Sheet ===================== */
 .ip-sheet {
   position: fixed;
@@ -2418,6 +2487,13 @@ select.ip-input {
   font-size: var(--ip-fs-h, 1.1rem);
 }
 
+.ip-a2hs-card.ip-form {
+  gap: 10px;
+}
+.ip-pw-saved {
+  color: var(--ip-success);
+  font-weight: 700;
+}
 @keyframes ip-a2hs-in {
   from {
     opacity: 0;
@@ -2451,78 +2527,25 @@ select.ip-input {
   color: inherit;
 }
 
-/* ---------- Career (real data) ---------- */
-.ip-career-seasons li,
-.ip-fitness-list li {
-  display: flex;
-  align-items: center;
-  gap: var(--ip-s3);
-  padding: var(--ip-s3) var(--ip-s4);
-}
-.ip-career-seasons li + li,
-.ip-fitness-list li + li {
-  border-top: 1px solid var(--ip-border);
-}
-.ip-career-season-nums {
-  display: flex;
-  gap: var(--ip-s3);
-  font-size: var(--ip-fs-sm);
-  color: var(--ip-text-2);
-  white-space: nowrap;
-}
-.ip-career-season-nums strong {
-  color: var(--ip-text);
-  font-variant-numeric: tabular-nums;
-}
-.ip-fitness-list {
-  margin-top: var(--ip-s3);
-  border-top: 1px solid var(--ip-border);
-}
-.ip-fitness-list li {
-  padding-inline: 0;
-}
-.ip-fitness-list--manage {
-  margin-top: var(--ip-s4);
-}
-.ip-fitness-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--ip-fs-sm);
-  color: var(--ip-text-2);
-  white-space: nowrap;
-}
-.ip-fitness-value strong {
-  color: var(--ip-text);
-  font-size: var(--ip-fs-md, 1rem);
-  font-variant-numeric: tabular-nums;
-}
-.ip-rate-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-weight: 600;
-  font-size: var(--ip-fs-sm);
-}
-.ip-rate-scale {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 4px;
-}
-.ip-rate-scale button {
-  min-height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--ip-border);
-  background: var(--ip-surface, #fff);
+/* ---------- Family members (Family tab) ---------- */
+.ip-member--button {
+  width: 100%;
+  background: none;
+  border: 0;
   font: inherit;
-  font-variant-numeric: tabular-nums;
-  color: var(--ip-text);
+  color: inherit;
+  text-align: start;
   cursor: pointer;
 }
-.ip-rate-scale button.is-on {
-  background: var(--ip-navy);
-  border-color: var(--ip-navy);
-  color: #fff;
+.ip-member--button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.ip-family-head {
+  background: var(--ip-bg);
+}
+.ip-family-invite {
+  border: 2px solid var(--ip-lime);
 }
 
 /* ---------- Carpools (real data) ---------- */
@@ -2619,74 +2642,4 @@ select.ip-input {
 .ip-declare.is-off {
   background: var(--ip-surface);
   border: 1px solid var(--ip-border);
-}
-
-/* ---------- Career: profile, body, medical ---------- */
-.ip-profile-facts,
-.ip-measure-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: var(--ip-s3);
-}
-.ip-profile-facts div,
-.ip-measure-grid div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.ip-profile-facts span,
-.ip-measure-grid span {
-  font-size: var(--ip-fs-xs);
-  color: var(--ip-text-2);
-  font-weight: 600;
-}
-.ip-profile-facts strong,
-.ip-measure-grid strong {
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
-}
-.ip-measure-grid small {
-  font-size: var(--ip-fs-xs);
-  color: var(--ip-text-2);
-  font-weight: 600;
-}
-.ip-measure-grid em {
-  font-style: normal;
-  font-size: var(--ip-fs-xs);
-  color: var(--ip-text-2);
-  unicode-bidi: isolate;
-  align-self: flex-start;
-}
-.ip-medical-status {
-  display: flex;
-  align-items: center;
-  gap: var(--ip-s3);
-  flex-wrap: wrap;
-}
-.ip-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.ip-chip {
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: var(--ip-r-pill);
-  border: 1px solid var(--ip-border);
-  background: var(--ip-surface);
-  color: var(--ip-text);
-  font: inherit;
-  font-size: var(--ip-fs-sm);
-  cursor: pointer;
-}
-.ip-chip.is-on {
-  background: var(--ip-navy);
-  border-color: var(--ip-navy);
-  color: #fff;
-}
-.ip-field-row--wrap {
-  flex-wrap: wrap;
-}
-.ip-field-row--wrap > * {
-  flex: 1 1 120px;
 }
