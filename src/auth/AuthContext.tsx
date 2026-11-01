@@ -148,3 +148,9 @@ export function takeStaffInvite(): string | null {
   clearCode(STAFF_KEY);
   return code;
 }
+
+/** Family invites (second parent, grandparents, ...): #fam/CODE10 */
+const FAMILY_KEY = 'iplays.pendingFamilyInvite';
+export const saveFamilyInvite = (code: string) => saveCode(FAMILY_KEY, code);
+export const readFamilyInvite = () => readCode(FAMILY_KEY);
+export const clearFamilyInvite = () => clearCode(FAMILY_KEY);

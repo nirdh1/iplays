@@ -15,6 +15,7 @@ import { competitionLabel, getMatches, matchEndsAt, matchTimeLabel, matchVenueLa
 import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
 import { AccountSection, RequestsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
+import { FamilyInviteCard, FamilyMembersSection } from './FamilySection';
 import { sportProfile } from '../lib/sports';
 
 const goFind = () => (window.location.hash = 'find');
@@ -439,6 +440,7 @@ export function RealFamilyScreen() {
   return (
     <div className="ip-stack">
       <ScreenTitle title="משפחה" subtitle={profile?.full_name || undefined} />
+      <FamilyInviteCard />
       <AccountSection />
       <section>
         <SectionHeader title="הילדים" />
@@ -466,6 +468,7 @@ export function RealFamilyScreen() {
           </Card>
         )}
       </section>
+      <FamilyMembersSection />
     </div>
   );
 }

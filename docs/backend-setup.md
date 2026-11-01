@@ -279,3 +279,14 @@ Signed-in users see only their own data: their teams, their linked children and 
 Run after `20261101950000_join_no_staff_parent.sql`. Adds three policies; rollback removes them and keeps the trainings.
 
 Any member of a team (parents too) can add, cancel and delete trainings in the team board (`#coach/<team>`), with or without a coach; everyone in the team sees them on Home and in the Calendar. A coach may still update parents elsewhere (e.g. WhatsApp). Staff keep their own training permissions.
+
+## Family members and permissions (migration `20261101970000_family_members.sql`)
+
+Run after `20261101960000_parent_trainings.sql`. Additive: new columns on `player_guardians` and `team_members`, a `family_invites` table, new functions, and replaced policies for trainings and absences. Rollback restores the previous functions and policies and keeps the data.
+
+- **Family tab → "בני משפחה והרשאות"**: everyone linked to each of my children, with a kinship label (אמא, סבתא, ...) and what they may do.
+- **Invite link** (`#fam/<code>`): a parent invites a second parent or a family member for one or more children. One-time, valid 14 days. Opening it after sign-in shows an accept card on the Family tab; no staff approval.
+- **Permissions** for non-parents: `can_report` (absences), `can_rides`, `can_pay` (stored now, enforced when rides / payments are built). Seeing the child, the schedule, matches and results needs none. Parents always have all of them. Helper for policies: `family_can(player, 'view' | 'report' | 'rides' | 'pay')`.
+- A parent edits or removes family members, but cannot limit or remove the other parent; anyone can leave by themselves.
+- A request from a second declared parent can be approved by the child's existing parent too (staff still can).
+- Followers are marked `team_members.is_follower`: they see the team and cannot add, change or delete trainings (`is_team_participant`). Existing followers are marked by the migration.

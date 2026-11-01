@@ -154,7 +154,7 @@ export function RequestsSection() {
                     {r.relation === 'parent' ? `${r.requester || 'משתמש'} הצהיר/ה שהוא/היא הורה של ${r.child_name}` : `${r.requester || 'בן משפחה'} רוצה לעקוב אחרי ${r.child_name}`}
                   </span>
                   <span className="ip-list-row-sub">
-                    {r.relation === 'parent' ? r.message || 'לקבוצה אין עדיין מאמן, ולכן ההורה הרשום (את/ה) מאשר/ת' : r.message || 'צפייה בילד ובלוח הקבוצה, בלי עריכה'}
+                    {r.relation === 'parent' ? r.message || 'את/ה ההורה הרשום/ה של הילד ולכן יכול/ה לאשר. אפשר גם להזמין הורה שני ישירות, בקישור מ"בני משפחה והרשאות".' : r.message || 'צפייה בילד ובלוח הקבוצה, בלי עריכה'}
                   </span>
                 </span>
                 <span className="ip-find-actions">
