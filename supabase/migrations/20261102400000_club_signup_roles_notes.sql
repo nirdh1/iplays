@@ -1,8 +1,8 @@
 -- iplays — club sign-up by city, custom club roles, confidential coach notes.
 --
--- Run after 20261101999000_team_ifa_link.sql (needs the inbox notifications,
+-- Run after 20261102300000_ifa_agent_games.sql (needs the inbox notifications,
 -- IFA import and permissions migrations).
--- Rollback: supabase/rollback/20261102100000_club_signup_roles_notes.down.sql
+-- Rollback: supabase/rollback/20261102400000_club_signup_roles_notes.down.sql
 --
 -- Additive only: new columns with defaults, new tables, new functions. The
 -- existing functions my_level / can_see_team / can_club / role_default_level /

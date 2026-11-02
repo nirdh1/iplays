@@ -1,4 +1,4 @@
--- iplays — rollback for 20261102100000_club_signup_roles_notes.sql
+-- iplays — rollback for 20261102400000_club_signup_roles_notes.sql
 --
 -- Restores the permission functions and club policies as they were, and
 -- removes the new functions. Keeps the data: club_access_requests,

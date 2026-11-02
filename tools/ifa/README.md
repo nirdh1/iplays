@@ -149,3 +149,33 @@ of the site, through the same validation, dry run and "ייבוא" click:
 
 A future authorized API needs only an adapter that writes this JSON; validation, the dry
 run, the change log and the panel stay as they are.
+
+## Watching the saved pages (`ifa_watch.py`, spec section 13)
+
+The owner keeps refreshing IFA pages by hand in Chrome ("Webpage, Complete").
+`ifa_watch.py` picks up each new or changed save from the existing folders
+(`~/iplays_clude/ifa_pages`, listed in `MatchRounds/index.json`). Nothing is
+moved and the IFA site is never contacted.
+
+```bash
+# check only: what changed and what would be sent (nothing is sent or remembered)
+python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages
+# send with the agent key (tools/ifa/agent.env), once or every 60 s
+python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages --send
+python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages --send --watch 60
+# offline test on synthetic fixtures
+python3 -I tools/ifa/test_ifa_watch.py
+```
+
+- A page is recognised by its own form action (team_id / league_id), so a save
+  with the browser's default name or in the wrong folder still counts.
+- A file is read only after it and its `_files` folder have not changed for 20 s,
+  and only when its content (sha256) changed since it was last sent.
+- Roster of an imported team → `agent_propose_ifa_roster`: the differences wait
+  for the coach; the team does not change.
+- Roster of a team not imported yet → `MatchRounds/first_import.sql` (dry run
+  first) for the owner to run in the SQL Editor; the agent key cannot create teams.
+- Team games page → `agent_import_ifa_games`: date, time, venue, status and result
+  follow the page; a coach's own value still wins field by field.
+- Every processed file is logged in `MatchRounds/log.jsonl`; `state.json` holds
+  the hashes; `index.json` gets `last_processed_at`, team count and status.
