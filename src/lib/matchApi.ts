@@ -427,7 +427,6 @@ export function liveError(e: unknown): string | null {
   return null;
 }
 
-<<<<<<< HEAD
 /* ------------------------------------------------- live session (spec 16-17)
  * Server side: supabase/migrations/20261102400000_live_match_session.sql
  */
@@ -529,7 +528,8 @@ export const finalizeResult = (matchId: string, home: number, away: number) =>
 export function clockLabel(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-=======
+}
+
 /* ---------------------------------------------- coach overrides on IFA games */
 // supabase/migrations/20261102200000_match_overrides.sql: staff can set their own
 // value for one field of an IFA game; it wins over the IFA until they release it.
@@ -612,5 +612,4 @@ export function overrideValueLabel(field: OverrideField, v: unknown): string {
   if (field === 'status') return ({ scheduled: 'מתוכנן', played: 'שוחק', canceled: 'בוטל' } as Record<string, string>)[v as string] ?? String(v);
   const [a, b] = v as [number | null, number | null];
   return a == null || b == null ? 'ללא תוצאה' : `${a} : ${b}`;
->>>>>>> origin/main
 }
