@@ -98,10 +98,12 @@ export interface Career {
 export type StrongFoot = 'right' | 'left' | 'both';
 export const footLabel: Record<StrongFoot, string> = { right: 'ימין', left: 'שמאל', both: 'שתי הרגליים' };
 
+/** Same lists as position_list() on the server. */
 export const positionsBySport: Record<string, string[]> = {
-  football: ['שוער', 'בלם', 'מגן ימני', 'מגן שמאלי', 'קשר אחורי', 'קשר', 'קשר התקפי', 'כנף ימין', 'כנף שמאל', 'חלוץ'],
+  football: ['שוער', 'בלם', 'מגן ימני', 'מגן שמאלי', 'קשר אחורי', 'קשר מרכזי', 'קשר התקפי', 'כנף ימין', 'כנף שמאל', 'חלוץ'],
   basketball: ['רכז', 'קלע', 'סמול פורוורד', 'פאוור פורוורד', 'סנטר'],
 };
+export const NO_POSITION = 'טרם נקבעה עמדה';
 
 export interface Measurement {
   id: string;
@@ -239,8 +241,95 @@ const monthNames = ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'י�
 export const monthLabel = (ym: string) => monthNames[Number(ym.slice(5, 7)) - 1] ?? ym;
 export const dayLabel = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(2, 4)}`;
 
-export async function setPlayerProfile(playerId: string, position: string, strongFoot: StrongFoot | null) {
-  const { error } = await db().from('players').update({ position: position.slice(0, 30), strong_foot: strongFoot }).eq('id', playerId);
+/** Primary position ('' = not decided yet), secondary positions and strong foot. */
+export async function setPlayerProfile(playerId: string, primary: string, secondary: string[], strongFoot: StrongFoot | null) {
+  const { error } = await db().rpc('set_player_profile', {
+    p_player: playerId,
+    p_primary: primary,
+    p_secondary: secondary,
+    p_strong_foot: strongFoot,
+  });
+  if (error) throw error;
+}
+
+/* ------------------------------------------------ affiliations (history) */
+
+export type ProgramKind = 'league' | 'academy';
+export type ExternalKind = 'club' | 'academy' | 'private_coach' | 'other';
+export const externalKindLabel: Record<ExternalKind, string> = {
+  club: 'מועדון',
+  academy: 'אקדמיה',
+  private_coach: 'מאמן אישי',
+  other: 'אחר',
+};
+
+export interface TeamAffiliation {
+  team_id: string;
+  team_name: string;
+  club: string | null;
+  program: ProgramKind | null;
+  sport: Sport;
+  season: string;
+  started_on: string;
+  ended_on: string | null;
+  end_reason: string;
+  is_primary: boolean;
+  shirt_number: number | null;
+}
+
+export interface ExternalAffiliation {
+  id: string;
+  name: string;
+  kind: ExternalKind;
+  started_on: string | null;
+  ended_on: string | null;
+  note: string;
+}
+
+export interface ProfileExtra {
+  position: string;
+  secondary_positions: string[];
+  position_list: string[] | null;
+  can_edit: boolean;
+  is_parent: boolean;
+  teams: TeamAffiliation[];
+  external: ExternalAffiliation[];
+}
+
+export async function getProfileExtra(playerId: string): Promise<ProfileExtra | null> {
+  const { data, error } = await db().rpc('player_profile_extra', { p_player: playerId });
+  if (error) throw error;
+  const d = data as ProfileExtra | null;
+  if (!d || !('teams' in d)) return null;
+  return { ...d, secondary_positions: d.secondary_positions ?? [], teams: d.teams ?? [], external: d.external ?? [] };
+}
+
+export async function saveExternalAffiliation(input: { playerId: string; id?: string | null; name: string; kind: ExternalKind; started: string | null; ended: string | null }) {
+  const { error } = await db().rpc('save_external_affiliation', {
+    p_player: input.playerId,
+    p_id: input.id ?? null,
+    p_name: input.name,
+    p_kind: input.kind,
+    p_started: input.started,
+    p_ended: input.ended,
+    p_note: '',
+  });
+  if (error) throw error;
+}
+
+export async function removeExternalAffiliation(id: string) {
+  const { error } = await db().rpc('remove_external_affiliation', { p_id: id });
+  if (error) throw error;
+}
+
+/** A parent marks that the child left a team (optionally: where they moved). */
+export async function parentEndAffiliation(playerId: string, teamId: string, movedTo: string, effective: string) {
+  const { error } = await db().rpc('parent_end_affiliation', {
+    p_player: playerId,
+    p_team: teamId,
+    p_moved_to: movedTo,
+    p_effective: effective,
+  });
   if (error) throw error;
 }
 

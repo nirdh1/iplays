@@ -30,8 +30,9 @@ import {
   type FitnessTestType,
 } from '../lib/careerApi';
 import { NoTeam, useMyKids } from './RealScreens';
-import { MedicalSection, ProfileSection } from './CareerProfile';
+import { MedicalSection } from './CareerProfile';
 import { DevelopmentSection } from './DevelopmentSection';
+import { AffiliationsSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
@@ -82,10 +83,22 @@ export function RealCareerScreen({ playerId, onShowSample }: { playerId?: string
   );
 }
 
+/** A load error with the server's own words, so a missing migration or a bad row can be told apart. */
+function careerLoadError(e: unknown): string {
+  const err = e as { code?: string; message?: string };
+  const code = err?.code ?? '';
+  const msg = err?.message ?? String(e);
+  if (code === 'PGRST202' || /Could not find the function/.test(msg)) return 'מסך הקריירה מחכה לעדכון מסד הנתונים (iplays-player-career.sql).';
+  if (code === '42P01' || /does not exist/.test(msg)) return `חסרה טבלה במסד הנתונים: ${msg}`;
+  if (/Failed to fetch/.test(msg)) return friendlyError(e);
+  return `לא הצלחנו לטעון את הקריירה. ${code ? `(${code}) ` : ''}${msg}`;
+}
+
 function PlayerCareer({ playerId }: { playerId: string }) {
   const [career, setCareer] = useState<Career | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'assessment' | 'fitness' | null>(null);
+  const { extra, reload: reloadExtra } = useProfileExtra(playerId);
 
   const load = useCallback(() => {
     return getCareer(playerId)
@@ -93,13 +106,24 @@ function PlayerCareer({ playerId }: { playerId: string }) {
         setCareer(c);
         setError(null);
       })
-      .catch((e) => setError(friendlyError(e)));
+      .catch((e) => setError(careerLoadError(e)));
   }, [playerId]);
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (error) return <Card><Err error={error} /></Card>;
+  if (error) {
+    return (
+      <Card>
+        <Err error={error} />
+        <div className="ip-btn-row">
+          <Button variant="secondary" size="sm" onClick={() => void load()}>
+            לנסות שוב
+          </Button>
+        </div>
+      </Card>
+    );
+  }
   if (career === undefined) return <p className="ip-muted">טוען…</p>;
   if (career === null) {
     return (
@@ -155,7 +179,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
         {p.club && <span className="ip-on-navy-muted">{p.club}</span>}
       </Card>
 
-      <ProfileSection career={career} onChanged={load} />
+      {extra && <PositionsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
       <MonthlyTrend career={career} sport={sport} />
       <Seasons career={career} scoring={scoring} goalsLabel={goalsLabel} isBasket={isBasket} />
       {career.assessments !== null && (
@@ -163,6 +187,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
       )}
       <DevelopmentSection playerId={p.id} name={p.first_name} />
       <MedicalSection career={career} onChanged={load} />
+      {extra && <AffiliationsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
       <Highlights career={career} isBasket={isBasket} />
 
       {career.edit_team_id && (
