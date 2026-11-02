@@ -27,7 +27,7 @@ Layout (spec section 13; the existing folders are reused, nothing is moved):
   <league local_path>/saved_games/<team_id>/team_games.html   all games of one team
 
 Update folders (--inbox, repeatable): any file name, any sub folder. A league
-page there updates its league; a roster or team-games page goes to the league
+page there updates its league and sends the round of games it shows; a roster or team-games page goes to the league
 whose saved league page lists the team (a games page of a team no saved league
 page lists is refused until that league page is saved). Files there are never
 moved or deleted; a re-saved copy with new content is sent again.
@@ -62,7 +62,7 @@ sys.path.insert(0, str(HERE))
 
 from batch_saved_import import validate_roster  # noqa: E402
 from ifa_collector import load_saved  # noqa: E402
-from ifa_games import dropdown_teams, form_action, league_title, to_payload  # noqa: E402
+from ifa_games import dropdown_teams, form_action, game_rows, league_title, to_payload  # noqa: E402
 
 BASE = 'https://www.football.org.il'
 
@@ -212,6 +212,48 @@ def update_league_entry(entry, page, f):
     return teams
 
 
+def send_league_round(page, league_id, season, entry, api, result):
+    """The games a league page shows (one round, the window the IFA shows by
+    default) with their date, time, venue and result. One saved league page a
+    week updates a whole round, instead of one team-games page per team.
+
+    The server takes one team's games at a time, so each game is sent once,
+    under its home team. Games of a team not imported yet are counted and
+    skipped (the team's own games page covers them after its first import).
+    """
+    if not page_has_games(page):
+        return
+    payload, report = to_payload(page, page, f'{BASE}/leagues/games/?league_id={league_id}&season_id={season or 28}')
+    payload['ifa_league_id'] = payload.get('ifa_league_id') or league_id
+    if entry and entry.get('league_name'):
+        payload['league_name'] = entry['league_name']
+    result.update({'round_games': report['games'], 'unmatched': len(report['unmatched']), 'problems': len(report['problems'])})
+    if report['problems']:
+        raise RuntimeError(f'{len(report["problems"])} rows could not be read: {report["problems"][:2]}')
+    by_home = {}
+    for g in payload['games']:
+        by_home.setdefault(g['home_ifa_team_id'], []).append(g)
+    if not api:
+        return
+    sent = {'teams': 0, 'new': 0, 'changed': 0, 'same': 0, 'not_imported': 0}
+    for home, games in sorted(by_home.items()):
+        part = dict(payload, games=games, scope={'kind': 'team', 'ifa_team_id': home})
+        r = api.call('agent_import_ifa_games', part)
+        if r and not r.get('ok') and 'not imported yet' in (r.get('error') or ''):
+            sent['not_imported'] += len(games)
+            continue
+        if r and not r.get('ok'):
+            raise RuntimeError(r.get('error') or 'refused')
+        sent['teams'] += 1
+        for k in ('new', 'changed', 'same'):
+            sent[k] += (r or {}).get(k) or 0
+    result['server'] = sent
+
+
+def page_has_games(page):
+    return bool(game_rows(page))
+
+
 def handle(kind, ident, season, f, rel, digest, page, entry, league_page, api, state, pending_first, summary, log):
     """Process one changed page. Returns the league page when `page` is one, else None.
 
@@ -228,6 +270,7 @@ def handle(kind, ident, season, f, rel, digest, page, entry, league_page, api, s
             result['teams'] = len(update_league_entry(entry, page, f))
             new_league = page
             summary['leagues'] += 1
+            send_league_round(page, ident, season, entry, api, result)
         elif kind == 'roster':
             payload = validate_roster(load_saved(f), ident, season or 28,
                                       f'{BASE}/team-details/?team_id={ident}&season_id={season or 28}')
