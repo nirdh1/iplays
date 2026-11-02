@@ -142,6 +142,31 @@ def main():
     rows8 = []
     s = ifa_watch.run_once(root4, None, 20, rows8.append, [inbox4])
     check(s['leagues'] == 1 and s['games'] == 1 and s['errors'] == 0, 'update folder: a league page saved there makes its teams known')
+
+    # a league page with a round of games: each game sent once, under its home team
+    root5, _ = make_root()
+    ifa_watch.run_once(root5, FakeApi(), 20, rows.append)
+    inbox5 = root5.parent / (root5.name + '_round')
+    inbox5.mkdir()
+    shutil.copy(FIX / 'league_round.html', inbox5 / 'מחזור.html')
+    os.utime(inbox5 / 'מחזור.html', (old, old))
+
+    class PartlyImported(FakeApi):
+        def call(self, fn, payload):
+            if fn == 'agent_import_ifa_games' and payload['scope']['ifa_team_id'] == 9003:
+                self.calls.append((fn, payload))
+                return {'ok': False, 'error': 'team not imported yet: run the first import for it'}
+            return super().call(fn, payload)
+
+    rows9 = []
+    api9 = PartlyImported()
+    s = ifa_watch.run_once(root5, api9, 20, rows9.append, [inbox5])
+    scopes = sorted(c[1]['scope']['ifa_team_id'] for c in api9.calls if c[0] == 'agent_import_ifa_games')
+    check(scopes == [9002, 9003] and s['errors'] == 0, 'league round: games sent per home team, one call each')
+    check(all(len(c[1]['games']) == 1 and c[1]['ifa_league_id'] == 9640 for c in api9.calls), 'league round: each game sent once, tagged with its league')
+    r = next(x for x in rows9 if x.get('kind') == 'league')
+    check(r['round_games'] == 2 and r['server'] == {'teams': 1, 'new': 1, 'changed': 0, 'same': 0, 'not_imported': 1},
+          'league round: a team not imported yet is counted and skipped, not an error')
     print('ALL WATCH TESTS PASSED')
 
 

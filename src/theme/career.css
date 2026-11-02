@@ -180,3 +180,15 @@
 .ip-affil-list + .ip-pad .ip-btn-row {
   flex-wrap: wrap;
 }
+
+/* self-reported goals / assists */
+.ip-self-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 8px; }
+.ip-self-totals strong { display: block; font-size: 1.6rem; line-height: 1.1; }
+.ip-self-totals span { font-size: 0.8rem; color: var(--ip-text-2); }
+.ip-self-actions { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.ip-counter { display: inline-flex; align-items: center; gap: 12px; }
+.ip-counter strong { min-width: 2ch; text-align: center; font-size: 1.3rem; }
+.ip-counter .ip-icon-btn { font-size: 1.3rem; line-height: 1; }
+
+/* link to the team's games on the IFA site */
+.ip-career-ifa-link { align-self: flex-start; margin-top: 4px; font-size: 0.85rem; color: var(--ip-lime); text-decoration: underline; text-underline-offset: 2px; }

@@ -10,7 +10,8 @@ function db() {
 }
 
 export type ProgramKind = 'league' | 'academy';
-export type Relation = 'parent' | 'family';
+/** 'self' = the player themselves (owns their profile). */
+export type Relation = 'parent' | 'family' | 'self';
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 export const PARENT_DECLARATION = 'אני מצהיר/ה שאני ההורה או האפוטרופוס החוקי של הילד/ה';
@@ -169,6 +170,12 @@ export const programLabel: Record<ProgramKind, string> = { league: 'ליגה', a
 /** Hebrew messages for the errors these functions raise (null = use the generic one). */
 export function joinError(e: unknown): string | null {
   const msg = (e as { message?: string })?.message ?? String(e);
+  if (msg.includes('this profile already has its player')) return 'לפרופיל הזה כבר יש שחקן שמחובר אליו. אם זו טעות, פנו להורה או למאמן.';
+  if (msg.includes('you already own a player profile') || msg.includes('this user already owns a player profile')) return 'כבר יש לך פרופיל שחקן. אפשר להיות בעלים של פרופיל אחד.';
+  if (msg.includes('a parent cannot claim')) return 'את/ה רשום/ה כהורה של הילד הזה, ולכן אי אפשר לסמן "זה אני".';
+  if (msg.includes('player_self_claims_one_pending') || msg.includes('already requested')) return 'כבר שלחת בקשה כזו. היא ממתינה לאישור.';
+  if (msg.includes('not allowed to approve this request')) return 'אין לך הרשאה לאשר את הבקשה הזו.';
+  if (msg.includes('only the child\'s parent or the player')) return 'רק ההורה או השחקן עצמו יכולים לעשות את זה.';
   if (msg.includes('parent declaration required')) return 'צריך לאשר את ההצהרה שאת/ה ההורה של הילד/ה.';
   if (msg.includes('child has no parent yet')) return 'לילד הזה עוד אין הורה רשום שיכול לאשר מעקב. אם את/ה ההורה, בקשו להצטרף כהורה.';
   if (msg.includes('join_requests_pending_idx')) return 'כבר שלחת בקשה כזו. היא ממתינה לאישור.';
@@ -200,6 +207,26 @@ export async function findPlayers(query: string, birthYear?: number | null): Pro
   const { data, error } = await db().rpc('find_players', { p_query: query, p_birth_year: birthYear ?? null });
   if (error) throw error;
   return (data ?? []) as FoundPlayer[];
+}
+
+/** find_teams(): supabase/migrations/20261102720000_smarter_search.sql */
+export interface FoundTeam extends TeamHit {
+  /** estimated from the age group, only when the team has no exact birth years */
+  birth_year_est: number | null;
+}
+
+/** "נערים א׳ · שנתון 2010 (משוער)", "שנתון 2012", or null */
+export function teamYearLabel(t: FoundTeam): string | null {
+  const exact = birthYearsLabel(t.birth_year_from, t.birth_year_to);
+  const year = exact ?? (t.birth_year_est ? `שנתון ${t.birth_year_est} (משוער)` : null);
+  return [t.age_group && !t.name.includes(t.age_group) ? t.age_group : null, year].filter(Boolean).join(' · ') || null;
+}
+
+/** Words in any order, ת"א = תל אביב etc., a year in the text filters by birth year. */
+export async function findTeams(query: string, birthYear?: number | null, sport?: string | null): Promise<FoundTeam[]> {
+  const { data, error } = await db().rpc('find_teams', { p_query: query, p_birth_year: birthYear ?? null, p_sport: sport ?? null });
+  if (error) throw error;
+  return (data ?? []) as FoundTeam[];
 }
 
 export async function searchTeams(query: string, birthYear?: number | null, sport?: string | null): Promise<TeamHit[]> {
@@ -258,6 +285,105 @@ export async function teamRosterPublic(teamId: string): Promise<RosterName[]> {
   const { data, error } = await db().rpc('team_roster_public', { p_team: teamId });
   if (error) throw error;
   return (data ?? []) as RosterName[];
+}
+
+/** A child the caller is a declared parent of, also one who is in no team right now. */
+export interface MyChild {
+  player_id: string;
+  first_name: string;
+  last_name: string;
+  birth_year: number | null;
+  team_ids: string[];
+  team_names: string[];
+  /** The caller's own profile as a player (not a child of theirs). */
+  is_self?: boolean;
+}
+
+/** The caller's children (empty if the SQL is not installed yet). */
+export async function myChildren(): Promise<MyChild[]> {
+  const { data, error } = await db().rpc('my_children');
+  if (error) {
+    if (error.code === 'PGRST202' || /could not find the function/i.test(error.message)) return [];
+    throw error;
+  }
+  return (data ?? []) as MyChild[];
+}
+
+/** Who approves a player's "this is me": the child's parent, the team's staff, or a platform admin. */
+export type SelfApprover = 'parent' | 'staff' | 'admin';
+
+export const selfApproverLabel: Record<SelfApprover, string> = {
+  parent: 'ההורה הרשום',
+  staff: 'מאמן הקבוצה או מנהל המועדון',
+  admin: 'מנהל המערכת',
+};
+
+export interface SelfClaim {
+  id: string;
+  player_id: string;
+  player_name: string;
+  birth_year: number | null;
+  team_names: string[];
+  requester: string;
+  requester_email: string;
+  message: string;
+  approver: SelfApprover;
+  created_at: string;
+}
+
+export interface MySelfClaim {
+  id: string;
+  player_id: string;
+  player_name: string;
+  status: 'pending' | 'rejected';
+  approver: SelfApprover;
+  created_at: string;
+}
+
+const missingFn = (error: { code?: string; message: string }) =>
+  error.code === 'PGRST202' || /could not find the function/i.test(error.message);
+
+/** A player says "this is me" about a roster profile. */
+export async function requestPlayerSelf(playerId: string, message = ''): Promise<string> {
+  const { data, error } = await db().rpc('request_player_self', { p_player: playerId, p_message: message });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function cancelPlayerSelf(id: string) {
+  const { error } = await db().rpc('cancel_player_self', { p_id: id });
+  if (error) throw error;
+}
+
+export async function reviewPlayerSelf(id: string, approve: boolean) {
+  const { error } = await db().rpc('review_player_self', { p_id: id, p_approve: approve });
+  if (error) throw error;
+}
+
+/** Requests the caller can approve (empty before the SQL is installed). */
+export async function pendingSelfClaims(): Promise<SelfClaim[]> {
+  const { data, error } = await db().rpc('pending_self_claims');
+  if (error) {
+    if (missingFn(error)) return [];
+    throw error;
+  }
+  return (data ?? []) as SelfClaim[];
+}
+
+export async function mySelfClaims(): Promise<MySelfClaim[]> {
+  const { data, error } = await db().rpc('my_self_claims');
+  if (error) {
+    if (missingFn(error)) return [];
+    throw error;
+  }
+  return (data ?? []) as MySelfClaim[];
+}
+
+/** Ask a team to take the caller's child with the child's existing profile (career and history stay). */
+export async function requestJoinWithChild(teamId: string, playerId: string, message: string): Promise<string> {
+  const { data, error } = await db().rpc('request_join_with_child', { p_team: teamId, p_player: playerId, p_message: message });
+  if (error) throw error;
+  return data as string;
 }
 
 export async function requestJoin(input: {

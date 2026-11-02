@@ -1,30 +1,22 @@
 /**
- * Career page: positions (primary + secondary, from a fixed list) and the
- * child's affiliation history: every team they were ever in (league and
- * academy in parallel), plus frameworks outside iPlays a parent records.
- * A parent can mark that the child left a team; history is never deleted
- * and nothing changes at the IFA.
+ * Career page: positions (primary + secondary, from a fixed list) and a
+ * small "left the team" action. Affiliation history stays in the DB but is
+ * no longer shown. Nothing changes at the IFA.
  */
 import '../theme/career.css';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Icon } from '../components/Icon';
 import { BottomSheet } from '../components/shell';
 import { Button, Card, SectionHeader, Segmented, Tag } from '../components/ui';
 import { Err, Field } from '../components/form';
 import { friendlyError } from '../lib/api';
 import {
-  dayLabel,
-  externalKindLabel,
   footLabel,
   getProfileExtra,
   NO_POSITION,
   parentEndAffiliation,
   positionsBySport,
-  removeExternalAffiliation,
-  saveExternalAffiliation,
   setPlayerProfile,
   type Career,
-  type ExternalKind,
   type ProfileExtra,
   type StrongFoot,
   type TeamAffiliation,
@@ -194,111 +186,50 @@ function PositionsSheet({
   );
 }
 
-/* ------------------------------------------------------------- affiliations */
+/* ------------------------------------------------------------- leave team */
 
-const programLabel = (t: TeamAffiliation) => (t.program === 'academy' ? 'אקדמיה' : t.program === 'league' ? 'ליגה' : null);
-
-export function AffiliationsSection({ career, extra, onChanged }: { career: Career; extra: ProfileExtra; onChanged: () => Promise<void> }) {
+/**
+ * The "frameworks and history" list was removed from the UI (it did not add
+ * to the experience). The data stays in the DB; only the "left the team"
+ * action is kept, as a small card, so a parent or a player who owns their
+ * profile can still record a move.
+ */
+export function LeaveTeamSection({ career, extra, onChanged }: { career: Career; extra: ProfileExtra; onChanged: () => Promise<void> }) {
   const [leaving, setLeaving] = useState<TeamAffiliation | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const active = extra.teams.filter((t) => !t.ended_on);
-  const past = extra.teams.filter((t) => t.ended_on);
-  const ext = extra.external;
-  if (!extra.teams.length && !ext.length && !extra.can_edit) return null;
-
-  async function removeExt(id: string) {
-    if (!window.confirm('להסיר את המסגרת מההיסטוריה?')) return;
-    try {
-      await removeExternalAffiliation(id);
-      await onChanged();
-    } catch (e) {
-      setError(friendlyError(e));
-    }
-  }
+  if (!(extra.is_owner ?? extra.is_parent) || !active.length) return null;
 
   return (
     <section>
-      <SectionHeader title="מסגרות והיסטוריה" icon="team" />
-      <Card padded={false}>
-        <ul className="ip-affil-list">
+      <Card>
+        <div className="ip-btn-row">
           {active.map((t) => (
-            <li key={`a-${t.team_id}-${t.started_on}`}>
-              <span className="ip-list-row-text">
-                <span className="ip-list-row-title">
-                  {t.team_name}
-                  {t.is_primary && active.length > 1 && <Tag tone="lime">ראשית</Tag>}
-                </span>
-                <span className="ip-list-row-sub">
-                  {[t.club, programLabel(t), `מ-${dayLabel(t.started_on)}`].filter(Boolean).join(' · ')}
-                </span>
-              </span>
-              {extra.is_parent && (
-                <Button variant="secondary" size="sm" onClick={() => setLeaving(t)}>
-                  עזב
-                </Button>
-              )}
-            </li>
+            <Button key={`${t.team_id}-${t.started_on}`} variant="secondary" size="sm" onClick={() => setLeaving(t)}>
+              {active.length > 1 ? `עזיבת ${t.team_name}` : 'עזיבת הקבוצה'}
+            </Button>
           ))}
-          {ext
-            .filter((x) => !x.ended_on)
-            .map((x) => (
-              <li key={x.id}>
-                <span className="ip-list-row-text">
-                  <span className="ip-list-row-title">{x.name}</span>
-                  <span className="ip-list-row-sub">
-                    {[externalKindLabel[x.kind], 'מחוץ ל-iPlays', x.started_on && `מ-${dayLabel(x.started_on)}`].filter(Boolean).join(' · ')}
-                  </span>
-                </span>
-                {extra.can_edit && (
-                  <button type="button" className="ip-icon-btn" aria-label={`הסרת ${x.name}`} onClick={() => removeExt(x.id)}>
-                    <Icon name="close" size={18} />
-                  </button>
-                )}
-              </li>
-            ))}
-          {[...past.map((t) => ({ key: `p-${t.team_id}-${t.started_on}`, title: t.team_name, sub: [t.club, programLabel(t), `${dayLabel(t.started_on)}–${dayLabel(t.ended_on!)}`, t.end_reason].filter(Boolean).join(' · '), end: t.ended_on!, ext: null as string | null })),
-            ...ext.filter((x) => x.ended_on).map((x) => ({ key: x.id, title: x.name, sub: [externalKindLabel[x.kind], x.started_on && `${dayLabel(x.started_on)}–${dayLabel(x.ended_on!)}`].filter(Boolean).join(' · '), end: x.ended_on!, ext: x.id }))]
-            .sort((a, b) => b.end.localeCompare(a.end))
-            .map((r) => (
-              <li key={r.key} className="is-past">
-                <span className="ip-list-row-text">
-                  <span className="ip-list-row-title">{r.title}</span>
-                  <span className="ip-list-row-sub">{r.sub}</span>
-                </span>
-                {r.ext && extra.can_edit && (
-                  <button type="button" className="ip-icon-btn" aria-label={`הסרת ${r.title}`} onClick={() => removeExt(r.ext!)}>
-                    <Icon name="close" size={18} />
-                  </button>
-                )}
-              </li>
-            ))}
-          {!extra.teams.length && !ext.length && <li className="ip-muted">עוד אין מסגרות.</li>}
-        </ul>
-        <div className="ip-pad">
-          <Err error={error} />
-          {extra.can_edit && (
-            <div className="ip-btn-row">
-              <Button variant="secondary" size="sm" icon="plus" onClick={() => setAdding(true)}>
-                מסגרת מחוץ ל-iPlays
-              </Button>
-              {extra.is_parent && (
-                <Button variant="secondary" size="sm" icon="eye" onClick={() => (window.location.hash = 'find')}>
-                  הצטרפות לקבוצה נוספת
-                </Button>
-              )}
-            </div>
-          )}
-          <p className="ip-footnote">ההיסטוריה נשמרת גם אחרי מעבר. עדכון כאן לא משנה את הרישום בהתאחדות.</p>
         </div>
       </Card>
-      {extra.is_parent && <LeaveSheet team={leaving} career={career} onClose={() => setLeaving(null)} onSaved={onChanged} />}
-      {extra.can_edit && <ExternalSheet open={adding} career={career} onClose={() => setAdding(false)} onSaved={onChanged} />}
+      <LeaveSheet team={leaving} career={career} self={!extra.is_parent} onClose={() => setLeaving(null)} onSaved={onChanged} />
     </section>
   );
 }
 
-function LeaveSheet({ team, career, onClose, onSaved }: { team: TeamAffiliation | null; career: Career; onClose: () => void; onSaved: () => Promise<void> }) {
+function LeaveSheet({
+  team,
+  career,
+  self,
+  onClose,
+  onSaved,
+}: {
+  team: TeamAffiliation | null;
+  career: Career;
+  /** The player themself (not a parent) is marking the move. */
+  self: boolean;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [confirming, setConfirming] = useState(false);
   const [moved, setMoved] = useState('');
   const [date, setDate] = useState(today());
   const [busy, setBusy] = useState(false);
@@ -308,12 +239,18 @@ function LeaveSheet({ team, career, onClose, onSaved }: { team: TeamAffiliation 
       setMoved('');
       setDate(today());
       setError(null);
+      setConfirming(false);
     }
   }, [team]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!team) return;
+    // First press only asks for confirmation; the second one saves.
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -330,91 +267,38 @@ function LeaveSheet({ team, career, onClose, onSaved }: { team: TeamAffiliation 
   return (
     <BottomSheet open={team !== null} onClose={onClose} title={team ? `${career.player.first_name} עזב/ה את ${team.team_name}` : 'עזיבת קבוצה'}>
       <form className="ip-form ip-form--sheet" onSubmit={submit}>
-        <Field label="לאיזה מועדון עבר/ה? (לא חובה)">
-          <input className="ip-input" value={moved} onChange={(e) => setMoved(e.target.value.slice(0, 80))} placeholder="לדוגמה: מכבי יפו" />
-        </Field>
-        <Field label="מתאריך">
-          <input className="ip-input" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} required />
-        </Field>
-        <p className="ip-footnote">
-          ההיסטוריה של {career.player.first_name} בקבוצה נשמרת, והצוות שלה יקבל הודעה. הרישום בהתאחדות לא משתנה. אם הקבוצה החדשה נמצאת ב-iPlays, אפשר להצטרף אליה אחר כך דרך החיפוש.
-        </p>
-        <Err error={error} />
-        <Button type="submit" variant="primary" block disabled={busy}>
-          {busy ? 'שומרים…' : 'אישור'}
-        </Button>
-      </form>
-    </BottomSheet>
-  );
-}
-
-function ExternalSheet({ open, career, onClose, onSaved }: { open: boolean; career: Career; onClose: () => void; onSaved: () => Promise<void> }) {
-  const [name, setName] = useState('');
-  const [kind, setKind] = useState<ExternalKind>('academy');
-  const [started, setStarted] = useState('');
-  const [ended, setEnded] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (open) {
-      setName('');
-      setKind('academy');
-      setStarted('');
-      setEnded('');
-      setError(null);
-    }
-  }, [open]);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError('כתבו את שם המסגרת.');
-      return;
-    }
-    if (started && ended && ended < started) {
-      setError('תאריך הסיום לפני תאריך ההתחלה.');
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await saveExternalAffiliation({ playerId: career.player.id, name: name.trim(), kind, started: started || null, ended: ended || null });
-      await onSaved();
-      onClose();
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <BottomSheet open={open} onClose={onClose} title="מסגרת מחוץ ל-iPlays">
-      <form className="ip-form ip-form--sheet" onSubmit={submit}>
-        <Field label="שם המסגרת">
-          <input className="ip-input" value={name} onChange={(e) => setName(e.target.value.slice(0, 80))} placeholder="לדוגמה: אקדמיית כדורגל פרטית" required />
-        </Field>
-        <Field label="סוג">
-          <select className="ip-input" value={kind} onChange={(e) => setKind(e.target.value as ExternalKind)}>
-            {(Object.keys(externalKindLabel) as ExternalKind[]).map((k) => (
-              <option key={k} value={k}>
-                {externalKindLabel[k]}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <div className="ip-field-row ip-field-row--wrap">
-          <Field label="מתאריך (לא חובה)">
-            <input className="ip-input" type="date" dir="ltr" value={started} onChange={(e) => setStarted(e.target.value)} />
-          </Field>
-          <Field label="עד (ריק = עדיין שם)">
-            <input className="ip-input" type="date" dir="ltr" value={ended} onChange={(e) => setEnded(e.target.value)} />
-          </Field>
-        </div>
-        <Err error={error} />
-        <Button type="submit" variant="primary" block disabled={busy}>
-          {busy ? 'שומרים…' : 'שמירה'}
-        </Button>
+        {confirming && team ? (
+          <>
+            <p>
+              <strong>{self ? `אתה בטוח שאתה רוצה לעזוב את ${team.team_name}?` : `בטוחים ש${career.player.first_name} עוזב/ת את ${team.team_name}?`}</strong>
+            </p>
+            <p className="ip-footnote">
+              שום מידע לא נמחק: הפרופיל, הסטטיסטיקות, הנוכחות, המשחקים וההיסטוריה בקבוצה נשמרים, וממשיכים איתם לקבוצה הבאה. הצוות של הקבוצה יקבל הודעה, והרישום בהתאחדות לא משתנה.
+            </p>
+            <Err error={error} />
+            <Button type="submit" variant="primary" block disabled={busy}>
+              {busy ? 'שומרים…' : 'כן, לעזוב את הקבוצה'}
+            </Button>
+            <Button type="button" variant="secondary" block disabled={busy} onClick={() => setConfirming(false)}>
+              ביטול
+            </Button>
+          </>
+        ) : (
+          <>
+            <Field label="לאיזה מועדון עבר/ה? (לא חובה)">
+              <input className="ip-input" value={moved} onChange={(e) => setMoved(e.target.value.slice(0, 80))} placeholder="לדוגמה: מכבי יפו" />
+            </Field>
+            <Field label="מתאריך">
+              <input className="ip-input" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} required />
+            </Field>
+            <p className="ip-footnote">
+              ההיסטוריה של {career.player.first_name} בקבוצה נשמרת, והצוות שלה יקבל הודעה. הרישום בהתאחדות לא משתנה. אם הקבוצה החדשה נמצאת ב-iPlays, אפשר להצטרף אליה אחר כך דרך החיפוש.
+            </p>
+            <Button type="submit" variant="primary" block>
+              המשך
+            </Button>
+          </>
+        )}
       </form>
     </BottomSheet>
   );

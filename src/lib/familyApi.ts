@@ -68,6 +68,7 @@ export const PERM_LABELS: { key: keyof FamilyPerms; label: string; hint: string 
 
 export function permsSummary(m: { relation: Relation; can_report: boolean; can_rides: boolean; can_pay: boolean }): string {
   if (m.relation === 'parent') return 'הורה · כל ההרשאות';
+  if (m.relation === 'self') return 'השחקן/ית · בעל/ת הפרופיל, מדווח/ת היעדרות';
   const on = [m.can_report && 'היעדרויות', m.can_rides && 'הסעות', m.can_pay && 'תשלומים'].filter(Boolean);
   return on.length ? `צפייה, ${on.join(', ')}` : 'צפייה בלבד · הילד, הלו"ז והמשחקים';
 }
@@ -97,7 +98,38 @@ export async function removeFamilyMember(playerId: string, userId: string) {
 
 /** Leave a child's family (any member, parents included). */
 export async function leaveChild(playerId: string, userId: string) {
-  const { error } = await db().from('player_guardians').delete().eq('player_id', playerId).eq('user_id', userId);
+  // leave_child (20261103000000) also takes you out of the child's teams.
+  const { error } = await db().rpc('leave_child', { p_player: playerId });
+  if (!error) return;
+  if (!/leave_child|function|schema cache/i.test(error.message)) throw error;
+  // before that migration: just unlink
+  const { error: e2 } = await db().from('player_guardians').delete().eq('player_id', playerId).eq('user_id', userId);
+  if (e2) throw e2;
+}
+
+/* ---------- Super Admin: who is linked to a child ---------- */
+
+export interface AdminGuardianRow {
+  player_id: string;
+  child_name: string;
+  birth_year: number | null;
+  team_name: string | null;
+  user_id: string;
+  member_name: string;
+  member_email: string;
+  relation: Relation;
+  kinship: string;
+  since: string;
+}
+
+export async function adminChildGuardians(query: string): Promise<AdminGuardianRow[]> {
+  const { data, error } = await db().rpc('admin_child_guardians', { p_query: query });
+  if (error) throw error;
+  return (data ?? []) as AdminGuardianRow[];
+}
+
+export async function adminRemoveGuardian(playerId: string, userId: string, reason: string) {
+  const { error } = await db().rpc('admin_remove_guardian', { p_player: playerId, p_user: userId, p_reason: reason });
   if (error) throw error;
 }
 
@@ -157,6 +189,7 @@ export function familyError(e: unknown): string | null {
   if (msg.includes('invite already used')) return 'מישהו אחר כבר השתמש בהזמנה הזו. בקשו מההורה הזמנה חדשה.';
   if (msg.includes('invite not found or expired')) return 'ההזמנה לא בתוקף (פג תוקפה או בוטלה). בקשו מההורה הזמנה חדשה.';
   if (msg.includes('this is your own invite')) return 'זו הזמנה שיצרת בעצמך. שלחו אותה לבן המשפחה.';
+  if (msg.includes('platform admins only')) return 'רק מנהל מערכת יכול לעשות את זה.';
   if (msg.includes('family member not found')) return 'בן המשפחה כבר לא מחובר לילד.';
   return null;
 }

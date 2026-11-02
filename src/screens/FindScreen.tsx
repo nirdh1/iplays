@@ -16,7 +16,6 @@ import { Err, Field } from '../components/form';
 import { friendlyError, sportLabel, type Sport } from '../lib/api';
 import { useIsPlatformAdmin } from '../lib/ifaApi';
 import {
-  birthYearsLabel,
   cancelJoinRequest,
   clubTeamsPublic,
   joinError,
@@ -27,13 +26,14 @@ import {
   programLabel,
   searchClubs,
   findPlayers,
+  findTeams,
+  teamYearLabel,
   foundBirthLabel,
-  searchTeams,
   type ClubHit,
   type ClubTeamRow,
   type MyRequest,
   type FoundPlayer,
-  type TeamHit,
+  type FoundTeam,
 } from '../lib/joinApi';
 
 type Mode = 'team' | 'child' | 'club';
@@ -41,7 +41,7 @@ const statusLabel: Record<string, string> = { pending: 'ממתין לאישור'
 
 export function FindScreen({ onBack }: { onBack: () => void }) {
   const [mode, setMode] = useState<Mode>('team');
-  const [teams, setTeams] = useState<TeamHit[] | null>(null);
+  const [teams, setTeams] = useState<FoundTeam[] | null>(null);
   const [opening, setOpening] = useState(false);
   const [q, setQ] = useState('');
   const [year, setYear] = useState('');
@@ -68,7 +68,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      if (mode === 'team') setTeams(await searchTeams(q.trim().length >= 2 ? q : '', by));
+      if (mode === 'team') setTeams(await findTeams(q.trim().length >= 2 ? q : '', by));
       else if (mode === 'child') setPlayers(await findPlayers(q, by));
       else {
         setClub(null);
@@ -147,7 +147,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
           />
           <div className="ip-field-row">
             <Field label={mode === 'team' ? 'קבוצה, מועדון או עיר' : mode === 'child' ? 'שם השחקן/ית' : 'שם המועדון או העיר'}>
-              <input id="find-q" className="ip-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={mode === 'team' ? 'לא חובה, לדוגמה: מכבי' : mode === 'child' ? 'לדוגמה: נועם לוי' : 'לדוגמה: מכבי'} autoFocus />
+              <input id="find-q" className="ip-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={mode === 'team' ? 'לדוגמה: מכבי ת"א 2010' : mode === 'child' ? 'לדוגמה: נועם לוי או נועם מכבי' : 'לדוגמה: מכבי'} autoFocus />
             </Field>
             <Field label={mode === 'team' ? 'שנתון הילד' : 'שנתון'}>
               <input id="find-year" className="ip-input" inputMode="numeric" dir="ltr" value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="2016" />
@@ -174,7 +174,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
                   icon="team"
                   iconTone={t.program_kind === 'academy' ? 'lime' : 'blue'}
                   title={t.name}
-                  subtitle={[t.club_name, t.city, birthYearsLabel(t.birth_year_from, t.birth_year_to), t.program_kind && programLabel[t.program_kind], `${t.players} שחקנים`]
+                  subtitle={[teamYearLabel(t), t.club_name, t.city, t.program_kind && programLabel[t.program_kind], `${t.players} שחקנים`]
                     .filter(Boolean)
                     .join(' · ')}
                   trailing={t.is_member ? <Tag tone="lime" icon="check">שלי</Tag> : !t.has_staff ? <Tag tone="warning">בלי מאמן</Tag> : undefined}

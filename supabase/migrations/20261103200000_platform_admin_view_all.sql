@@ -2,7 +2,7 @@
 --
 -- Run after all earlier migrations. Additive: only functions and two extra
 -- read policies; no table or row changes.
--- Rollback: supabase/rollback/20261102800000_platform_admin_view_all.down.sql
+-- Rollback: supabase/rollback/20261103200000_platform_admin_view_all.down.sql
 --
 -- Owner's decision: a platform admin (platform_admins) sees everything about
 -- every player — full name (also for IFA-imported kids with no parent yet),

@@ -175,8 +175,8 @@ function ImportSummary({ r }: { r: GamesImportResult }) {
       </p>
       {updated.length > 0 && (
         <ul className="ip-change-list">
-          {updated.map((c) => (
-            <li key={c.pairing}>
+          {updated.map((c, i) => (
+            <li key={`${c.pairing}-${i}`}>
               {c.pairing}: {c.fields?.map((f) => `${changeFieldLabel[f.field] ?? f.field} ${f.old ?? 'אין'} ← ${f.new ?? 'אין'}`).join(', ')}
               {c.notify ? ' · התראה' : ''}
             </li>

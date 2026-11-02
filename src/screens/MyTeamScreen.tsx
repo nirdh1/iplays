@@ -192,10 +192,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                       <span className="ip-list-row-sub">{[p.position, p.birth_year && `שנתון ${p.birth_year}`].filter(Boolean).join(' · ') || ' '}</span>
                     </span>
                     <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
-                      חולצה וציוד
-                    </Button>
-                    <Button variant="ghost" size="sm" icon="wallet" onClick={() => (window.location.hash = `costs/${p.id}`)}>
-                      הוצאות
+                      ציוד
                     </Button>
                   </li>
                 ))}
@@ -230,7 +227,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                     </span>
                     {mine ? (
                       <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
-                        חולצה וציוד
+                        ציוד
                       </Button>
                     ) : staff ? (
                       <>
@@ -494,31 +491,9 @@ function DeclareSheet({ player, onClose, onConfirm }: { player: Player | null; o
 
 /** Invite code + link with copy and native share. */
 export function InviteShare({ code, teamName }: { code: string; teamName: string }) {
-  const [copied, setCopied] = useState(false);
   const link = inviteLink(code);
   const text = `הצטרפו לקבוצה ${teamName} ב-iplays: ${link}`;
 
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  async function share() {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'iplays', text });
-        return;
-      } catch {
-        /* user cancelled */
-      }
-    }
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
-  }
 
   return (
     <div className="ip-invite">
@@ -528,12 +503,15 @@ export function InviteShare({ code, teamName }: { code: string; teamName: string
       </strong>
       <input className="ip-input ip-invite-link" dir="ltr" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="קישור הזמנה" />
       <div className="ip-btn-row">
-        <Button variant="lime" icon="chat" onClick={share}>
-          שליחה בוואטסאפ
-        </Button>
-        <Button variant="secondary" icon={copied ? 'check' : 'plus'} onClick={copy}>
-          {copied ? 'הועתק' : 'העתקת קישור'}
-        </Button>
+        <a className="ip-btn ip-btn--lime ip-btn--md" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer">
+          <Icon name="chat" size={20} />
+          <span>שליחה בוואטסאפ</span>
+        </a>
+        {typeof navigator !== 'undefined' && !!navigator.share && (
+          <Button variant="ghost" onClick={() => void navigator.share({ title: 'iplays', text: text }).catch(() => undefined)}>
+            שיתוף…
+          </Button>
+        )}
       </div>
     </div>
   );

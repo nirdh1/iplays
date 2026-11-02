@@ -15,6 +15,7 @@ import { Button, Card, EmptyState, ProgressBar, SectionHeader, Segmented, StatTi
 import { Err, Field } from '../components/form';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError, isStaffRole } from '../lib/api';
+import { myChildren, type MyChild } from '../lib/joinApi';
 import {
   addFitnessTest,
   attributeLabels,
@@ -32,7 +33,9 @@ import {
 import { NoTeam, useMyKids } from './RealScreens';
 import { MedicalSection } from './CareerProfile';
 import { DevelopmentSection } from './DevelopmentSection';
-import { AffiliationsSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
+import { LeaveTeamSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
+import { SelfStatsSection } from './CareerSelfStats';
+import { IfaTeamGamesLink } from './LeagueTable';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
@@ -40,10 +43,23 @@ const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jer
 export function RealCareerScreen({ playerId, onShowSample }: { playerId?: string; onShowSample: () => void }) {
   const { teams } = useAuth();
   const kids = useMyKids();
+  // children who left every team stay here too: their career goes with them
+  const [allMine, setAllMine] = useState<MyChild[]>([]);
+  useEffect(() => {
+    let alive = true;
+    myChildren()
+      .then((c) => alive && setAllMine(c))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [teams.length]);
   const myKids = useMemo(() => {
     const seen = new Set<string>();
-    return (kids ?? []).filter((k) => (seen.has(k.id) ? false : (seen.add(k.id), true)));
-  }, [kids]);
+    const fromTeams = (kids ?? []).map((k) => ({ id: k.id, first_name: k.first_name }));
+    const teamless = allMine.filter((c) => !c.team_ids.length).map((c) => ({ id: c.player_id, first_name: c.first_name }));
+    return [...fromTeams, ...teamless].filter((k) => (seen.has(k.id) ? false : (seen.add(k.id), true)));
+  }, [kids, allMine]);
   const direct = playerId && UUID.test(playerId) ? playerId : undefined;
   const [picked, setPicked] = useState<string | undefined>(undefined);
   const selected = direct ?? (picked && myKids.some((k) => k.id === picked) ? picked : myKids[0]?.id);
@@ -52,9 +68,9 @@ export function RealCareerScreen({ playerId, onShowSample }: { playerId?: string
   return (
     <div className="ip-stack">
       <ScreenTitle title="קריירה" />
-      {!teams.length && !direct ? (
+      {!teams.length && !direct && !myKids.length ? (
         <NoTeam onShowSample={onShowSample} />
-      ) : kids === null && !direct ? (
+      ) : kids === null && !direct && !myKids.length ? (
         <p className="ip-muted">טוען…</p>
       ) : !selected ? (
         <Card>
@@ -144,6 +160,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
 
   return (
     <>
+      {!p.team_id && <NoCurrentTeam name={p.first_name} />}
       <Card tone="navy" className="ip-career-hero">
         <div className="ip-career-hero-id">
           <InitialsAvatar name={`${p.first_name} ${p.last_name}`} size={56} tone="lime" />
@@ -152,6 +169,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
               {p.first_name} {p.last_name}
             </strong>
             <span className="ip-on-navy-muted">{[p.shirt_number != null && `#${p.shirt_number}`, p.position, p.team_name].filter(Boolean).join(' · ')}</span>
+            {p.team_id && sport === 'football' && <IfaTeamGamesLink teamId={p.team_id} className="ip-career-ifa-link" />}
           </span>
         </div>
         <div className="ip-career-hero-stats">
@@ -165,12 +183,6 @@ function PlayerCareer({ playerId }: { playerId: string }) {
               <span>{goalsLabel}</span>
             </div>
           )}
-          {scoring && (
-            <div>
-              <strong>{t.starts}</strong>
-              <span>בהרכב הפותח</span>
-            </div>
-          )}
           <div>
             <strong>{rate == null ? '–' : `${rate}%`}</strong>
             <span>נוכחות באימונים</span>
@@ -180,6 +192,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
       </Card>
 
       {extra && <PositionsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
+      <SelfStatsSection playerId={p.id} name={p.first_name} />
       <MonthlyTrend career={career} sport={sport} />
       <Seasons career={career} scoring={scoring} goalsLabel={goalsLabel} isBasket={isBasket} />
       {career.assessments !== null && (
@@ -187,7 +200,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
       )}
       <DevelopmentSection playerId={p.id} name={p.first_name} />
       <MedicalSection career={career} onChanged={load} />
-      {extra && <AffiliationsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
+      {extra && <LeaveTeamSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
       <Highlights career={career} isBasket={isBasket} />
 
       {career.edit_team_id && (
@@ -197,6 +210,22 @@ function PlayerCareer({ playerId }: { playerId: string }) {
         </>
       )}
     </>
+  );
+}
+
+/** A child who left their team: the profile stays; the parent finds the next team or records an outside club. */
+function NoCurrentTeam({ name }: { name: string }) {
+  return (
+    <Card>
+      <p>
+        <strong>{name} לא בקבוצה כרגע.</strong> הפרופיל, הקריירה וההיסטוריה נשמרים. מצאו את הקבוצה החדשה ובקשו להצטרף &quot;עם הפרופיל הקיים&quot;.
+      </p>
+      <div className="ip-btn-row">
+        <Button variant="primary" icon="team" onClick={() => (window.location.hash = 'find')}>
+          חיפוש הקבוצה החדשה
+        </Button>
+      </div>
+    </Card>
   );
 }
 

@@ -65,7 +65,7 @@ export function ChildDetailsSheet({
   const step = (key: keyof Kit, d: number) => setK((k) => ({ ...k, [key]: Math.max(0, Math.min(20, (k[key] as number) + d)) }));
 
   return (
-    <BottomSheet open={player !== null} onClose={onClose} title={player ? `${player.first_name}: חולצה וציוד` : 'חולצה וציוד'}>
+    <BottomSheet open={player !== null} onClose={onClose} title={player ? `${player.first_name}: ציוד` : 'ציוד'}>
       <form className="ip-form ip-form--sheet" onSubmit={submit}>
         <Field label="מספר חולצה בקבוצה הזו">
           <input id="kit-shirt" className="ip-input" inputMode="numeric" dir="ltr" value={shirt} onChange={(e) => setShirt(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="לדוגמה: 10" />

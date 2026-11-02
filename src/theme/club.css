@@ -749,6 +749,7 @@ a.ip-dash-match:hover {
 }
 .ip-live-pending-list .ip-btn-row {
   flex-wrap: wrap;
+}
 .ip-att-summary li.ip-att-row {
   display: block;
   padding: 0;

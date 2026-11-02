@@ -1,4 +1,4 @@
--- Rollback of 20261102800000_platform_admin_view_all.sql: puts back the
+-- Rollback of 20261103200000_platform_admin_view_all.sql: puts back the
 -- earlier can(), can_view_player(), search_players() and pro_notes_level(),
 -- and drops the admin read policy on profiles. No data.
 begin;

@@ -292,6 +292,9 @@ export interface ProfileExtra {
   position_list: string[] | null;
   can_edit: boolean;
   is_parent: boolean;
+  /** The child's parent or the player themselves (after the player-owns-profile SQL). */
+  is_owner?: boolean;
+  is_self?: boolean;
   teams: TeamAffiliation[];
   external: ExternalAffiliation[];
 }
@@ -368,4 +371,71 @@ export async function removeRecord(kind: 'measurement' | 'medical', id: string) 
 export function daysUntil(d: string) {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
   return Math.round((Date.parse(d) - Date.parse(today)) / 86400000);
+}
+
+/* -------------------------------------------- self-reported goals / assists */
+// Server side: supabase/migrations/20261102800000_player_self_stats.sql
+// Entered by the child's parent. Never added to live/app goals.
+
+export interface SelfStat {
+  id: string;
+  match_id: string | null;
+  date: string;
+  opponent: string;
+  goals: number;
+  assists: number;
+  note: string | null;
+  team_name: string | null;
+}
+
+export interface SelfGame {
+  id: string;
+  date: string;
+  opponent: string;
+  team_name: string;
+  reported: boolean;
+}
+
+export interface SelfStats {
+  can_edit: boolean;
+  totals: { games: number; goals: number; assists: number };
+  items: SelfStat[];
+  recent_games: SelfGame[];
+}
+
+/** null = the viewer may not see it, or the migration is not installed yet. */
+export async function getSelfStats(playerId: string): Promise<SelfStats | null> {
+  const { data, error } = await db().rpc('player_self_stats_view', { p_player: playerId });
+  if (error) throw error;
+  const d = data as SelfStats | null;
+  if (!d || !d.totals) return null;
+  return { ...d, items: d.items ?? [], recent_games: d.recent_games ?? [] };
+}
+
+export async function saveSelfStat(input: {
+  playerId: string;
+  id?: string | null;
+  matchId: string | null;
+  date: string | null;
+  opponent: string;
+  goals: number;
+  assists: number;
+  note: string;
+}) {
+  const { error } = await db().rpc('save_self_stat', {
+    p_player: input.playerId,
+    p_id: input.id ?? null,
+    p_match: input.matchId,
+    p_date: input.date,
+    p_opponent: input.opponent,
+    p_goals: input.goals,
+    p_assists: input.assists,
+    p_note: input.note,
+  });
+  if (error) throw error;
+}
+
+export async function removeSelfStat(id: string) {
+  const { error } = await db().rpc('remove_self_stat', { p_id: id });
+  if (error) throw error;
 }

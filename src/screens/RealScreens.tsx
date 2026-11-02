@@ -15,9 +15,9 @@ import { competitionLabel, getMatches, matchEndsAt, matchIsLive, matchTimeLabel,
 import { absenceCoversEvent, supabaseCoach, ymd, type Absence, type TrainingSession } from '../lib/coachApi';
 import { isGoalkeeperPosition, overlapping, trainingTypeLabel } from '../lib/calendarApi';
 import { AddTrainingButton, KidsAttendance } from './CalendarExtras';
-import { AccountSection, RequestsSection } from './AccountSection';
+import { AccountSection, RequestsSection, SelfClaimsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
-import { FamilyInviteCard, FamilyMembersSection } from './FamilySection';
+import { FamilyInviteCard, FamilyMembersSection, InviteFriendsSection } from './FamilySection';
 import { isPlatformAdmin } from '../lib/ifaApi';
 import { sportProfile } from '../lib/sports';
 import { getRidesSummary, summaryLabel, type RideSummary } from '../lib/rideApi';
@@ -134,7 +134,7 @@ function TeamShortcuts({ team, showName }: { team: MyTeam; showName?: boolean })
   const items: { icon: 'whistle' | 'ball' | 'check' | 'team'; tone: string; title: string; sub: string; href: string }[] = [
     { icon: 'whistle', tone: 'lime', title: 'לוח הקבוצה', sub: 'אימונים, הודעות מהמאמן, דיווח איחור / אי־הגעה', href: `coach/${team.id}` },
     { icon: matches ? 'ball' : 'check', tone: 'blue', title: matches ? 'משחקים והרכבים' : 'נוכחות', sub: matches ? 'לוח משחקים, הרכבים ותוצאות' : 'נוכחות באימונים', href: `matches/${team.id}` },
-    { icon: 'team', tone: 'blue', title: 'דף הקבוצה', sub: 'הילד שלי, חולצה וציוד, הסגל וההורים', href: `myteam/${team.id}` },
+    { icon: 'team', tone: 'blue', title: 'דף הקבוצה', sub: 'הילד שלי, ציוד, הסגל וההורים', href: `myteam/${team.id}` },
   ];
   return (
     <section className="ip-stack ip-stack--tight">
@@ -192,11 +192,12 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
   const kids = useMyKids();
   const first = profile?.full_name?.split(' ')[0];
   const isClub = !!profile?.account_types?.includes('club');
-  const isParent = !profile?.account_types?.length || profile.account_types.includes('parent');
+  const isParent = !profile?.account_types?.length || profile.account_types.includes('parent') || profile.account_types.includes('player');
   return (
     <div className="ip-stack">
       <ScreenTitle title={first ? `שלום ${first}` : 'שלום'} subtitle={teams.length ? 'הקבוצות והילדים שלך' : undefined} />
       <RequestsSection />
+      <SelfClaimsSection />
       {(isClub || teams.some((t) => isStaffRole(t.role))) && (
         <>
           <RosterReviewHomeCard />
@@ -635,6 +636,25 @@ export function RealFamilyScreen() {
       <Card padded={false}>
         <ListRow icon="wallet" iconTone="lime" title="תשלומים ומחנות" subtitle="חיובים מהמועדון, דיווח תשלום והרשמה למחנות וקייטנות" onClick={() => (window.location.hash = 'pay')} />
       </Card>
+      {kids && kids.length > 0 && (
+        <section>
+          <SectionHeader title="הוצאות" icon="wallet" />
+          <Card padded={false}>
+            {kids
+              .filter((k, i) => kids.findIndex((o) => o.id === k.id) === i)
+              .map((k) => (
+                <ListRow
+                  key={k.id}
+                  icon="wallet"
+                  iconTone="lime"
+                  title={`ההוצאות על ${k.first_name}`.trim()}
+                  subtitle="דמי מנוי, ציוד והוצאות נוספות. רק אתם רואים"
+                  onClick={() => (window.location.hash = `costs/${k.id}`)}
+                />
+              ))}
+          </Card>
+        </section>
+      )}
       <AccountSection />
       <section>
         <SectionHeader title="הילדים" />
@@ -663,6 +683,7 @@ export function RealFamilyScreen() {
         )}
       </section>
       <FamilyMembersSection />
+      <InviteFriendsSection />
     </div>
   );
 }

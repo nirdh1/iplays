@@ -57,17 +57,32 @@ run supabase/tests/test_ifa_roster_review.sql
 echo "== coach overrides on IFA games"
 run supabase/migrations/20261102200000_match_overrides.sql
 run supabase/tests/test_match_overrides.sql
+echo "== load a game schedule from a file"
+run supabase/migrations/20261103100000_schedule_import.sql
+run supabase/tests/test_schedule_import.sql
+run supabase/rollback/20261103100000_schedule_import.down.sql
+run supabase/migrations/20261103100000_schedule_import.sql
 echo "== IFA agent sends games"
 run supabase/migrations/20261102300000_ifa_agent_games.sql
 run supabase/tests/test_ifa_agent_games.sql
 echo "== find a player by name"
 run supabase/migrations/20261102710000_find_players_by_name.sql
-run supabase/tests/test_find_players.sql
 run supabase/rollback/20261102710000_find_players_by_name.down.sql
 run supabase/migrations/20261102710000_find_players_by_name.sql
+echo "== smarter search (find_players tests run against the new version)"
+run supabase/migrations/20261102720000_smarter_search.sql
+run supabase/tests/test_find_players.sql
+run supabase/tests/test_smarter_search.sql
+run supabase/rollback/20261102720000_smarter_search.down.sql
+run supabase/migrations/20261102720000_smarter_search.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== guardian removal tests"
+run supabase/migrations/20261103000000_guardian_removal.sql
+run supabase/tests/test_guardian_removal.sql
+run supabase/rollback/20261103000000_guardian_removal.down.sql
+run supabase/migrations/20261103000000_guardian_removal.sql
 echo "== live match tests"
 run supabase/migrations/20261102600000_live_match_session.sql
 run supabase/tests/test_live_match.sql
@@ -96,11 +111,18 @@ run supabase/rollback/20261102500000_calendar_absences.down.sql
 run supabase/migrations/20261102500000_calendar_absences.sql
 run supabase/rollback/20261102500000_calendar_absences.down.sql
 psql -q -d $DB -tc "select 'after calendar rollback: ' || count(*) || ' trainings kept, ' || (select count(*) from training_participants) || ' participants kept' from training_sessions"
+echo "== self-reported goals and assists (career)"
+run supabase/migrations/20261102800000_player_self_stats.sql
+run supabase/tests/test_self_stats.sql
+run supabase/rollback/20261102800000_player_self_stats.down.sql
+run supabase/migrations/20261102800000_player_self_stats.sql
+run supabase/rollback/20261102800000_player_self_stats.down.sql
 echo "== rollback club sign-up, roles and notes (keeps data; tables dropped here so the older rollbacks below can run)"
 run supabase/rollback/20261102400000_club_signup_roles_notes.down.sql
 psql -q -d $DB -c "select 'kept after rollback: ' || (select count(*) from club_roles) || ' roles, ' || (select count(*) from player_pro_notes) || ' notes'"
 psql -q -d $DB -c "alter table club_invites drop column role_id, drop column role_program_id, drop column role_team_id" -c "drop table player_pro_notes, club_role_assignments, club_role_permissions, club_roles, club_access_requests" -c "delete from permission_grants where domain in ('permissions','pro_notes','camps')" -c "delete from permission_domains where domain in ('permissions','pro_notes','camps')"
-echo "== rollback find players"
+echo "== rollback smarter search, find players"
+run supabase/rollback/20261102720000_smarter_search.down.sql
 run supabase/rollback/20261102710000_find_players_by_name.down.sql
 echo "== rollback IFA agent games"
 run supabase/rollback/20261102300000_ifa_agent_games.down.sql

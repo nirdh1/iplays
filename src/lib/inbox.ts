@@ -62,6 +62,7 @@ export function inboxIcon(kind: string): IconName {
     case 'team_claim_decision':
       return 'whistle';
     case 'player_left':
+    case 'player_removed':
     case 'roster_review':
       return 'team';
     default:
