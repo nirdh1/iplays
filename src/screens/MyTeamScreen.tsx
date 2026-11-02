@@ -32,6 +32,7 @@ import { ChildDetailsSheet } from './ChildDetailsSheet';
 import { sportProfile } from '../lib/sports';
 import { endAssignment } from '../lib/clubApi';
 import { RosterReviewSection } from './RosterReview';
+import { LeagueTableSection } from './LeagueTable';
 
 export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
   const { session, teams, refresh } = useAuth();
@@ -171,6 +172,8 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
           </Card>
         </section>
       )}
+
+      <LeagueTableSection teamId={teamId} />
 
       <section>
         {collapse && (
