@@ -48,6 +48,7 @@ import { AttendanceSheet } from './AttendanceSheet';
 import { LiveMatch } from './LiveMatch';
 import '../theme/club.css';
 import { IfaMatchOverrides } from './MatchOverrides';
+import { ScheduleImportSheet } from './ScheduleImport';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' });
@@ -68,6 +69,7 @@ export function MatchesScreen({ teamId, matchId, onBack }: { teamId: string; mat
   const [open, setOpen] = useState<Match | null>(null);
   const [liveTotals, setLiveTotals] = useState<LiveTotals>(new Map());
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -151,11 +153,17 @@ export function MatchesScreen({ teamId, matchId, onBack }: { teamId: string; mat
               הוספת משחק
             </Button>
           )}
+          {/* staff and any member of the team (a parent too) can load a schedule */}
+          {profile.hasMatches && (
+            <Button variant="secondary" icon="calendar" onClick={() => setImporting(true)}>
+              טעינת לוח משחקים מקובץ
+            </Button>
+          )}
           <section>
             <SectionHeader title="משחקים קרובים" icon="calendar" />
             {upcoming.length === 0 ? (
               <Card>
-                <EmptyState icon="ball" title="אין משחקים קרובים" text={staff ? 'הוסיפו משחק כדי לבנות הרכבים ולסמן נוכחות.' : 'המאמן עוד לא פרסם משחקים.'} />
+                <EmptyState icon="ball" title="אין משחקים קרובים" text={staff ? 'הוסיפו משחק או טענו לוח משחקים מקובץ.' : 'אפשר לטעון את לוח המשחקים מצילום מסך או מקובץ.'} />
               </Card>
             ) : (
               <div className="ip-stack ip-stack--tight">
@@ -178,6 +186,14 @@ export function MatchesScreen({ teamId, matchId, onBack }: { teamId: string; mat
         </>
       )}
 
+      <ScheduleImportSheet
+        open={importing}
+        teamId={teamId}
+        teamName={team.name}
+        existing={matches ?? []}
+        onClose={() => setImporting(false)}
+        onDone={() => void load()}
+      />
       <MatchSheet
         open={adding}
         profile={profile}
