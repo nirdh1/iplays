@@ -2657,3 +2657,11 @@ select.ip-input {
   background: var(--ip-surface);
   border: 1px solid var(--ip-border);
 }
+
+/* coach overrides on IFA games (MatchOverrides.tsx) */
+.ip-conflict { border: 2px solid var(--ip-warning, #f5a524); display: flex; flex-direction: column; gap: 8px; }
+.ip-conflict p { margin: 0; }
+.ip-conflict-versions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ip-conflict-versions > span { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--ip-bg, #F4F7FB); }
+.ip-override-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ip-override-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.9rem; }
