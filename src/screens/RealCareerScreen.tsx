@@ -30,7 +30,8 @@ import {
   type FitnessTestType,
 } from '../lib/careerApi';
 import { NoTeam, useMyKids } from './RealScreens';
-import { BodySection, MedicalSection } from './CareerProfile';
+import { MedicalSection } from './CareerProfile';
+import { DevelopmentSection } from './DevelopmentSection';
 import { AffiliationsSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -184,7 +185,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
       {career.assessments !== null && (
         <Athletic career={career} onAdd={setSheet} onChanged={load} />
       )}
-      <BodySection career={career} onChanged={load} />
+      <DevelopmentSection playerId={p.id} name={p.first_name} />
       <MedicalSection career={career} onChanged={load} />
       {extra && <AffiliationsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
       <Highlights career={career} isBasket={isBasket} />

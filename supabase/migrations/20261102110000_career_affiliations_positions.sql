@@ -148,10 +148,25 @@ $$;
 
 -- ----------------------------------------------- parent: "my child left"
 
-alter table public.notification_outbox drop constraint if exists notification_outbox_kind_check;
-alter table public.notification_outbox add constraint notification_outbox_kind_check check (kind in (
-  'match_change', 'match_result', 'training', 'announcement', 'absence',
-  'join_request', 'join_decision', 'team_claim', 'team_claim_decision', 'player_left')) not valid;
+-- Add 'player_left' to whatever kinds the check allows now (other
+-- migrations add their own kinds too, so the list is read, not retyped).
+do $$
+declare
+  v_def text;
+  v_kinds text[];
+begin
+  select pg_get_constraintdef(oid) into v_def from pg_constraint
+  where conname = 'notification_outbox_kind_check' and conrelid = 'public.notification_outbox'::regclass;
+  select coalesce(array_agg(distinct m[1]), '{}') into v_kinds
+  from regexp_matches(coalesce(v_def, ''), '''([a-z_]+)''', 'g') m;
+  v_kinds := v_kinds || array['match_change', 'match_result', 'training', 'announcement', 'absence',
+    'join_request', 'join_decision', 'team_claim', 'team_claim_decision', 'player_left'];
+  select array_agg(distinct k order by k) into v_kinds from unnest(v_kinds) k;
+  alter table public.notification_outbox drop constraint if exists notification_outbox_kind_check;
+  execute format('alter table public.notification_outbox add constraint notification_outbox_kind_check check (kind = any (%L::text[])) not valid',
+                 v_kinds);
+end;
+$$;
 
 -- A parent marks that the child left a team (p_moved_to = the new club's
 -- name, optional). Staff use end_player_assignment / transfer_player.

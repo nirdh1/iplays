@@ -12,7 +12,9 @@ import { ScreenTitle } from '../components/shell';
 import { useAuth } from '../auth/AuthContext';
 import { getRoster, isStaffRole, roleLabel, sportLabel, type MyTeam, type Player } from '../lib/api';
 import { competitionLabel, getMatches, matchEndsAt, matchIsLive, matchTimeLabel, matchVenueLabel, matchVenueName, wazeUrl, type Match } from '../lib/matchApi';
-import { supabaseCoach, type TrainingSession } from '../lib/coachApi';
+import { absenceCoversEvent, supabaseCoach, ymd, type Absence, type TrainingSession } from '../lib/coachApi';
+import { isGoalkeeperPosition, overlapping, trainingTypeLabel } from '../lib/calendarApi';
+import { AddTrainingButton, KidsAttendance } from './CalendarExtras';
 import { AccountSection, RequestsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
 import { FamilyInviteCard, FamilyMembersSection } from './FamilySection';
@@ -20,6 +22,9 @@ import { isPlatformAdmin } from '../lib/ifaApi';
 import { sportProfile } from '../lib/sports';
 import { getRidesSummary, summaryLabel, type RideSummary } from '../lib/rideApi';
 import { RidesSheet, type RideEvent } from './RidesSheet';
+import { RosterReviewHomeCard } from './RosterReview';
+import { MatchConflictsHomeCard } from './MatchOverrides';
+import { LeagueHomeCard } from './LeagueTable';
 
 const goFind = () => (window.location.hash = 'find');
 const goTeam = (id: string) => (window.location.hash = `myteam/${id}`);
@@ -192,6 +197,12 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
     <div className="ip-stack">
       <ScreenTitle title={first ? `שלום ${first}` : 'שלום'} subtitle={teams.length ? 'הקבוצות והילדים שלך' : undefined} />
       <RequestsSection />
+      {(isClub || teams.some((t) => isStaffRole(t.role))) && (
+        <>
+          <RosterReviewHomeCard />
+          <MatchConflictsHomeCard />
+        </>
+      )}
       {isClub && (
         <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = 'club')}>
           <span className="ip-icon-tile ip-icon-tile--navy">
@@ -210,6 +221,9 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
         <>
           {kids && kids.length === 1 && <ChildHero k={kids[0]} />}
           <NextUp teams={teams} />
+          {teams.map((t) => (
+            <LeagueHomeCard key={`league-${t.id}`} teamId={t.id} teamName={teams.length > 1 ? t.name : undefined} />
+          ))}
           {teams.map((t) => (
             <TeamShortcuts key={t.id} team={t} showName={teams.length > 1} />
           ))}
@@ -293,6 +307,8 @@ type TeamEvent = {
   canceled: boolean;
   /** a match being played now (live reporting open) */
   live?: boolean;
+  /** trainings: type, audience and participants */
+  training?: TrainingSession;
 };
 
 const dayFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' });
@@ -350,6 +366,8 @@ function useTeamEvents(teams: MyTeam[]): [TeamEvent[] | null, () => void] {
             team: t,
             href: `coach/${t.id}`,
             canceled: x.canceled,
+            tag: trainingTypeLabel(x.kind, x.audience) ?? undefined,
+            training: x,
           };
         });
         return [...ms, ...ts];
@@ -463,39 +481,135 @@ function NextUp({ teams }: { teams: MyTeam[] }) {
   );
 }
 
-/** Calendar: all upcoming trainings and matches, by day. */
+/** Absence reports I may see (my children's; staff: the team's), per team. */
+function useTeamAbsences(teams: MyTeam[]): Absence[] {
+  const [list, setList] = useState<Absence[]>([]);
+  const key = teams.map((t) => t.id).join(',');
+  useEffect(() => {
+    let alive = true;
+    Promise.all(teams.map((t) => supabaseCoach(t.id).listAbsences().catch(() => [] as Absence[])))
+      .then((all) => alive && setList(all.flat()))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return list;
+}
+
+type Kid = Player & { team: MyTeam };
+
+/** My children expected at an event (team trainings / matches: all my kids in the team). */
+function kidsAt(e: TeamEvent, kids: Kid[]): Kid[] {
+  const inTeam = kids.filter((k) => k.team.id === e.team.id);
+  const s = e.training;
+  if (!s || !s.audience || s.audience === 'team') return inTeam;
+  if (s.audience === 'goalkeepers') return inTeam.filter((k) => isGoalkeeperPosition(k.position));
+  return inTeam.filter((k) => (s.participants ?? []).includes(k.id));
+}
+
+/**
+ * Calendar: every upcoming training (team, goalkeeper, personal) and match of
+ * all my children's teams in one list, by day, with clash warnings per child
+ * and the absences already reported.
+ */
 function Agenda({ teams }: { teams: MyTeam[] }) {
   const [events, reload] = useTeamEvents(teams);
   const [sheet, openRides] = useRidesSheet(reload);
+  const { session } = useAuth();
+  const kids = useMyKids() ?? [];
+  const absences = useTeamAbsences(teams);
+  const [only, setOnly] = useState<string>('all');
   if (events === null) return <p className="ip-muted">טוען…</p>;
-  if (!events.length) return <EmptyState icon="calendar" title="היומן ריק" text="אימונים ומשחקים של הקבוצות שלך יופיעו כאן, כולל משחקי הליגה מההתאחדות." />;
+
+  const uniqueKids = [...new Map(kids.map((k) => [k.id, k])).values()];
+  const kidsOf = new Map(events.map((e) => [e.key, kidsAt(e, kids)]));
+  // events of my children (a staff member without children sees everything)
+  const me = session?.user.id;
+  const relevant = events.filter(
+    (e) => e.kind === 'match' || isStaffRole(e.team.role) || (kidsOf.get(e.key) ?? []).length > 0 || e.training?.created_by === me || !kids.some((k) => k.team.id === e.team.id),
+  );
+  const shown = only === 'all' ? relevant : relevant.filter((e) => (kidsOf.get(e.key) ?? []).some((k) => k.id === only));
+
+  // clashes: per child, or across everything for staff
+  const clash = new Set<string>();
+  if (uniqueKids.length) {
+    for (const k of uniqueKids) overlapping(relevant.filter((e) => (kidsOf.get(e.key) ?? []).some((x) => x.id === k.id))).forEach((x) => clash.add(x));
+  } else {
+    overlapping(relevant).forEach((x) => clash.add(x));
+  }
+  const clashCount = shown.filter((e) => clash.has(e.key)).length;
+  const absentAt = (e: TeamEvent) =>
+    (kidsOf.get(e.key) ?? []).filter((k) =>
+      absences.some((a) => a.player_id === k.id && absenceCoversEvent(a, e.kind, e.eventId, ymd(new Date(e.at)))),
+    );
+
   const days = new Map<string, TeamEvent[]>();
-  for (const e of events) {
+  for (const e of shown) {
     const k = dayFmt.format(new Date(e.at));
     days.set(k, [...(days.get(k) ?? []), e]);
   }
   return (
     <>
+      <AddTrainingButton teams={teams} kids={kids} onAdded={reload} />
+      {uniqueKids.length > 1 && (
+        <div className="ip-player-chips" role="group" aria-label="סינון לפי ילד">
+          <button type="button" className={only === 'all' ? 'is-on' : ''} aria-pressed={only === 'all'} onClick={() => setOnly('all')}>
+            כל הילדים
+          </button>
+          {uniqueKids.map((k) => (
+            <button key={k.id} type="button" className={only === k.id ? 'is-on' : ''} aria-pressed={only === k.id} onClick={() => setOnly(k.id)}>
+              {k.first_name}
+            </button>
+          ))}
+        </div>
+      )}
+      {clashCount > 0 && (
+        <Card className="ip-clash-banner">
+          <p>
+            <strong>יש התנגשות ביומן:</strong> {clashCount} פעילויות חופפות בזמן{uniqueKids.length ? ' לאותו ילד' : ''}. הן מסומנות למטה.
+          </p>
+        </Card>
+      )}
+      {!shown.length && <EmptyState icon="calendar" title="היומן ריק" text="אימונים ומשחקים של הקבוצות שלך יופיעו כאן, כולל משחקי הליגה מההתאחדות ואימונים אישיים." />}
       {[...days.entries()].map(([day, list]) => (
         <section key={day}>
           <SectionHeader title={day} />
           <Card padded={false}>
-            {list.map((e) => (
-              <div key={e.key} className="ip-agenda-item">
-                <ListRow
-                  icon={e.kind === 'match' ? 'ball' : 'whistle'}
-                  iconTone={e.kind === 'match' ? 'blue' : 'lime'}
-                  title={e.canceled ? `${e.title} (בוטל)` : e.title}
-                  subtitle={[e.time, e.place, teams.length > 1 ? e.team.name : null].filter(Boolean).join(' · ')}
-                  trailing={e.tag ? <Tag>{e.tag}</Tag> : undefined}
-                  onClick={() => (window.location.hash = e.href)}
-                />
-                <RidesLine e={e} onOpen={() => openRides(e)} />
-              </div>
-            ))}
+            {list.map((e) => {
+              const who = kidsOf.get(e.key) ?? [];
+              const away = absentAt(e);
+              const sub = [
+                e.time,
+                e.place,
+                teams.length > 1 ? e.team.name : null,
+                uniqueKids.length > 1 && who.length ? who.map((k) => k.first_name).join(', ') : null,
+              ];
+              return (
+                <div key={e.key} className="ip-agenda-item">
+                  <ListRow
+                    icon={e.kind === 'match' ? 'ball' : e.training?.kind === 'personal' ? 'user' : 'whistle'}
+                    iconTone={e.kind === 'match' ? 'blue' : e.training?.kind && e.training.kind !== 'team' ? 'navy' : 'lime'}
+                    title={e.canceled ? `${e.title} (בוטל)` : e.title}
+                    subtitle={sub.filter(Boolean).join(' · ')}
+                    trailing={
+                      <span className="ip-agenda-tags">
+                        {clash.has(e.key) && <Tag tone="warning">התנגשות</Tag>}
+                        {away.length > 0 && <Tag tone="navy">{who.length > 1 ? `${away.map((k) => k.first_name).join(', ')} לא מגיע/ה` : 'לא מגיע/ה'}</Tag>}
+                        {e.tag && <Tag>{e.tag}</Tag>}
+                      </span>
+                    }
+                    onClick={() => (window.location.hash = e.href)}
+                  />
+                  <RidesLine e={e} onOpen={() => openRides(e)} />
+                </div>
+              );
+            })}
           </Card>
         </section>
       ))}
+      <KidsAttendance kids={uniqueKids} />
       {sheet}
     </>
   );
@@ -505,7 +619,7 @@ export function RealCalendarScreen({ onShowSample }: { onShowSample: () => void 
   const { teams } = useAuth();
   return (
     <div className="ip-stack">
-      <ScreenTitle title="יומן" subtitle={teams.length ? 'אימונים ומשחקים של הקבוצות שלך' : undefined} />
+      <ScreenTitle title="יומן" subtitle={teams.length ? 'כל האימונים והמשחקים של הילדים במקום אחד' : undefined} />
       {!teams.length ? <NoTeam onShowSample={onShowSample} /> : <Agenda teams={teams} />}
     </div>
   );
