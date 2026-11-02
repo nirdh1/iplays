@@ -34,6 +34,7 @@ import { MedicalSection } from './CareerProfile';
 import { DevelopmentSection } from './DevelopmentSection';
 import { AffiliationsSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
 import { SelfStatsSection } from './CareerSelfStats';
+import { IfaTeamGamesLink } from './LeagueTable';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
@@ -153,6 +154,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
               {p.first_name} {p.last_name}
             </strong>
             <span className="ip-on-navy-muted">{[p.shirt_number != null && `#${p.shirt_number}`, p.position, p.team_name].filter(Boolean).join(' · ')}</span>
+            {p.team_id && sport === 'football' && <IfaTeamGamesLink teamId={p.team_id} className="ip-career-ifa-link" />}
           </span>
         </div>
         <div className="ip-career-hero-stats">

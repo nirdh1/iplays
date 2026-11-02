@@ -51,3 +51,8 @@ export async function getTeamLeagueTable(teamId: string): Promise<LeagueTable | 
 export function ourRow(t: LeagueTable): LeagueRow | undefined {
   return t.rows.find((r) => r.is_us);
 }
+
+/** The team's games page on the IFA site (opened by the user in their own browser). */
+export function ifaTeamGamesUrl(ifaTeamId: number, ifaSeasonId: number): string {
+  return `https://www.football.org.il/team-details/team-games/?team_id=${ifaTeamId}&season_id=${ifaSeasonId}`;
+}

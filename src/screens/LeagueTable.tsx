@@ -8,7 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Card, SectionHeader, Tag } from '../components/ui';
-import { getTeamLeagueTable, ourRow, type LeagueRow, type LeagueTable } from '../lib/leagueApi';
+import { getTeamLeagueTable, ifaTeamGamesUrl, ourRow, type LeagueRow, type LeagueTable } from '../lib/leagueApi';
 
 const formLabel: Record<string, string> = { W: 'נ', D: 'ת', L: 'ה' };
 
@@ -149,5 +149,20 @@ export function LeagueTableSection({ teamId }: { teamId: string }) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * A link to the team's games page on the IFA site, for teams linked to an IFA
+ * team. The IFA site is the source for game times and venues; the app does not
+ * copy rounds from it every week. Nothing shows for a team with no IFA link.
+ */
+export function IfaTeamGamesLink({ teamId, className }: { teamId: string; className?: string }) {
+  const t = useLeagueTable(teamId);
+  if (!t?.our_ifa_team_id) return null;
+  return (
+    <a className={className ?? 'ip-ifa-link'} href={ifaTeamGamesUrl(t.our_ifa_team_id, t.ifa_season_id)} target="_blank" rel="noopener noreferrer">
+      לוח המשחקים באתר ההתאחדות ↗
+    </a>
   );
 }
