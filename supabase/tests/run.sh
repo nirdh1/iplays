@@ -101,6 +101,12 @@ run supabase/rollback/20261102500000_calendar_absences.down.sql
 run supabase/migrations/20261102500000_calendar_absences.sql
 run supabase/rollback/20261102500000_calendar_absences.down.sql
 psql -q -d $DB -tc "select 'after calendar rollback: ' || count(*) || ' trainings kept, ' || (select count(*) from training_participants) || ' participants kept' from training_sessions"
+echo "== self-reported goals and assists (career)"
+run supabase/migrations/20261102800000_player_self_stats.sql
+run supabase/tests/test_self_stats.sql
+run supabase/rollback/20261102800000_player_self_stats.down.sql
+run supabase/migrations/20261102800000_player_self_stats.sql
+run supabase/rollback/20261102800000_player_self_stats.down.sql
 echo "== rollback club sign-up, roles and notes (keeps data; tables dropped here so the older rollbacks below can run)"
 run supabase/rollback/20261102400000_club_signup_roles_notes.down.sql
 psql -q -d $DB -c "select 'kept after rollback: ' || (select count(*) from club_roles) || ' roles, ' || (select count(*) from player_pro_notes) || ' notes'"

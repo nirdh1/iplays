@@ -33,6 +33,7 @@ import { NoTeam, useMyKids } from './RealScreens';
 import { MedicalSection } from './CareerProfile';
 import { DevelopmentSection } from './DevelopmentSection';
 import { AffiliationsSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
+import { SelfStatsSection } from './CareerSelfStats';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
@@ -180,6 +181,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
       </Card>
 
       {extra && <PositionsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
+      <SelfStatsSection playerId={p.id} name={p.first_name} />
       <MonthlyTrend career={career} sport={sport} />
       <Seasons career={career} scoring={scoring} goalsLabel={goalsLabel} isBasket={isBasket} />
       {career.assessments !== null && (
