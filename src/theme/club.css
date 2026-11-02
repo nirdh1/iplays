@@ -640,3 +640,31 @@ a.ip-dash-match:hover {
   word-break: break-all;
   font-size: 0.85em;
 }
+.ip-att-summary li.ip-att-row {
+  display: block;
+  padding: 0;
+}
+.ip-att-row-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s2);
+  width: 100%;
+  padding: var(--ip-s3) var(--ip-s4);
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ip-att-missed {
+  margin: 0;
+  padding: 0 var(--ip-s4) var(--ip-s3);
+  padding-inline-start: calc(var(--ip-s4) + 12px);
+  font-size: 0.875rem;
+}
+.ip-att-summary .ip-att-missed li {
+  display: list-item;
+  padding: 2px 0;
+  border: 0;
+}

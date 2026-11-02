@@ -11,7 +11,8 @@ import { Button, Card, EmptyState, MetaRow, SectionHeader, Segmented, Tag } from
 import { Err, Field } from '../components/form';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError, getRoster, isStaffRole, type Player } from '../lib/api';
-import { addDays, localIso, todayYmd, ymd } from '../lib/coachApi';
+import { addDays, isMissing, localIso, reasonLabel, todayYmd, ymd, type AbsenceReason } from '../lib/coachApi';
+import { attendanceReport, attended, rateOf, type AttendanceCell } from '../lib/calendarApi';
 import {
   addLineup,
   addMatch,
@@ -761,42 +762,143 @@ function MatchSheet({
 
 /* -------------------------------------------------------- attendance tab */
 
+type Period = '7' | '30' | '90' | '365';
+type KindFilter = 'all' | 'training' | 'match';
+
+/**
+ * Attendance report: per player over a period, filtered by activity type,
+ * absence reason and player; tap a player for the events they missed.
+ * Falls back to the older per-player summary before the calendar migration.
+ */
 function AttendanceSummary({ teamId }: { teamId: string }) {
-  const [days, setDays] = useState<'30' | '90'>('30');
-  const [rows, setRows] = useState<SummaryRow[] | null>(null);
+  const [days, setDays] = useState<Period>('30');
+  const [kind, setKind] = useState<KindFilter>('all');
+  const [reason, setReason] = useState<'all' | AbsenceReason>('all');
+  const [player, setPlayer] = useState<string>('all');
+  const [open, setOpen] = useState<string | null>(null);
+  const [cells, setCells] = useState<AttendanceCell[] | null>(null);
+  const [legacy, setLegacy] = useState<SummaryRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setRows(null);
-    attendanceSummary(teamId, addDays(todayYmd(), -Number(days)), todayYmd())
-      .then(setRows)
+    setCells(null);
+    setError(null);
+    const from = addDays(todayYmd(), -Number(days));
+    attendanceReport(teamId, from, todayYmd())
+      .then((c) => {
+        setCells(c);
+        setLegacy(null);
+      })
       .catch((e) => {
-        setRows([]);
-        setError(errText(e));
+        if (!isMissing(e)) {
+          setCells([]);
+          setError(errText(e));
+          return;
+        }
+        attendanceSummary(teamId, from, todayYmd())
+          .then((r) => {
+            setLegacy(r);
+            setCells([]);
+          })
+          .catch((e2) => {
+            setCells([]);
+            setError(errText(e2));
+          });
       });
   }, [teamId, days]);
+
+  const players = useMemo(() => {
+    const m = new Map<string, string>();
+    (cells ?? []).forEach((c) => m.set(c.player_id, `${c.first_name} ${c.last_name}`.trim()));
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'he'));
+  }, [cells]);
+
+  const filtered = (cells ?? []).filter((c) => (kind === 'all' || c.kind === kind) && (player === 'all' || c.player_id === player));
+  const rows = players
+    .filter(([id]) => player === 'all' || id === player)
+    .map(([id, name]) => {
+      const mine = filtered.filter((c) => c.player_id === id);
+      const missed = mine.filter((c) => !attended(c.status));
+      return {
+        id,
+        name,
+        events: mine.length,
+        present: mine.filter((c) => c.status === 'present').length,
+        late: mine.filter((c) => c.status === 'late').length,
+        absent: missed.length,
+        byReason: reason === 'all' ? missed.length : missed.filter((c) => c.reason === reason).length,
+        rate: rateOf(mine),
+        missed,
+      };
+    })
+    .filter((r) => reason === 'all' || r.byReason > 0)
+    .sort((a, b) => (a.rate ?? 101) - (b.rate ?? 101));
+  const teamRate = rateOf(filtered);
+  const reasonsSeen = [...new Set(filtered.filter((c) => c.reason && !attended(c.status)).map((c) => c.reason as AbsenceReason))];
 
   return (
     <section className="ip-stack ip-stack--tight">
       <Segmented
         items={[
+          { id: '7', label: 'שבוע' },
           { id: '30', label: '30 יום' },
           { id: '90', label: '90 יום' },
+          { id: '365', label: 'שנה' },
         ]}
         value={days}
         onChange={setDays}
         label="תקופה"
       />
-      <p className="ip-footnote">אימונים ומשחקים שהתקיימו. בלי סימון ובלי דיווח הורה, השחקן נספר כנוכח.</p>
+      {!legacy && (
+        <>
+          <Segmented
+            items={[
+              { id: 'all', label: 'הכול' },
+              { id: 'training', label: 'אימונים' },
+              { id: 'match', label: 'משחקים' },
+            ]}
+            value={kind}
+            onChange={setKind}
+            label="סוג פעילות"
+          />
+          <div className="ip-field-row">
+            <Field label="שחקן">
+              <select className="ip-input" value={player} onChange={(e) => setPlayer(e.target.value)}>
+                <option value="all">כל השחקנים</option>
+                {players.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="סיבת היעדרות">
+              <select className="ip-input" value={reason} onChange={(e) => setReason(e.target.value as 'all' | AbsenceReason)}>
+                <option value="all">כל הסיבות</option>
+                {(Object.keys(reasonLabel) as AbsenceReason[]).map((r) => (
+                  <option key={r} value={r}>
+                    {reasonLabel[r]}
+                    {reasonsSeen.includes(r) ? '' : ' (אין)'}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          {cells && cells.length > 0 && (
+            <p className="ip-muted">
+              נוכחות כללית: <strong>{teamRate == null ? '–' : `${teamRate}%`}</strong> · {filtered.length} רישומים
+            </p>
+          )}
+        </>
+      )}
+      <p className="ip-footnote">אימונים ומשחקים שהתקיימו. בלי סימון ובלי דיווח הורה, השחקן נספר כנוכח. אימונים אישיים של משפחות לא נכללים.</p>
       {error && <p className="ip-error" role="alert">{error}</p>}
       <Card padded={false}>
-        {rows === null ? (
+        {cells === null ? (
           <p className="ip-muted ip-pad">טוען…</p>
-        ) : rows.length === 0 ? (
-          <p className="ip-muted ip-pad">אין נתונים לתקופה.</p>
-        ) : (
+        ) : legacy ? (
           <ul className="ip-att-summary">
-            {rows.map((r) => (
+            {legacy.map((r) => (
               <li key={r.player_id}>
                 <span className="ip-list-row-text">
                   <span className="ip-list-row-title">
@@ -807,6 +909,40 @@ function AttendanceSummary({ teamId }: { teamId: string }) {
                   </span>
                 </span>
                 <strong className={`ip-att-rate ${r.rate != null && r.rate < 70 ? 'is-low' : ''}`}>{r.rate == null ? '–' : `${r.rate}%`}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : rows.length === 0 ? (
+          <p className="ip-muted ip-pad">אין נתונים לסינון הזה.</p>
+        ) : (
+          <ul className="ip-att-summary">
+            {rows.map((r) => (
+              <li key={r.id} className="ip-att-row">
+                <button type="button" className="ip-att-row-btn" aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? null : r.id)}>
+                  <span className="ip-list-row-text">
+                    <span className="ip-list-row-title">{r.name}</span>
+                    <span className="ip-list-row-sub">
+                      {r.events} אירועים · {r.present} נוכח · {r.late} איחור · {r.absent} חסר
+                      {reason !== 'all' ? ` · ${r.byReason} ${reasonLabel[reason]}` : ''}
+                    </span>
+                  </span>
+                  <strong className={`ip-att-rate ${r.rate != null && r.rate < 70 ? 'is-low' : ''}`}>{r.rate == null ? '–' : `${r.rate}%`}</strong>
+                </button>
+                {open === r.id && (
+                  <ul className="ip-att-missed">
+                    {r.missed.length === 0 && <li className="ip-muted">לא החסיר אף פעילות בתקופה.</li>}
+                    {r.missed
+                      .filter((c) => reason === 'all' || c.reason === reason)
+                      .map((c) => (
+                        <li key={c.kind + c.event_id}>
+                          {new Date(c.starts_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })} · {c.kind === 'match' ? 'משחק' : 'אימון'} · {c.title}
+                          {' · '}
+                          {c.status === 'excused' ? 'פטור' : 'חסר'}
+                          {c.reason ? ` (${reasonLabel[c.reason] ?? c.reason})` : c.source === 'mark' ? ' (סימון מאמן)' : ''}
+                        </li>
+                      ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

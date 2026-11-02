@@ -75,6 +75,15 @@ run supabase/rollback/20261101985000_player_career.down.sql
 echo "== club sign-up, custom roles and coach notes"
 run supabase/migrations/20261102400000_club_signup_roles_notes.sql
 run supabase/tests/test_club_signup_roles_notes.sql
+echo "== unified calendar, absences and medical documents"
+run supabase/migrations/20261101985000_player_career.sql
+run supabase/migrations/20261102500000_calendar_absences.sql
+run supabase/tests/test_calendar.sql
+echo "== rollback unified calendar (and re-apply / roll back again: idempotent)"
+run supabase/rollback/20261102500000_calendar_absences.down.sql
+run supabase/migrations/20261102500000_calendar_absences.sql
+run supabase/rollback/20261102500000_calendar_absences.down.sql
+psql -q -d $DB -tc "select 'after calendar rollback: ' || count(*) || ' trainings kept, ' || (select count(*) from training_participants) || ' participants kept' from training_sessions"
 echo "== rollback club sign-up, roles and notes (keeps data; tables dropped here so the older rollbacks below can run)"
 run supabase/rollback/20261102400000_club_signup_roles_notes.down.sql
 psql -q -d $DB -c "select 'kept after rollback: ' || (select count(*) from club_roles) || ' roles, ' || (select count(*) from player_pro_notes) || ' notes'"

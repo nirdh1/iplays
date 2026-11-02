@@ -2658,6 +2658,25 @@ select.ip-input {
   border: 1px solid var(--ip-border);
 }
 
+/* unified calendar */
+.ip-agenda-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+  max-width: 55%;
+}
+.ip-clash-banner {
+  border: 1px solid var(--ip-warning, #f5a524);
+  background: var(--ip-warning-soft, #fff6e5);
+}
+.ip-clash-banner p {
+  margin: 0;
+}
+.ip-att-stats {
+  margin-top: var(--ip-s3);
+}
+
 /* coach overrides on IFA games (MatchOverrides.tsx) */
 .ip-conflict { border: 2px solid var(--ip-warning, #f5a524); display: flex; flex-direction: column; gap: 8px; }
 .ip-conflict p { margin: 0; }
