@@ -112,9 +112,11 @@ def to_payload(games_page, league_page=None, source_url=''):
             unmatched.append({'date': r.get('תאריך'), 'home': home, 'away': away,
                               'missing': [n for n, i in ((home, hid), (away, aid)) if i is None]})
             continue
-        key = (hid, aid)
+        # a pairing can meet more than once (3-round leagues); the same
+        # pairing twice on the same date is a page problem
+        key = (hid, aid, r.get('תאריך'))
         if key in seen:
-            problems.append({'row': r, 'error': 'same home/away pairing twice on the page'})
+            problems.append({'row': r, 'error': 'same home/away pairing twice on the same date'})
             continue
         seen.add(key)
         res = r.get('תוצאה', '')
