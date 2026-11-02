@@ -17,9 +17,10 @@ import {
   clubError,
   clubRoleLabel,
   clubStatusLabel,
-  createClub,
   getClubData,
   getMyClubs,
+  myClubAccess,
+  pendingClubAccessRequests,
   programKindLabel,
   requestVerification,
   setTeamProgram,
@@ -28,17 +29,21 @@ import {
   endAssignment,
   type Assignment,
   type Club,
+  type ClubAccess,
   type ClubData,
   type ClubTeam,
   type Program,
 } from '../lib/clubApi';
 import { ClubDashboard } from './ClubDashboard';
 import { ClubStaffSection } from './ClubStaffSection';
+import { ClubRolesSection } from './ClubRolesSection';
+import { ClubSignup } from './ClubSignup';
+import { ProNotesSheet } from './ProNotesSheet';
 import '../theme/club.css';
 
 const errText = (e: unknown) => clubError(e) ?? friendlyError(e);
 
-type Tab = 'overview' | 'teams' | 'players' | 'transfers' | 'staff';
+type Tab = 'overview' | 'teams' | 'players' | 'transfers' | 'staff' | 'roles';
 
 interface ClubPlayer {
   id: string;
@@ -65,7 +70,12 @@ export function ClubScreen({ clubId, onBack }: { clubId?: string; onBack: () => 
     void loadClubs();
   }, [loadClubs]);
 
+  const [joining, setJoining] = useState(false);
   const club = clubs?.find((c) => c.id === clubId) ?? clubs?.[0];
+  const opened = (id: string) => loadClubs().then(() => {
+    setJoining(false);
+    window.location.hash = `club/${id}`;
+  });
 
   return (
     <div className="ip-stack ip-club">
@@ -80,71 +90,24 @@ export function ClubScreen({ clubId, onBack }: { clubId?: string; onBack: () => 
               {clubs.map((c) => (
                 <button key={c.id} type="button" className={c.id === club.id ? 'is-active' : ''} onClick={() => (window.location.hash = `club/${c.id}`)}>
                   {c.name}
+                  {c.roles && c.roles.length > 0 ? ` · ${c.roles.join(', ')}` : ''}
                 </button>
               ))}
             </div>
           )}
           <ClubPanel key={club.id} club={club} onChanged={loadClubs} />
-          <NewClubCard compact onCreated={(id) => loadClubs().then(() => (window.location.hash = `club/${id}`))} />
+          {joining ? (
+            <ClubSignup onCreated={opened} />
+          ) : (
+            <Button variant="ghost" icon="plus" onClick={() => setJoining(true)}>
+              הצטרפות למועדון נוסף או פתיחת מועדון
+            </Button>
+          )}
         </>
       ) : (
-        <NewClubCard onCreated={(id) => loadClubs().then(() => (window.location.hash = `club/${id}`))} />
+        <ClubSignup onCreated={opened} />
       )}
     </div>
-  );
-}
-
-/* ------------------------------------------------------------- new club */
-
-function NewClubCard({ onCreated, compact }: { onCreated: (id: string) => void; compact?: boolean }) {
-  const [open, setOpen] = useState(!compact);
-  const [name, setName] = useState('');
-  const [city, setCity] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      onCreated(await createClub(name, city));
-      setName('');
-      setCity('');
-    } catch (err) {
-      setError(errText(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!open) {
-    return (
-      <Button variant="ghost" icon="plus" onClick={() => setOpen(true)}>
-        פתיחת מועדון נוסף
-      </Button>
-    );
-  }
-  return (
-    <Card>
-      <form className="ip-stack ip-stack--tight" onSubmit={submit}>
-        <h2 className="ip-club-h2">פתיחת מועדון</h2>
-        <p className="ip-muted">
-          המועדון נפתח כטיוטה, עם שתי מסגרות: ליגה ואקדמיה. כדי לקבל גישה מלאה כמועדון רשמי, שולחים בקשת אימות לצוות iplays.
-        </p>
-        <Field label="שם המועדון">
-          <input className="ip-input" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} required />
-        </Field>
-        <Field label="עיר">
-          <input className="ip-input" value={city} maxLength={60} onChange={(e) => setCity(e.target.value)} />
-        </Field>
-        <Err error={error} />
-        <Button type="submit" variant="primary" disabled={busy || !name.trim()}>
-          {busy ? 'פותח…' : 'פתיחת מועדון'}
-        </Button>
-      </form>
-    </Card>
   );
 }
 
@@ -156,7 +119,19 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [error, setError] = useState<string | null>(null);
   const [transferFor, setTransferFor] = useState<ClubPlayer | null>(null);
+  const [notesFor, setNotesFor] = useState<ClubPlayer | null>(null);
+  const [access, setAccess] = useState<ClubAccess | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const manage = club.role === 'owner' || club.role === 'admin';
+
+  useEffect(() => {
+    myClubAccess(club.id).then(setAccess).catch(() => setAccess(null));
+    if (manage) {
+      pendingClubAccessRequests()
+        .then((r) => setPendingCount(r.filter((x) => x.club_id === club.id).length))
+        .catch(() => undefined);
+    }
+  }, [club.id, manage]);
 
   const load = useCallback(async () => {
     try {
@@ -231,6 +206,19 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
 
       <Err error={error} />
 
+      {pendingCount > 0 && (
+        <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = 'clubrequests')}>
+          <span className="ip-icon-tile ip-icon-tile--lime">
+            <Icon name="bell" size={20} />
+          </span>
+          <span className="ip-list-row-text">
+            <span className="ip-list-row-title">{pendingCount === 1 ? 'בקשה אחת ממתינה לאישורך' : `${pendingCount} בקשות ממתינות לאישורך`}</span>
+            <span className="ip-list-row-sub">מאמנים ואנשי צוות שביקשו להצטרף למועדון</span>
+          </span>
+          <Icon name="chevron" size={18} className="ip-muted" />
+        </button>
+      )}
+
       <Segmented
         label="תצוגה"
         value={tab}
@@ -241,6 +229,7 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
           { id: 'players', label: 'שחקנים' },
           { id: 'transfers', label: 'מעברים' },
           ...(manage ? [{ id: 'staff' as const, label: 'צוות' }] : []),
+          ...(access?.manage_roles ? [{ id: 'roles' as const, label: 'תפקידים' }] : []),
         ]}
       />
 
@@ -333,6 +322,9 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
                         ))}
                       </span>
                     </span>
+                    <Button variant="ghost" size="sm" icon="shield" onClick={() => setNotesFor(p)}>
+                      תיק
+                    </Button>
                     {manage && (
                       <Button variant="secondary" size="sm" onClick={() => setTransferFor(p)}>
                         העברה
@@ -346,11 +338,23 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
         </section>
       ) : tab === 'staff' ? (
         <ClubStaffSection club={club} data={data} />
+      ) : tab === 'roles' && access ? (
+        <ClubRolesSection club={club} data={data} access={access} />
       ) : (
         <section className="ip-stack">
           <SectionHeader title="היסטוריית מעברים" icon="arrow" />
           <TransferList transfers={data.transfers} teamName={(id) => teamById.get(id ?? '')?.name} />
         </section>
+      )}
+
+      {notesFor && (
+        <ProNotesSheet
+          clubId={club.id}
+          clubName={club.name}
+          player={{ id: notesFor.id, name: notesFor.name }}
+          teamId={notesFor.assignments[0]?.team_id ?? null}
+          onClose={() => setNotesFor(null)}
+        />
       )}
 
       {transferFor && data && (
