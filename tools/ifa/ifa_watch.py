@@ -14,6 +14,10 @@ talks to Supabase with the public anon key + the agent key (tools/ifa/agent.env)
   # keep watching, every 60 seconds
   python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages --send --watch 60
 
+  # also read flat update folders (save fresh copies there under any name)
+  python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages \
+      --inbox ~/iplays_clude/ifa_updates/משחקים --inbox ~/iplays_clude/ifa_updates/סגלים --send --watch 60
+
 Layout (spec section 13; the existing folders are reused, nothing is moved):
   <root>/MatchRounds/index.json   one entry per league (league_id, local_path, ...)
   <root>/MatchRounds/state.json   sha256 of every processed file (written by this tool)
@@ -21,6 +25,12 @@ Layout (spec section 13; the existing folders are reused, nothing is moved):
   <league local_path>/league_<id>.html               league page (teams dropdown)
   <league local_path>/saved/<team_id>/roster.html     roster page
   <league local_path>/saved_games/<team_id>/team_games.html   all games of one team
+
+Update folders (--inbox, repeatable): any file name, any sub folder. A league
+page there updates its league; a roster or team-games page goes to the league
+whose saved league page lists the team (a games page of a team no saved league
+page lists is refused until that league page is saved). Files there are never
+moved or deleted; a re-saved copy with new content is sent again.
 
 A file is identified by what is inside it (the page's own form action: team_id
 or league_id), not by its name or folder, so a misnamed or misplaced save still
@@ -88,9 +98,14 @@ def classify(page, file_path=None):
         return 'league', int(q['league_id']), season
     if '/team-details' in path and q.get('team_id', '').isdigit() and 'teamPlayers' in page:
         return 'roster', int(q['team_id']), season
-    if not action and 'id="teamPlayers"' in page and file_path is not None and file_path.parent.name.isdecimal():
+    if not action and 'id="teamPlayers"' in page:
         m = re.search(r'season_id=(\d+)', page)
-        return 'roster', int(file_path.parent.name), int(m.group(1)) if m else None
+        season = int(m.group(1)) if m else None
+        if file_path is not None and file_path.parent.name.isdecimal():
+            return 'roster', int(file_path.parent.name), season
+        ids = set(re.findall(r'team_id=(\d+)', page))
+        if len(ids) == 1:  # a trimmed copy whose links all name one team
+            return 'roster', int(ids.pop()), season
     return None, None, None
 
 
@@ -184,7 +199,150 @@ def first_import_sql(path, payloads):
     path.write_text('\n'.join(lines), encoding='utf-8')
 
 
-def run_once(root, api, settle, log):
+def update_league_entry(entry, page, f):
+    teams = dropdown_teams(page)
+    entry['league_name'] = re.sub(r'^\s*\d{4}/\d{4}\s*', '', league_title(page)) or entry.get('league_name')
+    entry['teams'] = len(teams)
+    entry['league_html'] = str(f)
+    entry['last_saved_at'] = datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(timespec='seconds')
+    if not teams:
+        entry['status'] = 'empty_no_season28'
+    elif entry.get('status') in (None, 'not_saved', 'empty_no_season28'):
+        entry['status'] = 'links_ready'
+    return teams
+
+
+def handle(kind, ident, season, f, rel, digest, page, entry, league_page, api, state, pending_first, summary, log):
+    """Process one changed page. Returns the league page when `page` is one, else None.
+
+    `entry` is the index entry of the page's league (None when unknown: a roster
+    is still proposed, without the league tag; a games page is refused because
+    its opponents cannot be matched to IFA team ids).
+    """
+    result = {'file': rel, 'kind': kind, 'id': ident}
+    new_league = None
+    try:
+        if kind is None:
+            result['note'] = 'not an IFA league, roster or team-games page; ignored'
+        elif kind == 'league':
+            result['teams'] = len(update_league_entry(entry, page, f))
+            new_league = page
+            summary['leagues'] += 1
+        elif kind == 'roster':
+            payload = validate_roster(load_saved(f), ident, season or 28,
+                                      f'{BASE}/team-details/?team_id={ident}&season_id={season or 28}')
+            if entry:
+                payload['ifa_league_id'] = entry.get('league_id')
+                if entry.get('league_name'):
+                    payload['league_name'] = entry['league_name']
+                result['league'] = entry.get('league_id')
+            result['players'] = len(payload['players'])
+            if api:
+                r = api.call('agent_propose_ifa_roster', payload)
+                result['server'] = r
+                if r and not r.get('ok') and 'not imported yet' in (r.get('error') or ''):
+                    pending_first[str(ident)] = payload
+                    result['note'] = 'team not imported yet: added to MatchRounds/first_import.sql'
+                elif r and not r.get('ok'):
+                    raise RuntimeError(r.get('error') or 'refused')
+            summary['rosters'] += 1
+        elif kind == 'games':
+            if not league_page:
+                raise RuntimeError('no saved league page lists this team: save the league page first, then this page again')
+            payload, report = to_payload(page, league_page, f'{BASE}/team-details/team-games/?team_id={ident}&season_id={season or 28}')
+            payload['ifa_league_id'] = payload.get('ifa_league_id') or (entry or {}).get('league_id')
+            result.update({'league': payload['ifa_league_id'], 'games': report['games'],
+                           'unmatched': len(report['unmatched']), 'problems': len(report['problems'])})
+            if report['problems']:
+                raise RuntimeError(f'{len(report["problems"])} rows could not be read: {report["problems"][:2]}')
+            if api:
+                r = api.call('agent_import_ifa_games', payload)
+                result['server'] = {k: r.get(k) for k in ('ok', 'error', 'new', 'changed', 'same', 'queued')} if r else None
+                if r and not r.get('ok'):
+                    raise RuntimeError(r.get('error') or 'refused')
+            summary['games'] += 1
+        if api:
+            state[rel] = {'sha256': digest, 'kind': kind, 'id': ident, 'processed_at': now_iso()}
+    except Exception as exc:  # one bad file must not stop the others
+        result['error'] = str(exc)
+        summary['errors'] += 1
+    log(result)
+    return new_league
+
+
+def scan_inbox(folder):
+    """Every saved html page anywhere under an update folder (Chrome's _files folders excluded)."""
+    return sorted(p for p in folder.rglob('*.html') if not any(part.endswith('_files') for part in p.parent.parts))
+
+
+def team_leagues(index):
+    """{ifa_team_id: (entry, league page)} from every league page the index knows."""
+    out = {}
+    for entry in index.get('leagues', []):
+        html = entry.get('league_html')
+        if not html:
+            continue
+        path = Path(os.path.expanduser(html))
+        if not path.is_file():
+            continue
+        page = read_text(path)
+        for team_id in dropdown_teams(page).values():
+            out[team_id] = (entry, page)
+    return out
+
+
+def run_inboxes(inboxes, index, api, settle, state, pending_first, summary, log):
+    """Flat update folders: any file name, any sub folder. Each page is routed by its content:
+    a league page updates its league; a roster or games page goes to the league whose
+    saved league page lists the team."""
+    pages = []
+    for inbox in inboxes:
+        if not inbox.is_dir():
+            log({'inbox': str(inbox), 'error': 'folder not found'})
+            summary['errors'] += 1
+            continue
+        for f in scan_inbox(inbox):
+            rel = str(f)
+            try:
+                if not settled(f, settle):
+                    summary['skipped_unsettled'] += 1
+                    continue
+                digest = sha256(f)
+                if state.get(rel, {}).get('sha256') == digest:
+                    summary['unchanged'] += 1
+                    continue
+                page = read_text(f)
+                kind, ident, season = classify(page, f)
+                pages.append((kind, ident, season, f, rel, digest, page))
+            except OSError as exc:
+                log({'file': rel, 'error': str(exc)})
+                summary['errors'] += 1
+    order = {'league': 0, 'roster': 1, 'games': 2}
+    pages.sort(key=lambda x: order.get(x[0], 3))
+
+    by_league = {e.get('league_id'): e for e in index.get('leagues', [])}
+    teams = None
+    for kind, ident, season, f, rel, digest, page in pages:
+        entry, league_page = None, None
+        if kind == 'league':
+            entry = by_league.get(ident)
+            if entry is None:
+                entry = {'league_id': ident, 'local_path': None, 'league_html': None, 'status': 'not_saved'}
+                index.setdefault('leagues', []).append(entry)
+                by_league[ident] = entry
+        elif kind in ('roster', 'games'):
+            if teams is None:
+                teams = team_leagues(index)
+            entry, league_page = teams.get(ident, (None, None))
+        if handle(kind, ident, season, f, rel, digest, page, entry, league_page, api, state, pending_first, summary, log):
+            teams = None  # a new league page: rebuild the team -> league map
+            if api:
+                entry['last_processed_at'] = now_iso()
+        elif entry is not None and api and kind in ('roster', 'games'):
+            entry['last_processed_at'] = now_iso()
+
+
+def run_once(root, api, settle, log, inboxes=()):
     mr = root / 'MatchRounds'
     mr.mkdir(exist_ok=True)
     index_path = mr / 'index.json'
@@ -222,64 +380,18 @@ def run_once(root, api, settle, log):
             league_page = read_text(Path(os.path.expanduser(league_html)))
 
         for kind, ident, season, f, rel, digest, page in pages:
-            result = {'file': rel, 'kind': kind, 'id': ident}
-            try:
-                if kind is None:
-                    result['note'] = 'not an IFA league, roster or team-games page; ignored'
-                elif kind == 'league':
-                    if ident != entry.get('league_id'):
-                        result['note'] = f'league page of {ident} inside the folder of {entry.get("league_id")}; ignored'
-                    else:
-                        league_page = page
-                        teams = dropdown_teams(page)
-                        entry['league_name'] = re.sub(r'^\s*\d{4}/\d{4}\s*', '', league_title(page)) or entry.get('league_name')
-                        entry['teams'] = len(teams)
-                        entry['league_html'] = str(f)
-                        entry['last_saved_at'] = datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(timespec='seconds')
-                        if not teams:
-                            entry['status'] = 'empty_no_season28'
-                        elif entry.get('status') in (None, 'not_saved', 'empty_no_season28'):
-                            entry['status'] = 'links_ready'
-                        result['teams'] = len(teams)
-                        summary['leagues'] += 1
-                elif kind == 'roster':
-                    payload = validate_roster(load_saved(f), ident, season or 28,
-                                              f'{BASE}/team-details/?team_id={ident}&season_id={season or 28}')
-                    payload['ifa_league_id'] = entry.get('league_id')
-                    if entry.get('league_name'):
-                        payload['league_name'] = entry['league_name']
-                    result['players'] = len(payload['players'])
-                    if api:
-                        r = api.call('agent_propose_ifa_roster', payload)
-                        result['server'] = r
-                        if r and not r.get('ok') and 'not imported yet' in (r.get('error') or ''):
-                            pending_first[str(ident)] = payload
-                            result['note'] = 'team not imported yet: added to MatchRounds/first_import.sql'
-                        elif r and not r.get('ok'):
-                            raise RuntimeError(r.get('error') or 'refused')
-                    summary['rosters'] += 1
-                elif kind == 'games':
-                    if not league_page:
-                        raise RuntimeError('no saved league page in this folder: team ids cannot be matched')
-                    payload, report = to_payload(page, league_page, f'{BASE}/team-details/team-games/?team_id={ident}&season_id={season or 28}')
-                    payload['ifa_league_id'] = payload.get('ifa_league_id') or entry.get('league_id')
-                    result.update({'games': report['games'], 'unmatched': len(report['unmatched']), 'problems': len(report['problems'])})
-                    if report['problems']:
-                        raise RuntimeError(f'{len(report["problems"])} rows could not be read: {report["problems"][:2]}')
-                    if api:
-                        r = api.call('agent_import_ifa_games', payload)
-                        result['server'] = {k: r.get(k) for k in ('ok', 'error', 'new', 'changed', 'same', 'queued')} if r else None
-                        if r and not r.get('ok'):
-                            raise RuntimeError(r.get('error') or 'refused')
-                    summary['games'] += 1
-                if api:
-                    state[rel] = {'sha256': digest, 'kind': kind, 'id': ident, 'processed_at': now_iso()}
-            except Exception as exc:  # one bad file must not stop the others
-                result['error'] = str(exc)
-                summary['errors'] += 1
-            log(result)
+            if kind == 'league' and ident != entry.get('league_id'):
+                log({'file': rel, 'kind': kind, 'id': ident,
+                     'note': f'league page of {ident} inside the folder of {entry.get("league_id")}; ignored'})
+                continue
+            new_league = handle(kind, ident, season, f, rel, digest, page, entry, league_page, api, state, pending_first, summary, log)
+            if new_league:
+                league_page = new_league
         if api and pages:
             entry['last_processed_at'] = now_iso()
+
+    if inboxes:
+        run_inboxes(inboxes, index, api, settle, state, pending_first, summary, log)
 
     if api:
         save_json(mr / 'state.json', state)
@@ -297,6 +409,8 @@ def main():
     ap.add_argument('--watch', type=int, metavar='SECONDS', help='keep running, checking every N seconds (minimum 15)')
     ap.add_argument('--settle', type=int, default=20, help='seconds a file must be unchanged before it is read')
     ap.add_argument('--env', type=Path, default=HERE / 'agent.env')
+    ap.add_argument('--inbox', type=Path, action='append', default=[], metavar='DIR',
+                    help='a flat update folder (repeatable): save fresh pages there under any name')
     args = ap.parse_args()
     root = args.root.expanduser()
     if not (root / 'MatchRounds' / 'index.json').is_file():
@@ -312,7 +426,7 @@ def main():
                 fh.write(json.dumps(row, ensure_ascii=False) + '\n')
 
     while True:
-        summary = run_once(root, api, args.settle, log)
+        summary = run_once(root, api, args.settle, log, [d.expanduser() for d in args.inbox])
         print(json.dumps({'t': now_iso(), 'summary': summary, 'sent': bool(api)}, ensure_ascii=False), flush=True)
         if not args.watch:
             break

@@ -163,6 +163,9 @@ python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages
 # send with the agent key (tools/ifa/agent.env), once or every 60 s
 python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages --send
 python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages --send --watch 60
+# also the two flat update folders (fresh saves under any name)
+python3 -I tools/ifa/ifa_watch.py --root ~/iplays_clude/ifa_pages \
+  --inbox ~/iplays_clude/ifa_updates/משחקים --inbox ~/iplays_clude/ifa_updates/סגלים --send --watch 60
 # offline test on synthetic fixtures
 python3 -I tools/ifa/test_ifa_watch.py
 ```
@@ -179,3 +182,9 @@ python3 -I tools/ifa/test_ifa_watch.py
   follow the page; a coach's own value still wins field by field.
 - Every processed file is logged in `MatchRounds/log.jsonl`; `state.json` holds
   the hashes; `index.json` gets `last_processed_at`, team count and status.
+- Update folders (`--inbox`, repeatable): any name, any sub folder, Chrome
+  `_files` folders skipped. A league page there refreshes its league in
+  `index.json` (a league not listed yet is added). A roster or games page goes to
+  the league whose saved league page lists the team; a games page of a team no
+  saved league page lists is refused (not guessed) until that league page is
+  saved. Files are never moved or deleted; a re-save with new content is sent again.
