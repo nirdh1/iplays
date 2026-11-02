@@ -27,8 +27,10 @@ import { useAuth } from '../auth/AuthContext';
 import { Err, Field } from '../components/form';
 import { joinError, PARENT_DECLARATION, pendingJoinRequests, reviewJoinRequest, type PendingRequest } from '../lib/joinApi';
 import { TeamLinkShare } from './TeamLinkShare';
+import { IfaTeamLink } from './IfaTeamLink';
 import { ChildDetailsSheet } from './ChildDetailsSheet';
 import { sportProfile } from '../lib/sports';
+import { endAssignment } from '../lib/clubApi';
 
 export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
   const { session, teams, refresh } = useAuth();
@@ -44,6 +46,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
   const [details, setDetails] = useState<Player | null>(null);
   const [claim, setClaim] = useState<Player | null>(null);
   const [showRoster, setShowRoster] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +66,21 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Staff take a player off the team. History is kept (assignment ended, not deleted).
+  async function removePlayer(p: Player) {
+    if (!window.confirm(`להוציא את ${p.first_name} ${p.last_name} מהקבוצה? ההיסטוריה של השחקן נשמרת.`)) return;
+    setRemoving(p.id);
+    setError(null);
+    try {
+      await endAssignment(p.id, teamId, 'הוצא מהסגל על ידי צוות הקבוצה');
+      await load();
+    } catch (e) {
+      setError(friendlyError(e));
+    } finally {
+      setRemoving(null);
+    }
+  }
 
   if (!team) {
     return (
@@ -90,6 +108,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
             <p className="ip-on-navy-muted">
               {sportLabel[team.sport]} · עונת {team.season} · {roleLabel[team.role]}
             </p>
+            <IfaTeamLink teamId={teamId} />
           </div>
         </div>
       </Card>
@@ -208,9 +227,21 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                         חולצה וציוד
                       </Button>
                     ) : staff ? (
-                      <Button variant="secondary" size="sm" icon="career" onClick={() => (window.location.hash = `career/${p.id}`)}>
-                        קריירה
-                      </Button>
+                      <>
+                        <Button variant="secondary" size="sm" icon="career" onClick={() => (window.location.hash = `career/${p.id}`)}>
+                          קריירה
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon="close"
+                          aria-label={`הוצאת ${p.first_name} מהקבוצה`}
+                          disabled={removing === p.id}
+                          onClick={() => void removePlayer(p)}
+                        >
+                          {removing === p.id ? 'מוציא…' : 'הוצאה'}
+                        </Button>
+                      </>
                     ) : p.guardians.length === 0 ? (
                       <Button variant="secondary" size="sm" onClick={() => setClaim(p)}>
                         זה הילד שלי

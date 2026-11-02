@@ -26,6 +26,8 @@ run supabase/migrations/20261101971000_match_events.sql
 run supabase/migrations/20261101980000_account_types.sql
 run supabase/migrations/20261101990000_team_fund.sql
 run supabase/migrations/20261101996000_family_members.sql
+run supabase/migrations/20261101997000_ifa_roster_sync.sql
+run supabase/migrations/20261101998000_ifa_agent.sql
 echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
 echo "== M3 tests"
@@ -42,9 +44,22 @@ echo "== IFA import tests"
 run supabase/tests/test_ifa.sql
 echo "== IFA games sync tests"
 run supabase/tests/test_ifa_games.sql
+echo "== IFA roster sync tests"
+run supabase/tests/test_ifa_roster_sync.sql
+echo "== IFA local agent tests"
+run supabase/tests/test_ifa_agent.sql
+echo "== team page IFA link"
+run supabase/migrations/20261101999000_team_ifa_link.sql
+run supabase/tests/test_team_ifa_link.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== rollback team page IFA link"
+run supabase/rollback/20261101999000_team_ifa_link.down.sql
+echo "== rollback IFA local agent"
+run supabase/rollback/20261101998000_ifa_agent.down.sql
+echo "== rollback IFA roster sync"
+run supabase/rollback/20261101997000_ifa_roster_sync.down.sql
 echo "== rollback family members"
 run supabase/rollback/20261101996000_family_members.down.sql
 run supabase/rollback/20261101995000_inbox_notifications.down.sql
@@ -92,5 +107,7 @@ run supabase/migrations/20261101900000_ifa_games_sync.sql
 run supabase/migrations/20261101950000_join_no_staff_parent.sql
 run supabase/migrations/20261101960000_parent_trainings.sql
 run supabase/migrations/20261101996000_family_members.sql
+run supabase/migrations/20261101997000_ifa_roster_sync.sql
+run supabase/migrations/20261101998000_ifa_agent.sql
 psql -q -d $DB -tc "select 'after re-apply: ' || count(*) || ' requests kept, ' || (select count(*) from team_matches) || ' matches kept' from join_requests"
 echo "ALL TESTS PASSED"

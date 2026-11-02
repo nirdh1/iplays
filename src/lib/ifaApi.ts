@@ -76,6 +76,8 @@ export function parseRosterHtml(html: string): ParsedRoster {
       problems.push(`שחקן ${id} בלי שם.`);
       continue;
     }
+    // the IFA site masks some children's names ("*****"): not imported
+    if (!/[A-Za-z\u0590-\u05FF]/.test(name)) continue;
     players.push({ ifa_player_id: id, name, profile_url: new URL(href, BASE).toString() });
   }
 
@@ -111,6 +113,47 @@ export async function importIfaTeam(input: { teamId: number; seasonId: number; t
   });
   if (error) throw error;
   return data as ImportResult;
+}
+
+export interface RosterChangeRow {
+  ifa_player_id: number;
+  name?: string;
+  old?: string;
+  new?: string;
+}
+
+export interface RosterSyncResult {
+  ok: boolean;
+  applied?: boolean;
+  run_id: string;
+  error?: string;
+  summary?: { players_in_payload: number; active_before: number; added: number; missing: number; returned: number; renamed: number };
+  added?: RosterChangeRow[];
+  missing?: RosterChangeRow[];
+  returned?: RosterChangeRow[];
+  renamed?: RosterChangeRow[];
+  errors?: { player: unknown; error: string }[];
+}
+
+/** Dry run (apply=false) or apply. Never deletes: a player gone from the page is marked missing. */
+export async function syncIfaRoster(
+  input: { teamId: number; seasonId: number; teamName: string; sourceUrl: string; players: ParsedPlayer[]; allowLargeDrop?: boolean },
+  apply: boolean,
+): Promise<RosterSyncResult> {
+  const { data, error } = await db().rpc('sync_ifa_roster', {
+    p: {
+      ifa_team_id: input.teamId,
+      ifa_season_id: input.seasonId,
+      team_name: input.teamName,
+      source_url: input.sourceUrl,
+      sport: 'football',
+      players: input.players.map((x) => ({ ifa_player_id: x.ifa_player_id, name: x.name, profile_url: x.profile_url })),
+      ...(input.allowLargeDrop ? { allow_large_drop: true } : {}),
+    },
+    p_apply: apply,
+  });
+  if (error) throw error;
+  return data as RosterSyncResult;
 }
 
 export interface SyncRun {
@@ -321,4 +364,80 @@ export async function getQueueStats(): Promise<{ status: string; n: number; olde
   const { data, error } = await db().rpc('notification_queue_stats');
   if (error) return [];
   return data ?? [];
+}
+
+// ------------------------------------------------------------ local agent (pilot)
+
+export interface SyncRequest {
+  id: string;
+  kind: 'roster';
+  ifa_team_id: number;
+  ifa_season_id: number;
+  status: 'pending' | 'claimed' | 'checked' | 'applied' | 'failed' | 'canceled';
+  requested_at: string;
+  claimed_at: string | null;
+  finished_at: string | null;
+  result: RosterSyncResult | null;
+  error: string | null;
+  fetch_info: { http_status?: number; players?: number; fetched_at?: string; url?: string };
+  applied_at: string | null;
+  applied_result: RosterSyncResult | null;
+}
+
+export interface AgentKey {
+  id: string;
+  name: string;
+  created_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+}
+
+export async function requestIfaSync(teamId: number, seasonId: number): Promise<string> {
+  const { data, error } = await db().rpc('request_ifa_sync', { p_ifa_team_id: teamId, p_ifa_season_id: seasonId });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function getSyncRequests(): Promise<SyncRequest[]> {
+  const { data, error } = await db().from('ifa_sync_requests').select('*').order('requested_at', { ascending: false }).limit(10);
+  if (error) throw error;
+  return (data ?? []) as SyncRequest[];
+}
+
+export async function applyIfaRequest(id: string, allowLargeDrop = false): Promise<RosterSyncResult> {
+  const { data, error } = await db().rpc('apply_ifa_request', { p_request: id, p_allow_large_drop: allowLargeDrop });
+  if (error) throw error;
+  return data as RosterSyncResult;
+}
+
+export async function cancelIfaRequest(id: string) {
+  const { error } = await db().rpc('cancel_ifa_request', { p_request: id });
+  if (error) throw error;
+}
+
+export async function getAgentKeys(): Promise<AgentKey[]> {
+  const { data, error } = await db().from('ifa_agent_keys').select('id, name, created_at, last_seen_at, revoked_at').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as AgentKey[];
+}
+
+/** The key is returned once; only its hash is stored. */
+export async function createAgentKey(name: string): Promise<string> {
+  const { data, error } = await db().rpc('create_ifa_agent_key', { p_name: name });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function revokeAgentKey(id: string) {
+  const { error } = await db().rpc('revoke_ifa_agent_key', { p_id: id });
+  if (error) throw error;
+}
+
+/** The IFA site page of a team linked to the IFA catalog (null when not linked or before the SQL is run). */
+export async function teamIfaLink(teamId: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('team_ifa_link', { p_team: teamId });
+  if (error) return null; // function not installed yet: just no link
+  const row = (data as { ifa_team_id: number; ifa_season_id: number }[] | null)?.[0];
+  return row ? `${BASE}/team-details/?team_id=${row.ifa_team_id}&season_id=${row.ifa_season_id}` : null;
 }

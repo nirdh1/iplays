@@ -1511,6 +1511,20 @@ button.ip-inbox-item:hover {
 .ip-team-hero-id p {
   font-size: var(--ip-fs-sm);
 }
+.ip-ifa-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: var(--ip-fs-sm);
+  font-weight: 700;
+  color: var(--ip-lime, #7cf23d);
+  text-decoration: none;
+}
+.ip-ifa-link:hover,
+.ip-ifa-link:focus-visible {
+  text-decoration: underline;
+}
 .ip-team-hero-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

@@ -496,3 +496,47 @@ a.ip-dash-match:hover {
   color: var(--ip-success);
   margin-top: var(--ip-s2);
 }
+
+/* IFA roster sync: dry-run result, stacked */
+.ip-roster-check {
+  display: grid;
+  gap: var(--ip-s2);
+  justify-items: start;
+}
+.ip-roster-check p {
+  margin: 0;
+}
+
+/* IFA local agent (pilot) */
+.ip-agent-requests {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--ip-s3);
+}
+.ip-agent-requests > li {
+  display: grid;
+  gap: var(--ip-s2);
+  padding-top: var(--ip-s3);
+  border-top: 1px solid var(--ip-line, rgba(0, 0, 0, 0.08));
+}
+.ip-agent-request-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ip-s2);
+  flex-wrap: wrap;
+}
+.ip-agent-keys summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.ip-agent-keys {
+  display: grid;
+  gap: var(--ip-s2);
+}
+.ip-agent-key {
+  word-break: break-all;
+  font-size: 0.85em;
+}

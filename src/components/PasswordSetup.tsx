@@ -155,7 +155,7 @@ export function PasswordNudge() {
           {form.busy ? 'שומרים…' : 'שמירת סיסמה'}
         </Button>
         <button type="button" className="ip-a2hs-later" onClick={close}>
-          לא עכשיו (אפשר גם אחר כך, בלשונית משפחה)
+          לא עכשיו (אפשר גם אחר כך, בלשונית החשבון)
         </button>
       </form>
     </div>
