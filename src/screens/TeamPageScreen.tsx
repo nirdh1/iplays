@@ -17,14 +17,17 @@ import {
   birthYearsLabel,
   joinError,
   markOnboarded,
+  myChildren,
   myJoinRequests,
   myTeamClaim,
   requestTeamClaim,
   PARENT_DECLARATION,
   programLabel,
   requestJoin,
+  requestJoinWithChild,
   teamPublic,
   teamRosterPublic,
+  type MyChild,
   type MyRequest,
   type PublicTeam,
   type Relation,
@@ -37,6 +40,7 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
   const [team, setTeam] = useState<PublicTeam | null | undefined>(undefined);
   const [roster, setRoster] = useState<RosterName[]>([]);
   const [mine, setMine] = useState<MyRequest[]>([]);
+  const [kids, setKids] = useState<MyChild[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<null | { relation: Relation; player?: RosterName }>(null);
   const [sent, setSent] = useState<string | null>(null);
@@ -49,6 +53,7 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
       setTeam(t);
       setRoster(r);
       setMine(m.filter((x) => x.team_id === teamId && x.status === 'pending'));
+      setKids((await myChildren().catch(() => [])).filter((k) => !k.team_ids.includes(teamId)));
       const c = await myTeamClaim(teamId).catch(() => null);
       setClaim(c ? 'pending' : 'none');
     } catch (e) {
@@ -235,11 +240,13 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
         open={sheet !== null}
         relation={sheet?.relation ?? 'parent'}
         player={sheet?.player}
+        myKids={kids}
         approver={approverFor(sheet?.player)}
         teamName={team.name}
         onClose={() => setSheet(null)}
         onSend={async (input) => {
-          await requestJoin({ teamId: team.team_id, playerId: sheet?.player?.player_id, relation: sheet!.relation, ...input });
+          if (input.existingPlayerId) await requestJoinWithChild(team.team_id, input.existingPlayerId, input.message);
+          else await requestJoin({ teamId: team.team_id, playerId: sheet?.player?.player_id, relation: sheet!.relation, ...input });
           markOnboarded();
           const now = await teamPublic(team.team_id);
           if (now?.is_member && !team.is_member) await refresh();
@@ -274,6 +281,7 @@ export function RequestSheet({
   open,
   relation,
   player,
+  myKids = [],
   approver,
   teamName,
   onClose,
@@ -282,24 +290,32 @@ export function RequestSheet({
   open: boolean;
   relation: Relation;
   player?: { first_name: string; last_name: string };
+  /** The parent's children who are not in this team: one of them can join with their existing profile. */
+  myKids?: MyChild[];
   /** Who approves a parent request; null = the parent is added right away. */
   approver?: string | null;
   teamName: string;
   onClose: () => void;
-  onSend: (input: { first?: string; last?: string; birthYear?: number | null; message: string; declareParent: boolean }) => Promise<void>;
+  onSend: (input: { first?: string; last?: string; birthYear?: number | null; message: string; declareParent: boolean; existingPlayerId?: string }) => Promise<void>;
 }) {
   const [f, setF] = useState({ first: '', last: '', year: '', message: '' });
   const [declared, setDeclared] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isNew = !player;
+  // '' = a new child; otherwise the id of one of the parent's existing children
+  const [existing, setExisting] = useState('');
+  const canBring = relation === 'parent' && !player && myKids.length > 0;
+  const bringing = canBring && existing !== '';
+  const isNew = !player && !bringing;
   const autoJoin = relation === 'parent' && !approver;
 
   useEffect(() => {
     if (open) {
       setDeclared(false);
       setError(null);
+      setExisting(canBring ? myKids[0].player_id : '');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   async function submit(e: FormEvent) {
@@ -313,6 +329,7 @@ export function RequestSheet({
         birthYear: isNew && f.year ? Number(f.year) : null,
         message: f.message,
         declareParent: relation === 'parent' && declared,
+        existingPlayerId: bringing ? existing : undefined,
       });
       setF({ first: '', last: '', year: '', message: '' });
     } catch (err) {
@@ -331,6 +348,20 @@ export function RequestSheet({
             {player.first_name} {player.last_name} · {teamName}
           </p>
         )}
+        {canBring && (
+          <Field label="איזה ילד/ה?">
+            <select id="rq-child" className="ip-input" value={existing} onChange={(e) => setExisting(e.target.value)}>
+              {myKids.map((k) => (
+                <option key={k.player_id} value={k.player_id}>
+                  {`${k.first_name} ${k.last_name}`.trim()}
+                  {k.team_names.length ? ` (כרגע ב${k.team_names.join(', ')})` : ' (לא בקבוצה כרגע)'}
+                </option>
+              ))}
+              <option value="">ילד/ה אחר/ת, שעוד לא רשום/ה אצלי</option>
+            </select>
+          </Field>
+        )}
+        {bringing && <p className="ip-footnote">הילד/ה מצטרף/ת עם הפרופיל הקיים: הקריירה, ההיסטוריה ופרטי הציוד עוברים איתו/ה. אם הוא/היא עדיין בקבוצה אחרת, שם זה לא משתנה.</p>}
         {isNew && (
           <>
             <div className="ip-field-row">
@@ -351,7 +382,7 @@ export function RequestSheet({
             <input id="rq-msg" className="ip-input" value={f.message} onChange={(e) => setF({ ...f, message: e.target.value.slice(0, 300) })} placeholder={relation === 'family' ? 'לדוגמה: סבתא של נועם' : ''} required={relation === 'family'} />
           </Field>
         )}
-        {relation === 'parent' && (
+        {relation === 'parent' && !bringing && (
           <label className="ip-declare">
             <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
             <span>{PARENT_DECLARATION}</span>
@@ -366,7 +397,7 @@ export function RequestSheet({
         )}
         {relation === 'family' && <p className="ip-footnote">ההורה הרשום של הילד יקבל את הבקשה ויאשר אותה. עוקבים רואים את הילד ואת לוח הקבוצה, בלי לערוך ובלי לדווח היעדרות.</p>}
         <Err error={error} />
-        <Button type="submit" variant="primary" block disabled={busy || (relation === 'parent' && !declared) || (isNew && !f.first.trim())}>
+        <Button type="submit" variant="primary" block disabled={busy || (relation === 'parent' && !declared && !bringing) || (isNew && !f.first.trim())}>
           {busy ? (autoJoin ? 'מצטרפים…' : 'שולחים…') : autoJoin ? 'הצטרפות לקבוצה' : 'שליחת בקשה'}
         </Button>
       </form>

@@ -280,6 +280,33 @@ export async function teamRosterPublic(teamId: string): Promise<RosterName[]> {
   return (data ?? []) as RosterName[];
 }
 
+/** A child the caller is a declared parent of, also one who is in no team right now. */
+export interface MyChild {
+  player_id: string;
+  first_name: string;
+  last_name: string;
+  birth_year: number | null;
+  team_ids: string[];
+  team_names: string[];
+}
+
+/** The caller's children (empty if the SQL is not installed yet). */
+export async function myChildren(): Promise<MyChild[]> {
+  const { data, error } = await db().rpc('my_children');
+  if (error) {
+    if (error.code === 'PGRST202' || /could not find the function/i.test(error.message)) return [];
+    throw error;
+  }
+  return (data ?? []) as MyChild[];
+}
+
+/** Ask a team to take the caller's child with the child's existing profile (career and history stay). */
+export async function requestJoinWithChild(teamId: string, playerId: string, message: string): Promise<string> {
+  const { data, error } = await db().rpc('request_join_with_child', { p_team: teamId, p_player: playerId, p_message: message });
+  if (error) throw error;
+  return data as string;
+}
+
 export async function requestJoin(input: {
   teamId: string;
   playerId?: string | null;
