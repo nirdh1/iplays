@@ -330,3 +330,10 @@ Run after `20261102500000_calendar_absences.sql`. Additive: tables `club_fee_pla
 - **Club panel → "מחנות"** (`ClubActivitiesSection`): summer camp, day camp, goalkeeper camp, special training, workshop: dates, hours, place, birth years, places, price, registration deadline, public / club-only, draft / open / closed / cancelled. Sign-ups with waitlist, parents' names + phones, payment state, CSV. `can_club(club, 'camps', 3)` edits (club owners/admins, and the camps-manager role).
 - **Parents → `#pay`** (Family tab → "תשלומים ומחנות"): open charges per child with "שילמתי", history, and open activities to sign up for. When full, the child goes to the waitlist; cancelling promotes the next child and notifies their parents. A priced sign-up creates a club charge.
 - No card data is stored. `club_payments.provider` / `provider_ref` are reserved for a future payment provider (its name and transaction id only).
+
+## Removing a parent from a child (migration `20261103000000_guardian_removal.sql`)
+
+Run after `20261102900000_ifa_repeat_pairings.sql`. Adds functions only; rollback drops them.
+
+- `leave_child(player)`: anyone linked to a child removes themselves (Family tab → "זה לא הילד שלי"), e.g. after claiming the wrong child. They also leave the child's teams unless they still have another child there or a staff role.
+- Super Admin (`#adminparents`, from the admin panel): `admin_child_guardians(query)` finds children by name or a parent by name / email; `admin_remove_guardian(player, user, reason)` removes the link (same team clean-up). This is an explicit write exception to the Super Admin's read-only access; every removal goes to `audit_log` (`family.admin_remove`) with the reason.

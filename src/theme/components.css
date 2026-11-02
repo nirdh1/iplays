@@ -2557,6 +2557,7 @@ select.ip-input {
 }
 .ip-family-head {
   background: var(--ip-bg);
+  justify-content: space-between;
 }
 .ip-family-invite {
   border: 2px solid var(--ip-lime);

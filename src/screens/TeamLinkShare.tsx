@@ -1,5 +1,6 @@
 /** Share the team's page (#t/<id>) on WhatsApp or by copying the link. Any member can share it. */
 import { useState } from 'react';
+import { Icon } from '../components/Icon';
 import { Button } from '../components/ui';
 import { teamLink } from '../lib/joinApi';
 
@@ -18,26 +19,21 @@ export function TeamLinkShare({ teamId, teamName }: { teamId: string; teamName: 
     }
   }
 
-  async function share() {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'iplays', text });
-        return;
-      } catch {
-        /* user cancelled */
-      }
-    }
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
-  }
 
   return (
     <div className="ip-invite">
       <p className="ip-muted">מי שיפתח את הקישור יגיע ישר לדף הקבוצה, ימצא את הילד שלו וישלח בקשה. צוות הקבוצה מאשר.</p>
       <input className="ip-input ip-invite-link" dir="ltr" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="קישור לדף הקבוצה" />
       <div className="ip-btn-row">
-        <Button variant="lime" icon="chat" onClick={share}>
-          שליחה בוואטסאפ
-        </Button>
+        <a className="ip-btn ip-btn--lime ip-btn--md" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer">
+          <Icon name="chat" size={20} />
+          <span>שליחה בוואטסאפ</span>
+        </a>
+        {typeof navigator !== 'undefined' && !!navigator.share && (
+          <Button variant="ghost" onClick={() => void navigator.share({ title: 'iplays', text: text }).catch(() => undefined)}>
+            שיתוף…
+          </Button>
+        )}
         <Button variant="secondary" icon={copied ? 'check' : 'plus'} onClick={copy}>
           {copied ? 'הועתק' : 'העתקת קישור'}
         </Button>
