@@ -189,3 +189,6 @@
 .ip-counter { display: inline-flex; align-items: center; gap: 12px; }
 .ip-counter strong { min-width: 2ch; text-align: center; font-size: 1.3rem; }
 .ip-counter .ip-icon-btn { font-size: 1.3rem; line-height: 1; }
+
+/* link to the team's games on the IFA site */
+.ip-career-ifa-link { align-self: flex-start; margin-top: 4px; font-size: 0.85rem; color: var(--ip-lime); text-decoration: underline; text-underline-offset: 2px; }
