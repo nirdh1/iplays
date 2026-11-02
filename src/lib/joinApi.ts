@@ -27,6 +27,26 @@ export interface PlayerHit {
   program_kind: ProgramKind | null;
 }
 
+/** find_players(): supabase/migrations/20261102710000_find_players_by_name.sql */
+export interface FoundPlayer extends PlayerHit {
+  /** estimated from the IFA league's age group; only when no exact year was entered */
+  birth_year_est: number | null;
+  /** e.g. "נערים ג׳" */
+  age_group: string | null;
+  from_ifa: boolean;
+  /** imported child with no parent yet, seen from outside the team: first name + initial only */
+  name_hidden: boolean;
+  /** how many hits show this same name */
+  same_name: number;
+}
+
+/** "שנתון 2012", "נערים ג׳ (2012 משוער)", "נערים ג׳" or null */
+export function foundBirthLabel(p: FoundPlayer): string | null {
+  if (p.birth_year) return `שנתון ${p.birth_year}`;
+  if (p.birth_year_est) return p.age_group ? `${p.age_group} (${p.birth_year_est} משוער)` : `${p.birth_year_est} משוער`;
+  return p.age_group || null;
+}
+
 export interface ClubHit {
   club_id: string;
   name: string;
@@ -174,6 +194,12 @@ export async function searchPlayers(query: string, birthYear?: number | null): P
   const { data, error } = await db().rpc('search_players', { p_query: query, p_birth_year: birthYear ?? null });
   if (error) throw error;
   return (data ?? []) as PlayerHit[];
+}
+
+export async function findPlayers(query: string, birthYear?: number | null): Promise<FoundPlayer[]> {
+  const { data, error } = await db().rpc('find_players', { p_query: query, p_birth_year: birthYear ?? null });
+  if (error) throw error;
+  return (data ?? []) as FoundPlayer[];
 }
 
 export async function searchTeams(query: string, birthYear?: number | null, sport?: string | null): Promise<TeamHit[]> {

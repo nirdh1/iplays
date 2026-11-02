@@ -60,6 +60,11 @@ run supabase/tests/test_match_overrides.sql
 echo "== IFA agent sends games"
 run supabase/migrations/20261102300000_ifa_agent_games.sql
 run supabase/tests/test_ifa_agent_games.sql
+echo "== find a player by name"
+run supabase/migrations/20261102710000_find_players_by_name.sql
+run supabase/tests/test_find_players.sql
+run supabase/rollback/20261102710000_find_players_by_name.down.sql
+run supabase/migrations/20261102710000_find_players_by_name.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
@@ -95,6 +100,8 @@ echo "== rollback club sign-up, roles and notes (keeps data; tables dropped here
 run supabase/rollback/20261102400000_club_signup_roles_notes.down.sql
 psql -q -d $DB -c "select 'kept after rollback: ' || (select count(*) from club_roles) || ' roles, ' || (select count(*) from player_pro_notes) || ' notes'"
 psql -q -d $DB -c "alter table club_invites drop column role_id, drop column role_program_id, drop column role_team_id" -c "drop table player_pro_notes, club_role_assignments, club_role_permissions, club_roles, club_access_requests" -c "delete from permission_grants where domain in ('permissions','pro_notes','camps')" -c "delete from permission_domains where domain in ('permissions','pro_notes','camps')"
+echo "== rollback find players"
+run supabase/rollback/20261102710000_find_players_by_name.down.sql
 echo "== rollback IFA agent games"
 run supabase/rollback/20261102300000_ifa_agent_games.down.sql
 echo "== rollback coach overrides"
