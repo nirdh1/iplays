@@ -305,11 +305,11 @@ function MemberSheet({
         {member.is_me &&
           (confirm ? (
             <Button variant="secondary" disabled={busy} onClick={() => void run(() => leaveChild(member.player_id, member.user_id))}>
-              כן, לעזוב את {child}
+              כן, להסיר אותי מ{child}
             </Button>
           ) : (
             <Button variant="ghost" onClick={() => setConfirm(true)}>
-              לעזוב את {child}
+              {member.relation === 'parent' ? `זה לא הילד שלי · הסרת עצמי מ${child}` : `לעזוב את ${child}`}
             </Button>
           ))}
         {member.relation === 'parent' && !member.is_me && (
@@ -358,6 +358,11 @@ export function FamilyMembersSection() {
           <Card key={c.id} padded={false}>
             <div className="ip-member ip-family-head">
               <span className="ip-list-row-title">{c.name}</span>
+              {c.members.some((m) => m.is_me) && (
+                <Button variant="ghost" size="sm" onClick={() => setEditing(c.members.find((m) => m.is_me) ?? null)}>
+                  {c.members.find((m) => m.is_me)?.relation === 'parent' ? 'זה לא הילד שלי' : 'עזיבה'}
+                </Button>
+              )}
             </div>
             {c.members.map((m) => (
               <button

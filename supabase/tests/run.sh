@@ -73,6 +73,11 @@ run supabase/migrations/20261102720000_smarter_search.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== guardian removal tests"
+run supabase/migrations/20261103000000_guardian_removal.sql
+run supabase/tests/test_guardian_removal.sql
+run supabase/rollback/20261103000000_guardian_removal.down.sql
+run supabase/migrations/20261103000000_guardian_removal.sql
 echo "== live match tests"
 run supabase/migrations/20261102600000_live_match_session.sql
 run supabase/tests/test_live_match.sql
