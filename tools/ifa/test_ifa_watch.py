@@ -98,6 +98,50 @@ def main():
     ifa_watch.run_once(root2, api4, 20, rows.append)
     sql = (root2 / 'MatchRounds' / 'first_import.sql').read_text(encoding='utf-8')
     check('sync_ifa_roster' in sql and '-- select sync_ifa_roster' in sql, 'team not imported: written to first_import.sql (dry run first, apply commented)')
+
+    # flat update folder: any names, routed by content to the league whose page lists the team
+    root3, _ = make_root()
+    ifa_watch.run_once(root3, FakeApi(), 20, rows.append)  # league folder processed once
+    inbox = root3.parent / (root3.name + '_updates')
+    (inbox / 'משחקים').mkdir(parents=True)
+    (inbox / 'סגלים').mkdir(parents=True)
+    shutil.copy(FIX / 'team_games.html', inbox / 'משחקים' / 'כל משחקי קבוצה (1).html')
+    shutil.copy(FIX / 'roster.html', inbox / 'סגלים' / 'whatever.html')
+    (inbox / 'סגלים' / 'whatever_files').mkdir()
+    shutil.copy(FIX / 'roster.html', inbox / 'סגלים' / 'whatever_files' / 'inner.html')
+    old = time.time() - 120
+    for p in inbox.rglob('*'):
+        os.utime(p, (old, old))
+    rows5 = []
+    api5 = FakeApi()
+    s = ifa_watch.run_once(root3, api5, 20, rows5.append, [inbox])
+    calls = {c[0]: c[1] for c in api5.calls}
+    check(len(api5.calls) == 2 and s['errors'] == 0, 'update folder: roster and games page sent, _files folder skipped')
+    check(calls['agent_propose_ifa_roster'].get('ifa_league_id') == 9640, 'update folder: roster routed to its league by content')
+    check(calls['agent_import_ifa_games']['scope'] == {'kind': 'team', 'ifa_team_id': 9001}, 'update folder: games matched with the league page')
+    api6 = FakeApi()
+    s = ifa_watch.run_once(root3, api6, 20, rows5.append, [inbox])
+    check(not api6.calls, 'update folder: unchanged saves not sent again')
+    g = inbox / 'משחקים' / 'כל משחקי קבוצה (1).html'
+    g.write_text(g.read_text(encoding='utf-8') + '<!-- re-saved -->', encoding='utf-8')
+    os.utime(g, (old, old))
+    api7 = FakeApi()
+    ifa_watch.run_once(root3, api7, 20, rows5.append, [inbox])
+    check([c[0] for c in api7.calls] == ['agent_import_ifa_games'], 'update folder: a re-saved copy with the same name is sent again')
+
+    # a games page of a team no saved league page lists is refused, not guessed
+    root4 = Path(tempfile.mkdtemp())
+    (root4 / 'MatchRounds').mkdir()
+    (root4 / 'MatchRounds' / 'index.json').write_text('{"leagues": []}', encoding='utf-8')
+    inbox4 = root4 / 'in'
+    inbox4.mkdir()
+    shutil.copy(FIX / 'team_games.html', inbox4 / 'a.html')
+    shutil.copy(FIX / 'league_games.html', inbox4 / 'b.html')
+    for p in inbox4.rglob('*'):
+        os.utime(p, (old, old))
+    rows8 = []
+    s = ifa_watch.run_once(root4, None, 20, rows8.append, [inbox4])
+    check(s['leagues'] == 1 and s['games'] == 1 and s['errors'] == 0, 'update folder: a league page saved there makes its teams known')
     print('ALL WATCH TESTS PASSED')
 
 
