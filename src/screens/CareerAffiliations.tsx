@@ -233,7 +233,7 @@ export function AffiliationsSection({ career, extra, onChanged }: { career: Care
                   {[t.club, programLabel(t), `מ-${dayLabel(t.started_on)}`].filter(Boolean).join(' · ')}
                 </span>
               </span>
-              {extra.is_parent && (
+              {(extra.is_owner ?? extra.is_parent) && (
                 <Button variant="secondary" size="sm" onClick={() => setLeaving(t)}>
                   עזב
                 </Button>
@@ -282,7 +282,7 @@ export function AffiliationsSection({ career, extra, onChanged }: { career: Care
               <Button variant="secondary" size="sm" icon="plus" onClick={() => setAdding(true)}>
                 מסגרת מחוץ ל-iPlays
               </Button>
-              {extra.is_parent && (
+              {(extra.is_owner ?? extra.is_parent) && (
                 <Button variant="secondary" size="sm" icon="eye" onClick={() => (window.location.hash = 'find')}>
                   הצטרפות לקבוצה נוספת
                 </Button>
@@ -292,7 +292,7 @@ export function AffiliationsSection({ career, extra, onChanged }: { career: Care
           <p className="ip-footnote">ההיסטוריה נשמרת גם אחרי מעבר. עדכון כאן לא משנה את הרישום בהתאחדות.</p>
         </div>
       </Card>
-      {extra.is_parent && <LeaveSheet team={leaving} career={career} onClose={() => setLeaving(null)} onSaved={onChanged} />}
+      {(extra.is_owner ?? extra.is_parent) && <LeaveSheet team={leaving} career={career} onClose={() => setLeaving(null)} onSaved={onChanged} />}
       {extra.can_edit && <ExternalSheet open={adding} career={career} onClose={() => setAdding(false)} onSaved={onChanged} />}
     </section>
   );

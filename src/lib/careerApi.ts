@@ -292,6 +292,9 @@ export interface ProfileExtra {
   position_list: string[] | null;
   can_edit: boolean;
   is_parent: boolean;
+  /** The child's parent or the player themselves (after the player-owns-profile SQL). */
+  is_owner?: boolean;
+  is_self?: boolean;
   teams: TeamAffiliation[];
   external: ExternalAffiliation[];
 }

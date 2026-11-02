@@ -15,7 +15,7 @@ import { competitionLabel, getMatches, matchEndsAt, matchIsLive, matchTimeLabel,
 import { absenceCoversEvent, supabaseCoach, ymd, type Absence, type TrainingSession } from '../lib/coachApi';
 import { isGoalkeeperPosition, overlapping, trainingTypeLabel } from '../lib/calendarApi';
 import { AddTrainingButton, KidsAttendance } from './CalendarExtras';
-import { AccountSection, RequestsSection } from './AccountSection';
+import { AccountSection, RequestsSection, SelfClaimsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
 import { FamilyInviteCard, FamilyMembersSection, InviteFriendsSection } from './FamilySection';
 import { isPlatformAdmin } from '../lib/ifaApi';
@@ -192,11 +192,12 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
   const kids = useMyKids();
   const first = profile?.full_name?.split(' ')[0];
   const isClub = !!profile?.account_types?.includes('club');
-  const isParent = !profile?.account_types?.length || profile.account_types.includes('parent');
+  const isParent = !profile?.account_types?.length || profile.account_types.includes('parent') || profile.account_types.includes('player');
   return (
     <div className="ip-stack">
       <ScreenTitle title={first ? `שלום ${first}` : 'שלום'} subtitle={teams.length ? 'הקבוצות והילדים שלך' : undefined} />
       <RequestsSection />
+      <SelfClaimsSection />
       {(isClub || teams.some((t) => isStaffRole(t.role))) && (
         <>
           <RosterReviewHomeCard />

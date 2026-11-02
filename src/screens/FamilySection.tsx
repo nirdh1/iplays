@@ -240,7 +240,7 @@ function MemberSheet({
   if (!member) return <BottomSheet open={false} onClose={onClose} title="" children={null} />;
 
   const canEditPerms = iAmParent && member.relation === 'family';
-  const canRemove = iAmParent && member.relation === 'family' && !member.is_me;
+  const canRemove = iAmParent && member.relation !== 'parent' && !member.is_me;
   const child = member.child_name.split(' ')[0];
 
   async function run(fn: () => Promise<void>) {
@@ -293,7 +293,7 @@ function MemberSheet({
             </Button>
           ) : (
             <Button variant="ghost" onClick={() => setConfirm(true)}>
-              {member.relation === 'parent' ? `זה לא הילד שלי · הסרת עצמי מ${child}` : `לעזוב את ${child}`}
+              {member.relation === 'parent' ? `זה לא הילד שלי · הסרת עצמי מ${child}` : member.relation === 'self' ? 'זה לא אני · ניתוק מהפרופיל' : `לעזוב את ${child}`}
             </Button>
           ))}
         {member.relation === 'parent' && !member.is_me && (
@@ -344,7 +344,7 @@ export function FamilyMembersSection() {
               <span className="ip-list-row-title">{c.name}</span>
               {c.members.some((m) => m.is_me) && (
                 <Button variant="ghost" size="sm" onClick={() => setEditing(c.members.find((m) => m.is_me) ?? null)}>
-                  {c.members.find((m) => m.is_me)?.relation === 'parent' ? 'זה לא הילד שלי' : 'עזיבה'}
+                  {c.members.find((m) => m.is_me)?.relation === 'parent' ? 'זה לא הילד שלי' : c.members.find((m) => m.is_me)?.relation === 'self' ? 'זה לא אני' : 'עזיבה'}
                 </Button>
               )}
             </div>
@@ -364,7 +364,7 @@ export function FamilyMembersSection() {
                   </span>
                   <span className="ip-list-row-sub">{[m.kinship, permsSummary(m)].filter(Boolean).join(' · ')}</span>
                 </span>
-                {m.relation === 'parent' ? <Tag tone="navy">הורה</Tag> : <Tag>{m.can_report || m.can_rides || m.can_pay ? 'משפחה' : 'צפייה'}</Tag>}
+                {m.relation === 'parent' ? <Tag tone="navy">הורה</Tag> : m.relation === 'self' ? <Tag tone="lime">השחקן/ית</Tag> : <Tag>{m.can_report || m.can_rides || m.can_pay ? 'משפחה' : 'צפייה'}</Tag>}
               </button>
             ))}
           </Card>

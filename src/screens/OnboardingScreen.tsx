@@ -77,6 +77,14 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
       await updateMyName(userId, name);
       // before the account-types migration the column is missing; the choice then simply isn't saved
       await updateMyAccountTypes(userId, kinds).catch(() => undefined);
+      if (!kinds.includes('parent') && kinds.includes('player') && !pending) {
+        // a player: find yourself in a roster and say "this is me"
+        markOnboarded();
+        await refresh();
+        window.location.hash = 'find';
+        onDone();
+        return;
+      }
       if (!kinds.includes('parent') && !pending) {
         // club only: no child / team step
         markOnboarded();
@@ -193,6 +201,16 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
             <span>
               <strong>אני הורה, ואין לי קוד</strong>
               <span className="ip-muted">חיפוש הילד לפי שם ושנתון, או חיפוש המועדון</span>
+            </span>
+            <Icon name="chevron" size={20} />
+          </button>
+          <button type="button" className="ip-choice-card" onClick={goSearch}>
+            <span className="ip-icon-tile ip-icon-tile--lime ip-icon-tile--lg">
+              <Icon name="user" size={26} />
+            </span>
+            <span>
+              <strong>אני שחקן/ית</strong>
+              <span className="ip-muted">מוצאים את עצמי ברשימת הקבוצה ולוחצים "זה אני"</span>
             </span>
             <Icon name="chevron" size={20} />
           </button>
@@ -370,15 +388,16 @@ export function OnboardingScreen({ onDone, skipTeamStep = false }: { onDone: () 
   );
 }
 
-/** "I'm here as": parent of a player and / or club (multi-select, at least one). */
+/** "I'm here as": parent of a player, the player themselves, and / or club (multi-select, at least one). */
 export function AccountTypePicker({ value, onToggle }: { value: AccountType[]; onToggle: (k: AccountType) => void }) {
   const opts: { id: AccountType; title: string; sub: string }[] = [
     { id: 'parent', title: 'הורה לשחקן', sub: 'הילד שלי, אימונים, משחקים והודעות' },
+    { id: 'player', title: 'שחקן/ית', sub: 'הפרופיל שלי, הקבוצה, הלוח והקריירה שלי' },
     { id: 'club', title: 'מועדון', sub: 'ניהול מועדון, קבוצות וצוות' },
   ];
   return (
     <fieldset className="ip-kind-picker">
-      <legend>אני משתמש/ת באפליקציה בתור (אפשר לבחור את שניהם)</legend>
+      <legend>אני משתמש/ת באפליקציה בתור (אפשר לבחור יותר מאחד)</legend>
       {opts.map((o) => (
         <label key={o.id} className={`ip-declare ${value.includes(o.id) ? '' : 'is-off'}`}>
           <input type="checkbox" checked={value.includes(o.id)} onChange={() => onToggle(o.id)} />

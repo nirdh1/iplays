@@ -7,8 +7,15 @@ import { AccountTypePicker } from './OnboardingScreen';
 import { useEffect, useState } from 'react';
 import {
   joinError,
+  cancelPlayerSelf,
   myFollowRequests,
   myJoinRequests,
+  mySelfClaims,
+  pendingSelfClaims,
+  reviewPlayerSelf,
+  selfApproverLabel,
+  type MySelfClaim,
+  type SelfClaim,
   pendingTeamClaims,
   reviewJoinRequest,
   reviewTeamClaim,
@@ -95,6 +102,96 @@ function NotificationsSection() {
 }
 
 /** Follow requests waiting for me (as the child's parent) and my own pending requests. */
+/**
+ * A player said "this is me" about a profile: the approver (the child's parent,
+ * else team staff, else platform admin) approves here; the player sees their own
+ * request waiting.
+ */
+export function SelfClaimsSection() {
+  const [toReview, setToReview] = useState<SelfClaim[]>([]);
+  const [mine, setMine] = useState<MySelfClaim[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const load = () =>
+    Promise.all([pendingSelfClaims().catch(() => []), mySelfClaims().catch(() => [])]).then(([r, m]) => {
+      setToReview(r);
+      setMine(m);
+    });
+  useEffect(() => {
+    void load();
+  }, []);
+  const act = (id: string, fn: () => Promise<void>) => {
+    setBusy(id);
+    setError(null);
+    fn()
+      .then(load)
+      .catch((e) => setError(joinError(e) ?? friendlyError(e)))
+      .finally(() => setBusy(null));
+  };
+
+  if (!toReview.length && !mine.length) return null;
+  return (
+    <>
+      {toReview.length > 0 && (
+        <section>
+          <SectionHeader title={`שחקנים שמבקשים את הפרופיל שלהם · ${toReview.length}`} icon="user" />
+          <Card padded={false}>
+            {toReview.map((r) => (
+              <div key={r.id} className="ip-member ip-request">
+                <InitialsAvatar name={r.player_name || 'שחקן'} size={40} tone="lime" />
+                <span className="ip-list-row-text">
+                  <span className="ip-list-row-title">
+                    {`${r.requester || r.requester_email || 'משתמש'} אומר/ת: "זה אני, ${r.player_name}"`}
+                  </span>
+                  <span className="ip-list-row-sub">
+                    {[r.team_names.join(', '), r.birth_year && `שנתון ${r.birth_year}`, r.requester_email, r.message].filter(Boolean).join(' · ')}
+                  </span>
+                  <span className="ip-list-row-sub">
+                    אחרי אישור השחקן/ית יראה את הקבוצה והלוח ויעדכן את הקריירה. מדדי גוף, תשלומים וניהול המשפחה נשארים להורים.
+                  </span>
+                </span>
+                <span className="ip-find-actions">
+                  <Button variant="primary" size="sm" disabled={busy === r.id} onClick={() => act(r.id, () => reviewPlayerSelf(r.id, true))}>
+                    אישור
+                  </Button>
+                  <Button variant="ghost" size="sm" disabled={busy === r.id} onClick={() => act(r.id, () => reviewPlayerSelf(r.id, false))}>
+                    דחייה
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </Card>
+        </section>
+      )}
+      {mine.length > 0 && (
+        <section>
+          <SectionHeader title="הפרופיל שלי כשחקן/ית" icon="clock" />
+          <Card padded={false}>
+            {mine.map((r) => (
+              <div key={r.id} className="ip-member">
+                <span className="ip-list-row-text">
+                  <span className="ip-list-row-title">{r.player_name}</span>
+                  <span className="ip-list-row-sub">
+                    {r.status === 'pending' ? `ממתין לאישור של ${selfApproverLabel[r.approver]}` : 'הבקשה לא אושרה. אפשר לפנות להורה או למאמן.'}
+                  </span>
+                </span>
+                {r.status === 'pending' ? (
+                  <Button variant="ghost" size="sm" disabled={busy === r.id} onClick={() => act(r.id, () => cancelPlayerSelf(r.id))}>
+                    ביטול
+                  </Button>
+                ) : (
+                  <Tag tone="warning">לא אושר</Tag>
+                )}
+              </div>
+            ))}
+          </Card>
+        </section>
+      )}
+      {error && <p className="ip-error" role="alert">{error}</p>}
+    </>
+  );
+}
+
 export function RequestsSection() {
   const [follow, setFollow] = useState<FollowRequest[]>([]);
   const [mine, setMine] = useState<MyRequest[]>([]);
@@ -262,6 +359,7 @@ export function AccountSection() {
       </section>
       <PasswordCard />
       <RequestsSection />
+      <SelfClaimsSection />
       <NotificationsSection />
       <section>
         <SectionHeader title="הקבוצות שלי" icon="team" />

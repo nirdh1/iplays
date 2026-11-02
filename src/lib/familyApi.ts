@@ -68,6 +68,7 @@ export const PERM_LABELS: { key: keyof FamilyPerms; label: string; hint: string 
 
 export function permsSummary(m: { relation: Relation; can_report: boolean; can_rides: boolean; can_pay: boolean }): string {
   if (m.relation === 'parent') return 'הורה · כל ההרשאות';
+  if (m.relation === 'self') return 'השחקן/ית · בעל/ת הפרופיל, מדווח/ת היעדרות';
   const on = [m.can_report && 'היעדרויות', m.can_rides && 'הסעות', m.can_pay && 'תשלומים'].filter(Boolean);
   return on.length ? `צפייה, ${on.join(', ')}` : 'צפייה בלבד · הילד, הלו"ז והמשחקים';
 }
