@@ -63,6 +63,15 @@ run supabase/tests/test_ifa_agent_games.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== body metrics, goals and nutrition (parent-only)"
+run supabase/migrations/20261101985000_player_career.sql
+run supabase/tests/test_body_private.sql
+echo "== rollback body metrics, goals and nutrition"
+run supabase/rollback/20261102500000_body_goals_nutrition.down.sql
+psql -q -d $DB -tc "select 'after body rollback: ' || count(*) || ' goals, ' || (select count(*) from player_measurements) || ' measurements kept' from child_goals"
+run supabase/migrations/20261102500000_body_goals_nutrition.sql
+run supabase/rollback/20261102500000_body_goals_nutrition.down.sql
+run supabase/rollback/20261101985000_player_career.down.sql
 echo "== club sign-up, custom roles and coach notes"
 run supabase/migrations/20261102400000_club_signup_roles_notes.sql
 run supabase/tests/test_club_signup_roles_notes.sql
