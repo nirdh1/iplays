@@ -57,9 +57,14 @@ run supabase/tests/test_ifa_roster_review.sql
 echo "== coach overrides on IFA games"
 run supabase/migrations/20261102200000_match_overrides.sql
 run supabase/tests/test_match_overrides.sql
+echo "== IFA agent sends games"
+run supabase/migrations/20261102300000_ifa_agent_games.sql
+run supabase/tests/test_ifa_agent_games.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== rollback IFA agent games"
+run supabase/rollback/20261102300000_ifa_agent_games.down.sql
 echo "== rollback coach overrides"
 run supabase/rollback/20261102200000_match_overrides.down.sql
 echo "== rollback IFA roster review"
