@@ -28,6 +28,7 @@ run supabase/migrations/20261101990000_team_fund.sql
 run supabase/migrations/20261101996000_family_members.sql
 run supabase/migrations/20261101997000_ifa_roster_sync.sql
 run supabase/migrations/20261101998000_ifa_agent.sql
+run supabase/migrations/20261102100000_live_match_session.sql
 echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
 echo "== M3 tests"
@@ -54,6 +55,12 @@ run supabase/tests/test_team_ifa_link.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== live match tests"
+run supabase/tests/test_live_match.sql
+echo "== rollback live match, re-apply"
+run supabase/rollback/20261102100000_live_match_session.down.sql
+psql -q -d $DB -tc "select 'after live rollback: ' || count(*) || ' reports kept' from match_reports"
+run supabase/migrations/20261102100000_live_match_session.sql
 echo "== rollback team page IFA link"
 run supabase/rollback/20261101999000_team_ifa_link.down.sql
 echo "== rollback IFA local agent"
@@ -65,10 +72,12 @@ run supabase/rollback/20261101996000_family_members.down.sql
 run supabase/rollback/20261101995000_inbox_notifications.down.sql
 echo "== rollback team fund, match events, rides"
 run supabase/rollback/20261101990000_team_fund.down.sql
+run supabase/rollback/20261102100000_live_match_session.down.sql
 run supabase/rollback/20261101971000_match_events.down.sql
 run supabase/rollback/20261101970000_rides.down.sql
 # the match-events rollback keeps its table and read policy (uses can()); drop the policy so the M3 rollback below can run
 psql -q -d $DB -c "drop policy if exists match_events_select on public.match_events"
+psql -q -d $DB -c "drop policy if exists match_live_select on public.match_live" -c "drop policy if exists match_reporter_queue_select on public.match_reporter_queue" -c "drop policy if exists match_reports_select on public.match_reports"
 echo "== account types tests (re-apply: backfill club staff created by the tests above)"
 run supabase/migrations/20261101980000_account_types.sql
 run supabase/tests/test_account_types.sql
