@@ -79,26 +79,13 @@ function waPhone(raw: string): string {
 }
 
 function InviteLinkBox({ code, text, phone = '' }: { code: string; text: string; phone?: string }) {
-  const [copied, setCopied] = useState(false);
   const link = familyInviteLink(code);
   const message = `${text} ${link}`;
   const wa = waPhone(phone);
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-    } catch {
-      // older iOS / home-screen app: select the field and copy it the old way
-      const el = document.getElementById(`fam-link-${code}`) as HTMLInputElement | null;
-      el?.select();
-      setCopied(document.execCommand?.('copy') ?? false);
-    }
-    setTimeout(() => setCopied(false), 2000);
-  }
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
   return (
     <div className="ip-invite">
-      <input id={`fam-link-${code}`} className="ip-input ip-invite-link" dir="ltr" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="קישור ההזמנה" />
+      <input className="ip-input ip-invite-link" dir="ltr" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="קישור ההזמנה" />
       <div className="ip-btn-row">
         <a className="ip-btn ip-btn--lime ip-btn--md" href={`https://wa.me/${wa}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
           <Icon name="chat" size={20} />
@@ -109,9 +96,6 @@ function InviteLinkBox({ code, text, phone = '' }: { code: string; text: string;
             <span>SMS</span>
           </a>
         )}
-        <Button variant="secondary" icon={copied ? 'check' : 'plus'} onClick={() => void copy()}>
-          {copied ? 'הועתק' : 'העתקת קישור'}
-        </Button>
         {canShare && (
           <Button variant="ghost" onClick={() => void navigator.share({ title: 'iplays', text: message }).catch(() => undefined)}>
             שיתוף…
