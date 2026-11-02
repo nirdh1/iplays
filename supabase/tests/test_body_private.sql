@@ -50,7 +50,7 @@ select pg_temp.check(can(:T1, 'metrics', 3) and can(:T1, 'roster', 3), 'precondi
 select pg_temp.check(can_view_player(:NOAM), 'precondition: A sees Noam''s career');
 
 select pg_temp.as_user(null);
-\i supabase/migrations/20261102100000_body_goals_nutrition.sql
+\i supabase/migrations/20261102500000_body_goals_nutrition.sql
 
 -- ------------------------------------------------------------- parent C
 select pg_temp.as_user(:C);
@@ -157,5 +157,5 @@ select pg_temp.as_user(null);
 select pg_temp.check((select count(*) from player_measurements where player_id = :NOAM) = 3, 'soft delete keeps the row');
 
 -- migration runs twice without error
-\i supabase/migrations/20261102100000_body_goals_nutrition.sql
+\i supabase/migrations/20261102500000_body_goals_nutrition.sql
 select pg_temp.check((select count(*) from child_goals) = 2, 're-run keeps data');

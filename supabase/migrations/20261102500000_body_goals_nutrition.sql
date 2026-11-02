@@ -1,7 +1,7 @@
 -- iplays — body metrics, personal goals and nutrition: the child's private area.
 --
 -- Run after 20261101985000_player_career.sql (and the other 2026-11-01 files).
--- Rollback: supabase/rollback/20261102100000_body_goals_nutrition.down.sql
+-- Rollback: supabase/rollback/20261102500000_body_goals_nutrition.down.sql
 -- Additive only: new columns, new tables, new functions, replaced policies
 -- and functions. No row is changed or deleted.
 --

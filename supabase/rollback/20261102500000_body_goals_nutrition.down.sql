@@ -1,4 +1,4 @@
--- Rollback for 20261102100000_body_goals_nutrition.sql.
+-- Rollback for 20261102500000_body_goals_nutrition.sql.
 -- Puts back the 20261101985000 behaviour (measurements readable by parents
 -- and metrics staff, player_career() returns them) and removes the new
 -- functions and read policies. The tables child_goals, child_goal_progress,

@@ -3,7 +3,7 @@
  * nutrition. Only the child's parents see or edit it (not coaches, team or
  * club admins, platform admins or family followers); the server enforces
  * that with RLS and parent checks in every RPC.
- * Server side: supabase/migrations/20261102100000_body_goals_nutrition.sql
+ * Server side: supabase/migrations/20261102500000_body_goals_nutrition.sql
  */
 import { supabase } from './supabase';
 
