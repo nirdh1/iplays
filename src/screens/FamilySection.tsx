@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Button, Card, SectionHeader, Segmented, Tag } from '../components/ui';
 import { InitialsAvatar } from '../components/Avatar';
 import { BottomSheet } from '../components/shell';
+import { Icon } from '../components/Icon';
 import { Field } from '../components/form';
 import { useAuth, clearFamilyInvite, readFamilyInvite } from '../auth/AuthContext';
 import { friendlyError } from '../lib/api';
@@ -66,41 +67,55 @@ function KinshipInput({ value, onChange, options }: { value: string; onChange: (
   );
 }
 
-/** Copy / WhatsApp for a family invite link. */
-function InviteLinkBox({ code, text }: { code: string; text: string }) {
+/** Copy / WhatsApp / share for a family invite link. */
+/** Israeli mobile (05X…) or +972… → digits for wa.me (972…); '' if it doesn't look like a phone. */
+function waPhone(raw: string): string {
+  const d = raw.replace(/[^\d+]/g, '');
+  if (/^05\d{8}$/.test(d)) return `972${d.slice(1)}`;
+  if (/^\+?9725\d{8}$/.test(d)) return d.replace('+', '');
+  if (/^\+\d{8,15}$/.test(d)) return d.slice(1);
+  return '';
+}
+
+function InviteLinkBox({ code, text, phone = '' }: { code: string; text: string; phone?: string }) {
   const [copied, setCopied] = useState(false);
   const link = familyInviteLink(code);
   const message = `${text} ${link}`;
+  const wa = waPhone(phone);
   async function copy() {
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch {
-      setCopied(false);
+      // older iOS / home-screen app: select the field and copy it the old way
+      const el = document.getElementById(`fam-link-${code}`) as HTMLInputElement | null;
+      el?.select();
+      setCopied(document.execCommand?.('copy') ?? false);
     }
+    setTimeout(() => setCopied(false), 2000);
   }
-  async function share() {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'iplays', text: message });
-        return;
-      } catch {
-        /* cancelled */
-      }
-    }
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
-  }
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share;
   return (
     <div className="ip-invite">
-      <input className="ip-input ip-invite-link" dir="ltr" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="קישור ההזמנה" />
+      <input id={`fam-link-${code}`} className="ip-input ip-invite-link" dir="ltr" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="קישור ההזמנה" />
       <div className="ip-btn-row">
-        <Button variant="lime" icon="chat" onClick={share}>
-          שליחה בוואטסאפ
-        </Button>
-        <Button variant="secondary" icon={copied ? 'check' : 'plus'} onClick={copy}>
+        <a className="ip-btn ip-btn--lime ip-btn--md" href={`https://wa.me/${wa}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
+          <Icon name="chat" size={20} />
+          <span>שליחה בוואטסאפ</span>
+        </a>
+        {wa && (
+          <a className="ip-btn ip-btn--secondary ip-btn--md" href={`sms:+${wa}?&body=${encodeURIComponent(message)}`}>
+            <span>SMS</span>
+          </a>
+        )}
+        <Button variant="secondary" icon={copied ? 'check' : 'plus'} onClick={() => void copy()}>
           {copied ? 'הועתק' : 'העתקת קישור'}
         </Button>
+        {canShare && (
+          <Button variant="ghost" onClick={() => void navigator.share({ title: 'iplays', text: message }).catch(() => undefined)}>
+            שיתוף…
+          </Button>
+        )}
       </div>
       <p className="ip-footnote">הקישור חד־פעמי ותקף 14 יום. מי שיפתח אותו ויאשר יצורף לילד מיד.</p>
     </div>
@@ -121,6 +136,7 @@ function InviteSheet({
   const [relation, setRelation] = useState<Relation>('family');
   const [picked, setPicked] = useState<string[]>([]);
   const [kinship, setKinship] = useState('');
+  const [phone, setPhone] = useState('');
   const [perms, setPerms] = useState<FamilyPerms>(NO_PERMS);
   const [code, setCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -132,9 +148,13 @@ function InviteSheet({
       setCode(null);
       setError(null);
       setKinship('');
+      setPhone('');
       setPerms(NO_PERMS);
     }
-  }, [open, kids]);
+    // Only when the sheet opens: `kids` is a new array on every render (and the
+    // list reloads after the invite is created), which used to wipe the new link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -158,7 +178,7 @@ function InviteSheet({
           <p>
             ההזמנה מוכנה. שלחו את הקישור ל{kinship.trim() || (relation === 'parent' ? 'הורה השני' : 'בן המשפחה')}.
           </p>
-          <InviteLinkBox code={code} text={`הוזמנת להצטרף ב-iplays${names.length ? ` ל${names.join(' ול')}` : ''}:`} />
+          <InviteLinkBox code={code} phone={phone} text={`הוזמנת להצטרף ב-iplays${names.length ? ` ל${names.join(' ול')}` : ''}:`} />
           <Button variant="secondary" onClick={onClose}>
             סיום
           </Button>
@@ -190,6 +210,9 @@ function InviteSheet({
             </div>
           )}
           <KinshipInput value={kinship} onChange={setKinship} options={relation === 'parent' ? PARENT_KINSHIPS : KINSHIPS} />
+          <Field label="טלפון לשליחת הקישור (לא חובה)">
+            <input className="ip-input" type="tel" inputMode="tel" dir="ltr" value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} placeholder="050-1234567" />
+          </Field>
           {relation === 'family' ? (
             <PermChecks value={perms} onChange={setPerms} />
           ) : (
@@ -197,7 +220,7 @@ function InviteSheet({
           )}
           {error && <p className="ip-error" role="alert">{error}</p>}
           <Button type="submit" variant="primary" disabled={busy || picked.length === 0}>
-            {busy ? 'יוצר הזמנה…' : 'יצירת קישור הזמנה'}
+            {busy ? 'יוצר הזמנה…' : 'יצירת קישור ושליחה'}
           </Button>
         </form>
       )}
@@ -302,6 +325,7 @@ export function FamilyMembersSection() {
   const [invites, setInvites] = useState<FamilyInvite[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editing, setEditing] = useState<FamilyMember | null>(null);
+  const [sending, setSending] = useState<FamilyInvite | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -370,6 +394,9 @@ export function FamilyMembersSection() {
                   <span className="ip-list-row-sub">בתוקף עד {new Date(i.expires_at).toLocaleDateString('he-IL')}</span>
                 </span>
                 <span className="ip-find-actions">
+                  <Button variant="primary" size="sm" onClick={() => setSending(i)}>
+                    שליחה
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -394,6 +421,19 @@ export function FamilyMembersSection() {
         {error && <p className="ip-error" role="alert">{error}</p>}
       </div>
       <InviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} kids={myKids} onCreated={load} />
+      <BottomSheet open={!!sending} onClose={() => setSending(null)} title="שליחת ההזמנה">
+        {sending && (
+          <div className="ip-form ip-form--sheet">
+            <p>
+              הזמנה ל{sending.kinship || (sending.relation === 'parent' ? 'הורה השני' : 'בן המשפחה')} · {sending.player_ids.map(kidName).filter(Boolean).join(', ')}
+            </p>
+            <InviteLinkBox
+              code={sending.code}
+              text={`הוזמנת להצטרף ב-iplays ל${sending.player_ids.map(kidName).filter(Boolean).join(' ול')}:`}
+            />
+          </div>
+        )}
+      </BottomSheet>
       <MemberSheet
         member={editing}
         iAmParent={!!children.find((c) => c.id === editing?.player_id)?.iAmParent}
