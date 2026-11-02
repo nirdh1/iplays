@@ -5,6 +5,7 @@
  * with a parent declaration, and a relative asks to follow a child (the
  * child's parent approves). A player finds themselves on the roster and says
  * "this is me", or brings their own profile from another team.
+ * A Super Admin also gets a "פרטים" button per child: the player's full card.
  */
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { InitialsAvatar } from '../components/Avatar';
@@ -14,6 +15,7 @@ import { Button, Card, EmptyState, SectionHeader, Tag, TeamCrest } from '../comp
 import { Err, Field } from '../components/form';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError } from '../lib/api';
+import { useIsPlatformAdmin } from '../lib/ifaApi';
 import {
   birthYearsLabel,
   joinError,
@@ -51,6 +53,7 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
   const [sent, setSent] = useState<string | null>(null);
   const { refresh, teams, profile } = useAuth();
   const [claim, setClaim] = useState<'none' | 'pending' | 'sheet'>('none');
+  const isAdmin = useIsPlatformAdmin();
   // the player themselves: "this is me" on a roster name, or moving with their own profile
   const kinds = profile?.account_types ?? [];
   const isPlayer = kinds.includes('player');
@@ -222,6 +225,11 @@ export function TeamPageScreen({ teamId, onBack }: { teamId: string; onBack: () 
                         </span>
                         <span className="ip-list-row-sub">{p.birth_year ? `שנתון ${p.birth_year}` : ' '}</span>
                       </span>
+                      {isAdmin && (
+                        <Button variant="ghost" size="sm" onClick={() => (window.location.hash = `career/${p.player_id}`)}>
+                          פרטים
+                        </Button>
+                      )}
                       {p.linked ? (
                         <Tag tone="lime">מקושר אליך</Tag>
                       ) : selfPending.includes(p.player_id) ? (

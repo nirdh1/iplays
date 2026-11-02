@@ -4,6 +4,8 @@
  * its teams. Every result leads to the team's page, where the join / follow
  * request is sent. A team that is not in the app yet can be opened by a
  * parent (no coach needed).
+ * A Super Admin sees every child's full name, and a child opens the player's
+ * full card (#career/<id>) instead of the team page.
  */
 import { useEffect, useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
@@ -12,6 +14,7 @@ import { Icon } from '../components/Icon';
 import { Button, Card, EmptyState, ListRow, SectionHeader, Segmented, Tag } from '../components/ui';
 import { Err, Field } from '../components/form';
 import { friendlyError, sportLabel, type Sport } from '../lib/api';
+import { useIsPlatformAdmin } from '../lib/ifaApi';
 import {
   cancelJoinRequest,
   clubTeamsPublic,
@@ -49,6 +52,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
   const [mine, setMine] = useState<MyRequest[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isAdmin = useIsPlatformAdmin();
 
   const loadMine = () => myJoinRequests().then(setMine).catch(() => setMine([]));
   useEffect(() => {
@@ -207,8 +211,10 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
                     icon="user"
                     title={`${p.first_name} ${p.last_name}`.trim()}
                     subtitle={[p.team_name, foundBirthLabel(p), p.club_name, p.program_kind && programLabel[p.program_kind]].filter(Boolean).join(' · ')}
-                    trailing={p.same_name > 1 ? <Tag tone="warning">{`${p.same_name} עם אותו שם`}</Tag> : undefined}
-                    onClick={() => openTeam(p.team_id)}
+                    trailing={
+                      p.same_name > 1 ? <Tag tone="warning">{`${p.same_name} עם אותו שם`}</Tag> : isAdmin ? <Tag tone="lime">פרטי שחקן</Tag> : undefined
+                    }
+                    onClick={() => (isAdmin ? (window.location.hash = `career/${p.player_id}`) : openTeam(p.team_id))}
                   />
                 ))}
               </Card>

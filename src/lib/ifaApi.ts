@@ -8,6 +8,7 @@
  * Server side: supabase/migrations/20261101800000_ifa_import.sql
  * Same rules as tools/ifa/ifa_collector.py --saved.
  */
+import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
 function db() {
@@ -192,6 +193,19 @@ export async function isPlatformAdmin(): Promise<boolean> {
   const { data, error } = await db().rpc('is_platform_admin');
   if (error) return false;
   return data === true;
+}
+
+/** true for a Super Admin (platform_admins); false while loading or for anyone else. */
+export function useIsPlatformAdmin(): boolean {
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void isPlatformAdmin().then((a) => alive && setAdmin(a));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return admin;
 }
 
 /* ------------------------------------------------------------------ games */
