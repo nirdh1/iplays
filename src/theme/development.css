@@ -1,0 +1,201 @@
+/* Career: "מדדים, כושר והתפתחות" (parent-only private area). */
+.ip-private-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 var(--ip-s3);
+  padding: var(--ip-s2) var(--ip-s3);
+  border-radius: var(--ip-r-sm);
+  background: var(--ip-blue-100);
+  color: var(--ip-navy);
+  font-size: var(--ip-fs-xs);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.ip-private-note svg {
+  flex: none;
+  margin-top: 1px;
+}
+.ip-dev-body {
+  margin-top: var(--ip-s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s3);
+}
+.ip-dev-subtitle {
+  margin: var(--ip-s2) 0 0;
+  font-size: var(--ip-fs-sm);
+  font-weight: 800;
+  color: var(--ip-text);
+}
+.ip-dev-gap {
+  margin: 0;
+}
+.ip-bmi-note {
+  border-inline-start: 3px solid var(--ip-border);
+  padding-inline-start: var(--ip-s2);
+}
+
+/* trend chart */
+.ip-trend {
+  margin: 0;
+}
+.ip-trend svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.ip-trend-readout {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ip-s2);
+  min-height: 24px;
+}
+.ip-trend-readout strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  unicode-bidi: isolate;
+}
+.ip-trend-readout span {
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+}
+.ip-trend-axis {
+  stroke: var(--ip-border);
+  stroke-width: 1;
+}
+.ip-trend-cross {
+  stroke: var(--ip-text-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.ip-trend-tick {
+  font-size: 10px;
+  fill: var(--ip-text-3);
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+}
+.ip-trend-label {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--ip-text);
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+}
+.ip-trend circle[tabindex] {
+  cursor: pointer;
+  outline: none;
+}
+
+/* custom measures in the sheet */
+.ip-custom-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+.ip-custom-row .ip-input {
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 15px;
+}
+
+/* goals */
+.ip-goal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s3);
+}
+.ip-goal {
+  border: 1px solid var(--ip-border);
+  border-radius: var(--ip-r-md);
+  overflow: hidden;
+}
+.ip-goal.is-muted .ip-progress-fill {
+  opacity: 0.5;
+}
+.ip-goal-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+  width: 100%;
+  padding: var(--ip-s3);
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ip-goal-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ip-goal-dates {
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+}
+.ip-goal-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s3);
+  padding: 0 var(--ip-s3) var(--ip-s3);
+  border-top: 1px solid var(--ip-border);
+  padding-top: var(--ip-s3);
+}
+.ip-goal-more p {
+  margin: 0;
+  font-size: var(--ip-fs-sm);
+  white-space: pre-wrap;
+}
+.ip-goal-more .ip-fitness-list {
+  margin-top: 0;
+}
+.ip-range {
+  width: 100%;
+  accent-color: var(--ip-navy);
+}
+
+/* nutrition */
+.ip-food-facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s3);
+}
+.ip-food-facts dt {
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+  font-weight: 600;
+}
+.ip-food-facts dd {
+  margin: 2px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  white-space: pre-wrap;
+}
+.ip-tips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--ip-s2);
+}
+.ip-tips li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--ip-s3);
+  border-radius: var(--ip-r-sm);
+  background: var(--ip-surface-2);
+  font-size: var(--ip-fs-sm);
+}
+.ip-tips strong {
+  font-weight: 800;
+}
