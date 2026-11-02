@@ -192,10 +192,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                       <span className="ip-list-row-sub">{[p.position, p.birth_year && `שנתון ${p.birth_year}`].filter(Boolean).join(' · ') || ' '}</span>
                     </span>
                     <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
-                      חולצה וציוד
-                    </Button>
-                    <Button variant="ghost" size="sm" icon="wallet" onClick={() => (window.location.hash = `costs/${p.id}`)}>
-                      הוצאות
+                      ציוד
                     </Button>
                   </li>
                 ))}
@@ -230,7 +227,7 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
                     </span>
                     {mine ? (
                       <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
-                        חולצה וציוד
+                        ציוד
                       </Button>
                     ) : staff ? (
                       <>
