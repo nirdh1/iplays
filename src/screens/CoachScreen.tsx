@@ -17,16 +17,31 @@ import {
   addDays,
   demoCoach,
   reasonLabel,
+  scopeLabel,
   sessionDate,
   supabaseCoach,
   todayYmd,
   type Absence,
   type AbsenceKind,
   type AbsenceReason,
+  type AbsenceScope,
   type Announcement,
   type CoachBackend,
   type TrainingSession,
 } from '../lib/coachApi';
+import {
+  calendarError,
+  docTypes,
+  isGoalkeeperPosition,
+  listAbsenceDocs,
+  MAX_DOC_BYTES,
+  openAbsenceDoc,
+  removeAbsenceDoc,
+  trainingTypeLabel,
+  uploadAbsenceDoc,
+  type AbsenceDoc,
+} from '../lib/calendarApi';
+import { TrainingSheet, type RosterRef } from './TrainingSheet';
 import { teams as demoTeams } from '../data/team';
 import { parent, type Child } from '../data/demo';
 import '../theme/coach.css';
@@ -107,10 +122,14 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
   const staff = isStaffRole(team?.role);
   const backend = useMemo(() => supabaseCoach(teamId), [teamId]);
   const [myPlayers, setMyPlayers] = useState<PlayerRef[] | null>(null);
+  const [roster, setRoster] = useState<RosterRef[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     getRoster(teamId)
-      .then((r) => setMyPlayers(r.filter((p) => p.guardians.includes(me)).map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}`.trim() }))))
+      .then((r) => {
+        setRoster(r.map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}`.trim(), position: p.position ?? '' })));
+        setMyPlayers(r.filter((p) => p.guardians.includes(me)).map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}`.trim() })));
+      })
       .catch((e) => setError(friendlyError(e)));
   }, [teamId, me]);
 
@@ -124,7 +143,21 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
   }
   if (error) return <p className="ip-error" role="alert">{error}</p>;
   if (!myPlayers) return <p className="ip-muted ip-pad">טוען…</p>;
-  return <CoachBoard backend={backend} teamName={team.name} club={team.club} staff={staff} canSchedule myPlayers={myPlayers} onBack={onBack} withAttendance />;
+  return (
+    <CoachBoard
+      backend={backend}
+      teamName={team.name}
+      club={team.club}
+      staff={staff}
+      canSchedule
+      myPlayers={myPlayers}
+      roster={roster}
+      me={me}
+      onBack={onBack}
+      withAttendance
+      withDocs
+    />
+  );
 }
 
 /* --------------------------------------------------------------- board */
@@ -144,11 +177,16 @@ interface BoardProps {
   withAttendance?: boolean;
   /** may add / cancel / delete trainings: staff, and on real teams every member (parents too) */
   canSchedule?: boolean;
+  /** the team's players (real teams): goalkeeper / personal trainings */
+  roster?: RosterRef[];
+  me?: string;
+  /** real teams: medical documents on absences */
+  withDocs?: boolean;
 }
 
-type ReportPreset = { sessionId?: string; mode: 'session' | 'dates'; kind?: AbsenceKind; playerId?: string };
+type ReportPreset = { sessionId?: string; mode: 'session' | 'dates'; kind?: AbsenceKind; playerId?: string; edit?: Absence };
 
-function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBack, demoSwitch, withAttendance, canSchedule = staff }: BoardProps) {
+function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBack, demoSwitch, withAttendance, canSchedule = staff, roster = [], me, withDocs }: BoardProps) {
   const [attFor, setAttFor] = useState<TrainingSession | null>(null);
   const [tab, setTab] = useState<Tab>('news');
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
@@ -158,6 +196,7 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
   const [report, setReport] = useState<ReportPreset | null>(null);
   const [sheet, setSheet] = useState<null | 'session' | 'news'>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [docs, setDocs] = useState<AbsenceDoc[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -166,10 +205,11 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
       setNews(n);
       setAbsences(a);
       setError(null);
+      if (withDocs) setDocs(await listAbsenceDocs(a.map((x) => x.id)).catch(() => []));
     } catch (e) {
       setError(friendlyError(e));
     }
-  }, [backend]);
+  }, [backend, withDocs]);
 
   useEffect(() => {
     void load();
@@ -187,11 +227,18 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
       await load();
       if (done) setToast(done);
     } catch (e) {
-      setError(friendlyError(e));
+      setError(calendarError(e) ?? friendlyError(e));
     }
   };
 
   const myIds = new Set(myPlayers.map((p) => p.id));
+  const names = new Map(roster.map((p) => [p.id, p.name]));
+  const gk = new Set(roster.filter((p) => isGoalkeeperPosition(p.position)).map((p) => p.id));
+  /** players expected at a training (null = the whole team) */
+  const playersOf = (s: TrainingSession): Set<string> | null =>
+    !s.audience || s.audience === 'team' ? null : s.audience === 'goalkeepers' ? gk : new Set(s.participants ?? []);
+  const canEdit = (s: TrainingSession) =>
+    !s.audience || s.audience === 'team' ? canSchedule : s.created_by === me || (staff && !s.private) || (!staff && s.audience === 'goalkeepers');
   const visibleAbsences = staff ? absences : absences.filter((a) => myIds.has(a.player_id));
   const upcoming = (sessions ?? []).filter((s) => sessionDate(s) >= todayYmd());
   const next = upcoming.find((s) => !s.canceled);
@@ -219,7 +266,7 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
             </strong>
             <span className="ip-on-navy-muted">
               {next.location}
-              {staff && ` · ${countLabel(nextReports)}`}
+              {staff && ` · ${countLabel(nextReports.filter((a) => playersOf(next)?.has(a.player_id) ?? true))}`}
             </span>
           </div>
         ) : (
@@ -256,7 +303,7 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
                 הוספת לוח אימונים
               </Button>
             </div>
-            <p className="ip-footnote">כל הורה בקבוצה יכול להזין, לבטל ולמחוק אימונים. כל ההורים בקבוצה רואים אותם מיד.</p>
+            <p className="ip-footnote">כל הורה בקבוצה יכול להזין, לבטל ולמחוק אימונים קבוצתיים. אימון אישי או אימון שוערים פרטי מופיע רק אצלכם ואצל מי שצירפתם.</p>
           </>
         )
       )}
@@ -294,12 +341,20 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
           sessions={upcoming}
           absences={absences}
           staff={staff}
-          canSchedule={canSchedule}
+          canEdit={canEdit}
+          playersOf={playersOf}
+          names={names}
           myPlayers={myPlayers}
           onReport={(s, playerId) => setReport({ mode: 'session', sessionId: s.id, playerId })}
           onAttendance={withAttendance ? setAttFor : undefined}
           onCancel={(s) => run(() => backend.setCanceled(s.id, !s.canceled), s.canceled ? 'האימון חזר ללוח' : 'האימון סומן כמבוטל')}
-          onDelete={(s) => confirm('למחוק את האימון מהלוח?') && run(() => backend.deleteSession(s.id), 'האימון נמחק')}
+          onDelete={(s) => {
+            if (s.series_id && upcoming.filter((x) => x.series_id === s.series_id && x.starts_at > s.starts_at).length > 0) {
+              const all = confirm('למחוק גם את כל האימונים הבאים בסדרה? (ביטול = רק את האימון הזה)');
+              if (all) return run(() => backend.deleteSeriesFrom(s), 'האימונים נמחקו');
+            }
+            return confirm('למחוק את האימון מהלוח?') && run(() => backend.deleteSession(s.id), 'האימון נמחק');
+          }}
         />
       ) : (
         <AbsenceList
@@ -307,8 +362,19 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
           sessions={sessions}
           staff={staff}
           canReport={canReport}
+          docs={docs}
+          isMine={(a) => myIds.has(a.player_id)}
           onAdd={() => setReport({ mode: 'dates', kind: 'absent' })}
-          onDelete={(a) => confirm('לבטל את הדיווח?') && run(() => backend.deleteAbsence(a.id), 'הדיווח בוטל')}
+          onEdit={(a) => setReport({ mode: a.session_id ? 'session' : 'dates', edit: a, playerId: a.player_id, sessionId: a.session_id ?? undefined })}
+          onOpenDoc={(d) => openAbsenceDoc(d).catch((e) => setError(friendlyError(e)))}
+          onRemoveDoc={(d) => confirm('להסיר את המסמך?') && run(() => removeAbsenceDoc(d), 'המסמך הוסר')}
+          onDelete={async (a) => {
+            if (!confirm('לבטל את הדיווח?')) return;
+            await run(async () => {
+              for (const d of docs.filter((x) => x.absence_id === a.id)) await removeAbsenceDoc(d);
+              await backend.deleteAbsence(a.id);
+            }, 'הדיווח בוטל');
+          }}
         />
       )}
 
@@ -318,20 +384,40 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
         preset={report}
         sessions={upcoming.filter((s) => !s.canceled)}
         players={myPlayers}
+        withDocs={!!withDocs}
         onClose={() => setReport(null)}
-        onSave={async (input) => {
-          await backend.reportAbsence(input);
+        onSave={async (input, file) => {
+          const editing = report?.edit;
+          let id: string | null = editing?.id ?? null;
+          if (editing) {
+            await backend.updateAbsence(editing.id, input);
+          } else {
+            id = await backend.reportAbsence(input);
+          }
+          let docFailed = false;
+          if (file && id) {
+            try {
+              await uploadAbsenceDoc(id, file);
+            } catch {
+              docFailed = true;
+            }
+          }
           setReport(null);
           await load();
-          setToast('הדיווח נשלח למאמן');
+          if (docFailed) setError('הדיווח נשמר, אבל המסמך לא הועלה. אפשר לנסות שוב מעריכת הדיווח.');
+          setToast(editing ? 'הדיווח עודכן' : 'הדיווח נשלח למאמן');
         }}
       />
-      <SessionSheet
+      <TrainingSheet
         open={sheet === 'session'}
+        staff={staff}
+        roster={roster}
+        myPlayerIds={myPlayers.map((p) => p.id)}
         onClose={() => setSheet(null)}
         onSave={async (input) => {
           await backend.addSessions(input);
           setSheet(null);
+          setTab('trainings');
           await load();
           setToast(input.repeatWeeks > 1 ? `נוספו ${input.repeatWeeks} אימונים` : 'האימון נוסף');
         }}
@@ -460,6 +546,9 @@ function TrainingList({
   absences,
   staff,
   canSchedule = staff,
+  canEdit = () => canSchedule,
+  playersOf = () => null,
+  names,
   myPlayers,
   onReport,
   onCancel,
@@ -471,6 +560,9 @@ function TrainingList({
   absences: Absence[];
   staff: boolean;
   canSchedule?: boolean;
+  canEdit?: (s: TrainingSession) => boolean;
+  playersOf?: (s: TrainingSession) => Set<string> | null;
+  names?: Map<string, string>;
   myPlayers: PlayerRef[];
   onReport: (s: TrainingSession, playerId: string) => void;
   onCancel: (s: TrainingSession) => void;
@@ -486,13 +578,26 @@ function TrainingList({
   return (
     <section className="ip-stack ip-stack--tight">
       {sessions.map((s) => {
-        const reports = absences.filter((a) => absenceCovers(a, s));
+        const only = playersOf(s);
+        const reports = absences.filter((a) => absenceCovers(a, s) && (!only || only.has(a.player_id)));
+        const mineHere = myPlayers.filter((p) => !only || only.has(p.id));
+        const typeLabel = trainingTypeLabel(s.kind, s.audience);
+        const editable = canEdit(s);
+        const who = s.audience === 'players' && names ? (s.participants ?? []).map((id) => names.get(id)).filter(Boolean).join(', ') : '';
         return (
           <Card key={s.id} className={`ip-training-event ${s.canceled ? 'is-canceled' : ''}`}>
             <div className="ip-carpool-head">
               <strong>{s.title}</strong>
               {s.canceled ? <Tag tone="warning">בוטל</Tag> : <Tag tone="blue">{fmtDay(sessionDate(s))}</Tag>}
             </div>
+            {(typeLabel || s.series_id) && (
+              <div className="ip-tag-row">
+                {typeLabel && <Tag tone="lime">{typeLabel}</Tag>}
+                {s.private && <Tag icon="shield">פרטי</Tag>}
+                {s.series_id && <Tag icon="undo">חוזר כל שבוע</Tag>}
+              </div>
+            )}
+            {who && <MetaRow icon="user">{who}</MetaRow>}
             <MetaRow icon="clock">
               {fmtDay(sessionDate(s))} · {fmtTime(s.starts_at)}–{endTime(s)}
             </MetaRow>
@@ -512,23 +617,27 @@ function TrainingList({
                   </ul>
                 )}
                 <div className="ip-btn-row">
-                  {onAttendance && !s.canceled && (
+                  {onAttendance && !s.canceled && (!s.private || editable) && (
                     <Button variant="primary" size="sm" icon="check" onClick={() => onAttendance(s)}>
                       נוכחות
                     </Button>
                   )}
-                  <Button variant="secondary" size="sm" icon={s.canceled ? 'undo' : 'close'} onClick={() => onCancel(s)}>
-                    {s.canceled ? 'החזרת האימון' : 'ביטול האימון'}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => onDelete(s)}>
-                    מחיקה
-                  </Button>
+                  {editable && (
+                    <>
+                      <Button variant="secondary" size="sm" icon={s.canceled ? 'undo' : 'close'} onClick={() => onCancel(s)}>
+                        {s.canceled ? 'החזרת האימון' : 'ביטול האימון'}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => onDelete(s)}>
+                        מחיקה
+                      </Button>
+                    </>
+                  )}
                 </div>
               </>
             ) : (
               <>
               {!s.canceled &&
-              myPlayers.map((p) => {
+              mineHere.map((p) => {
                 const mine = reports.find((a) => a.player_id === p.id);
                 return (
                   <div key={p.id} className="ip-coach-mine">
@@ -543,7 +652,7 @@ function TrainingList({
                   </div>
                 );
               })}
-              {canSchedule && (
+              {editable && (
                 <div className="ip-btn-row">
                   <Button variant="secondary" size="sm" icon={s.canceled ? 'undo' : 'close'} onClick={() => onCancel(s)}>
                     {s.canceled ? 'החזרת האימון' : 'ביטול האימון'}
@@ -569,14 +678,24 @@ function AbsenceList({
   sessions,
   staff,
   canReport,
+  docs = [],
+  isMine = () => !staff,
   onAdd,
+  onEdit,
+  onOpenDoc,
+  onRemoveDoc,
   onDelete,
 }: {
   items: Absence[];
   sessions: TrainingSession[];
   staff: boolean;
   canReport: boolean;
+  docs?: AbsenceDoc[];
+  isMine?: (a: Absence) => boolean;
   onAdd: () => void;
+  onEdit?: (a: Absence) => void;
+  onOpenDoc?: (d: AbsenceDoc) => void;
+  onRemoveDoc?: (d: AbsenceDoc) => void;
   onDelete: (a: Absence) => void;
 }) {
   const today = todayYmd();
@@ -589,7 +708,17 @@ function AbsenceList({
         {current.length ? (
           <div className="ip-stack ip-stack--tight">
             {current.map((a) => (
-              <AbsenceCard key={a.id} a={a} sessions={sessions} staff={staff} onDelete={onDelete} />
+              <AbsenceCard
+                key={a.id}
+                a={a}
+                sessions={sessions}
+                staff={staff}
+                docs={docs.filter((d) => d.absence_id === a.id)}
+                onDelete={onDelete}
+                onEdit={isMine(a) ? onEdit : undefined}
+                onOpenDoc={onOpenDoc}
+                onRemoveDoc={isMine(a) ? onRemoveDoc : undefined}
+              />
             ))}
           </div>
         ) : (
@@ -614,17 +743,39 @@ function AbsenceList({
           <SectionHeader title="השבוע האחרון" icon="clock" />
           <div className="ip-stack ip-stack--tight">
             {past.map((a) => (
-              <AbsenceCard key={a.id} a={a} sessions={sessions} staff={staff} />
+              <AbsenceCard key={a.id} a={a} sessions={sessions} staff={staff} docs={docs.filter((d) => d.absence_id === a.id)} onOpenDoc={onOpenDoc} />
             ))}
           </div>
         </section>
       )}
-      {!staff && <p className="ip-footnote">הדיווחים גלויים רק לכם ולצוות המקצועי של הקבוצה.</p>}
+      {!staff && (
+        <p className="ip-footnote">
+          הדיווחים גלויים רק לכם ולצוות המקצועי של הקבוצה. מסמך רפואי גלוי רק לכם ולמי שהמועדון הסמיך במפורש (הרשאת אישורים רפואיים).
+        </p>
+      )}
     </>
   );
 }
 
-function AbsenceCard({ a, sessions, staff, onDelete }: { a: Absence; sessions: TrainingSession[]; staff: boolean; onDelete?: (a: Absence) => void }) {
+function AbsenceCard({
+  a,
+  sessions,
+  staff,
+  docs = [],
+  onDelete,
+  onEdit,
+  onOpenDoc,
+  onRemoveDoc,
+}: {
+  a: Absence;
+  sessions: TrainingSession[];
+  staff: boolean;
+  docs?: AbsenceDoc[];
+  onDelete?: (a: Absence) => void;
+  onEdit?: (a: Absence) => void;
+  onOpenDoc?: (d: AbsenceDoc) => void;
+  onRemoveDoc?: (d: AbsenceDoc) => void;
+}) {
   const missed = sessions.filter((s) => !s.canceled && absenceCovers(a, s)).length;
   return (
     <Card className="ip-absence">
@@ -639,12 +790,30 @@ function AbsenceCard({ a, sessions, staff, onDelete }: { a: Absence; sessions: T
         {a.from_date !== a.to_date && missed > 0 && ` · ${missed} אימונים`}
       </MetaRow>
       <div className="ip-tag-row">
-        <Tag>{reasonLabel[a.reason]}</Tag>
+        <Tag>{reasonLabel[a.reason] ?? a.reason}</Tag>
+        {!a.session_id && a.applies_to && a.applies_to !== 'all' && <Tag tone="blue">{scopeLabel[a.applies_to]}</Tag>}
       </div>
       {a.note && <p className="ip-coach-note">{a.note}</p>}
-      {(staff && a.reported_by_name) || onDelete ? (
+      {docs.map((d) => (
+        <div key={d.id} className="ip-coach-mine">
+          <button type="button" className="ip-link" onClick={() => onOpenDoc?.(d)}>
+            <Icon name="shield" size={16} /> {d.mime === 'application/pdf' ? 'מסמך רפואי (PDF)' : 'מסמך רפואי (תמונה)'}
+          </button>
+          {onRemoveDoc && (
+            <Button variant="ghost" size="sm" onClick={() => onRemoveDoc(d)}>
+              הסרה
+            </Button>
+          )}
+        </div>
+      ))}
+      {(staff && a.reported_by_name) || onDelete || onEdit ? (
         <div className="ip-absence-foot">
           <span className="ip-muted">{staff && a.reported_by_name ? `דווח ע״י ${a.reported_by_name} · ${ago(a.created_at)}` : ago(a.created_at)}</span>
+          {onEdit && (
+            <Button variant="ghost" size="sm" onClick={() => onEdit(a)}>
+              עריכה
+            </Button>
+          )}
           {onDelete && (
             <Button variant="ghost" size="sm" onClick={() => onDelete(a)}>
               ביטול דיווח
@@ -658,21 +827,24 @@ function AbsenceCard({ a, sessions, staff, onDelete }: { a: Absence; sessions: T
 
 /* --------------------------------------------------------------- sheets */
 
-const reasons: AbsenceReason[] = ['family_event', 'vacation', 'sick', 'school', 'other'];
+const reasons: AbsenceReason[] = ['sick', 'injury', 'vacation', 'family_event', 'school', 'other'];
+const scopes: AbsenceScope[] = ['all', 'training', 'match'];
 const lateOptions = [5, 10, 15, 20, 30, 45, 60];
 
 function ReportSheet({
   preset,
   sessions,
   players,
+  withDocs,
   onClose,
   onSave,
 }: {
   preset: ReportPreset | null;
   sessions: TrainingSession[];
   players: PlayerRef[];
+  withDocs: boolean;
   onClose: () => void;
-  onSave: (input: Parameters<CoachBackend['reportAbsence']>[0]) => Promise<void>;
+  onSave: (input: Parameters<CoachBackend['reportAbsence']>[0], file: File | null) => Promise<void>;
 }) {
   const today = todayYmd();
   const [playerId, setPlayerId] = useState('');
@@ -681,60 +853,82 @@ function ReportSheet({
   const [sessionId, setSessionId] = useState('');
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
-  const [reason, setReason] = useState<AbsenceReason>('family_event');
+  const [reason, setReason] = useState<AbsenceReason | null>(null);
+  const [scope, setScope] = useState<AbsenceScope>('all');
   const [minutes, setMinutes] = useState(15);
   const [note, setNote] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const edit = preset?.edit;
 
   // Reset the form each time the sheet opens.
   useEffect(() => {
     if (!preset) return;
-    const m = preset.mode === 'session' && sessions.length === 0 ? 'dates' : preset.mode;
-    setPlayerId(preset.playerId ?? players[0]?.id ?? '');
-    setKind(m === 'dates' ? 'absent' : (preset.kind ?? 'absent'));
+    const e = preset.edit;
+    const m = e ? (e.session_id ? 'session' : 'dates') : preset.mode === 'session' && sessions.length === 0 ? 'dates' : preset.mode;
+    setPlayerId(e?.player_id ?? preset.playerId ?? players[0]?.id ?? '');
+    setKind(e?.kind ?? (m === 'dates' ? 'absent' : (preset.kind ?? 'absent')));
     setMode(m);
-    setSessionId(preset.sessionId ?? sessions[0]?.id ?? '');
-    setFrom(today);
-    setTo(today);
-    setReason(m === 'dates' ? 'family_event' : 'other');
-    setMinutes(15);
-    setNote('');
+    setSessionId(e?.session_id ?? preset.sessionId ?? sessions[0]?.id ?? '');
+    setFrom(e?.from_date ?? today);
+    setTo(e?.to_date ?? today);
+    // a reason is required: nothing is preselected for a new report
+    setReason(e?.reason ?? null);
+    setScope(e?.applies_to ?? 'all');
+    setMinutes(e?.minutes_late ?? 15);
+    setNote(e?.note ?? '');
+    setFile(null);
     setError(null);
   }, [preset, players, sessions, today]);
 
   const session = sessions.find((s) => s.id === sessionId);
-  const datesValid = from >= today && to >= from;
-  const valid = !!playerId && (mode === 'session' ? !!session : datesValid);
+  // editing an existing range: the start may already be in the past (shorten / extend)
+  const minFrom = edit && edit.from_date < today ? edit.from_date : today;
+  const datesValid = from >= minFrom && to >= from && daysBetween(from, to) <= 180;
+  const valid = !!playerId && !!reason && (mode === 'session' ? !!session || !!edit?.session_id : datesValid);
+  const medical = reason === 'injury' || reason === 'sick';
+
+  function pickFile(f: File | null) {
+    setError(null);
+    if (f && !docTypes.includes(f.type)) return setError('אפשר לצרף תמונה (JPG / PNG / HEIC) או PDF.');
+    if (f && f.size > MAX_DOC_BYTES) return setError('הקובץ גדול מ-10MB.');
+    setFile(f);
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!valid) return;
+    if (!valid || !reason) return;
     setBusy(true);
     setError(null);
     try {
-      const d = session ? sessionDate(session) : from;
-      await onSave({
-        player_id: playerId,
-        kind,
-        from_date: mode === 'session' ? d : from,
-        to_date: mode === 'session' ? d : to,
-        session_id: mode === 'session' ? sessionId : null,
-        reason,
-        note,
-        minutes_late: kind === 'late' ? minutes : null,
-      });
+      const d = session ? sessionDate(session) : (edit?.from_date ?? from);
+      await onSave(
+        {
+          player_id: playerId,
+          kind,
+          from_date: mode === 'session' ? d : from,
+          to_date: mode === 'session' ? d : to,
+          session_id: mode === 'session' ? (session?.id ?? edit?.session_id ?? null) : null,
+          reason,
+          note,
+          minutes_late: kind === 'late' ? minutes : null,
+          ...(mode === 'dates' ? { applies_to: scope } : {}),
+        },
+        medical ? file : null,
+      );
     } catch (err) {
-      setError(friendlyError(err));
+      setError(calendarError(err) ?? friendlyError(err));
     } finally {
       setBusy(false);
     }
   }
 
+  const title = edit ? 'עריכת דיווח' : mode === 'dates' ? 'היעדרות לפי תאריכים' : 'דיווח איחור / אי־הגעה';
   return (
-    <BottomSheet open={preset !== null} onClose={onClose} title={mode === 'dates' ? 'סימון תאריכים מראש' : 'דיווח איחור / אי־הגעה'}>
+    <BottomSheet open={preset !== null} onClose={onClose} title={title}>
       <form className="ip-form ip-form--sheet" onSubmit={submit}>
-        {players.length > 1 && (
+        {players.length > 1 && !edit && (
           <Field label="עבור">
             <div className="ip-player-chips">
               {players.map((p) => (
@@ -746,33 +940,37 @@ function ReportSheet({
           </Field>
         )}
 
-        <div className="ip-choice-row" role="group" aria-label="מתי">
-          <button type="button" className={mode === 'session' ? 'is-on' : ''} disabled={!sessions.length} onClick={() => setMode('session')}>
-            אימון מסוים
-          </button>
-          <button
-            type="button"
-            className={mode === 'dates' ? 'is-on' : ''}
-            onClick={() => {
-              setMode('dates');
-              setKind('absent');
-            }}
-          >
-            טווח תאריכים
-          </button>
-        </div>
+        {!edit && (
+          <div className="ip-choice-row" role="group" aria-label="מתי">
+            <button type="button" className={mode === 'session' ? 'is-on' : ''} disabled={!sessions.length} onClick={() => setMode('session')}>
+              אימון מסוים
+            </button>
+            <button
+              type="button"
+              className={mode === 'dates' ? 'is-on' : ''}
+              onClick={() => {
+                setMode('dates');
+                setKind('absent');
+              }}
+            >
+              יום אחד או טווח תאריכים
+            </button>
+          </div>
+        )}
 
         {mode === 'session' ? (
           <>
-            <Field label="אימון">
-              <select className="ip-input" value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {fmtDay(sessionDate(s))} · {fmtTime(s.starts_at)} · {s.title}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {!edit && (
+              <Field label="אימון">
+                <select className="ip-input" value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
+                  {sessions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {fmtDay(sessionDate(s))} · {fmtTime(s.starts_at)} · {s.title}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <div className="ip-rsvp ip-rsvp--flush" role="group" aria-label="סוג הדיווח">
               <button type="button" className={kind === 'absent' ? 'is-no' : ''} aria-pressed={kind === 'absent'} onClick={() => setKind('absent')}>
                 <Icon name="close" size={18} /> לא מגיע/ה
@@ -794,27 +992,39 @@ function ReportSheet({
             )}
           </>
         ) : (
-          <div className="ip-field-row">
-            <Field label="מתאריך">
-              <input
-                type="date"
-                className="ip-input"
-                min={today}
-                value={from}
-                onChange={(e) => {
-                  setFrom(e.target.value);
-                  if (to < e.target.value) setTo(e.target.value);
-                }}
-                required
-              />
+          <>
+            <div className="ip-field-row">
+              <Field label="מתאריך">
+                <input
+                  type="date"
+                  className="ip-input"
+                  min={minFrom}
+                  value={from}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    if (to < e.target.value) setTo(e.target.value);
+                  }}
+                  required
+                />
+              </Field>
+              <Field label="עד תאריך">
+                <input type="date" className="ip-input" min={from} value={to} onChange={(e) => setTo(e.target.value)} required />
+              </Field>
+            </div>
+            <Field label="חל על">
+              <div className="ip-player-chips">
+                {scopes.map((s) => (
+                  <button key={s} type="button" className={scope === s ? 'is-on' : ''} aria-pressed={scope === s} onClick={() => setScope(s)}>
+                    {scopeLabel[s]}
+                  </button>
+                ))}
+              </div>
             </Field>
-            <Field label="עד תאריך">
-              <input type="date" className="ip-input" min={from} value={to} onChange={(e) => setTo(e.target.value)} required />
-            </Field>
-          </div>
+            <p className="ip-footnote">אימונים ומשחקים שייקבעו בהמשך בתוך התקופה יסומנו אוטומטית.</p>
+          </>
         )}
 
-        <Field label="סיבה">
+        <Field label="סיבה (חובה)">
           <div className="ip-player-chips">
             {reasons.map((r) => (
               <button key={r} type="button" className={reason === r ? 'is-on' : ''} aria-pressed={reason === r} onClick={() => setReason(r)}>
@@ -823,100 +1033,28 @@ function ReportSheet({
             ))}
           </div>
         </Field>
+        {withDocs && medical && (
+          <Field label="מסמך רפואי (לא חובה)">
+            <input type="file" className="ip-input" accept={docTypes.join(',')} onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
+          </Field>
+        )}
+        {withDocs && medical && <p className="ip-footnote">המסמך נשמר באופן פרטי ומאובטח. רק אתם ומי שהמועדון הסמיך במפורש יכולים לפתוח אותו.</p>}
         <Field label="הערה למאמן">
           <input className="ip-input" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder="לא חובה, למשל: חתונה של בן דוד" />
         </Field>
-        {mode === 'dates' && !datesValid && <p className="ip-muted">בחרו תאריך מהיום והלאה.</p>}
+        {mode === 'dates' && !datesValid && <p className="ip-muted">בחרו תאריכים מהיום והלאה, עד חצי שנה.</p>}
+        {!reason && <p className="ip-muted">בחרו סיבה.</p>}
         <Err error={error} />
         <Button type="submit" variant="primary" block disabled={busy || !valid}>
-          {busy ? 'שולחים…' : 'שליחה למאמן'}
+          {busy ? 'שולחים…' : edit ? 'שמירת השינויים' : 'שליחה למאמן'}
         </Button>
       </form>
     </BottomSheet>
   );
 }
 
-const durations = [60, 75, 90, 120];
-const repeats = [
-  { n: 1, label: 'פעם אחת' },
-  { n: 4, label: '4 שבועות' },
-  { n: 8, label: '8 שבועות' },
-  { n: 12, label: '12 שבועות' },
-];
-
-function SessionSheet({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (input: Parameters<CoachBackend['addSessions']>[0]) => Promise<void> }) {
-  const blank = () => ({ date: addDays(todayYmd(), 1), time: '17:00', duration_min: 90, title: 'אימון קבוצתי', location: '', note: '', repeatWeeks: 1 });
-  const [f, setF] = useState(blank);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      setF(blank());
-      setError(null);
-    }
-  }, [open]);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await onSave(f);
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const weekday = f.date ? parseYmd(f.date).toLocaleDateString('he-IL', { weekday: 'long' }) : '';
-
-  return (
-    <BottomSheet open={open} onClose={onClose} title="הוספת ימי אימון">
-      <form className="ip-form ip-form--sheet" onSubmit={submit}>
-        <div className="ip-field-row">
-          <Field label="תאריך">
-            <input type="date" className="ip-input" min={todayYmd()} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} required />
-          </Field>
-          <Field label="שעה">
-            <input type="time" className="ip-input" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} required />
-          </Field>
-        </div>
-        <Field label="משך">
-          <div className="ip-player-chips">
-            {durations.map((d) => (
-              <button key={d} type="button" className={f.duration_min === d ? 'is-on' : ''} aria-pressed={f.duration_min === d} onClick={() => setF({ ...f, duration_min: d })}>
-                {d === 60 ? 'שעה' : d === 90 ? 'שעה וחצי' : d === 120 ? 'שעתיים' : `${d} דק׳`}
-              </button>
-            ))}
-          </div>
-        </Field>
-        <Field label={weekday ? `חזרה כל ${weekday}` : 'חזרה שבועית'}>
-          <div className="ip-player-chips">
-            {repeats.map((r) => (
-              <button key={r.n} type="button" className={f.repeatWeeks === r.n ? 'is-on' : ''} aria-pressed={f.repeatWeeks === r.n} onClick={() => setF({ ...f, repeatWeeks: r.n })}>
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </Field>
-        <Field label="כותרת">
-          <input className="ip-input" value={f.title} maxLength={60} onChange={(e) => setF({ ...f, title: e.target.value })} />
-        </Field>
-        <Field label="מקום">
-          <input className="ip-input" value={f.location} maxLength={80} onChange={(e) => setF({ ...f, location: e.target.value })} placeholder="למשל: מגרש סינטטי 2" />
-        </Field>
-        <Field label="הערה לשחקנים">
-          <input className="ip-input" value={f.note} maxLength={300} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="לא חובה, למשל: להביא מדים לבנים" />
-        </Field>
-        <Err error={error} />
-        <Button type="submit" variant="primary" block disabled={busy || !f.date || !f.time}>
-          {busy ? 'שומרים…' : f.repeatWeeks > 1 ? `הוספת ${f.repeatWeeks} אימונים` : 'הוספת האימון'}
-        </Button>
-      </form>
-    </BottomSheet>
-  );
+function daysBetween(a: string, b: string) {
+  return Math.round((parseYmd(b).getTime() - parseYmd(a).getTime()) / 86_400_000);
 }
 
 function NewsSheet({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (a: { title: string; body: string; pinned: boolean }) => Promise<void> }) {

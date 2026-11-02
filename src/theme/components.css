@@ -2657,3 +2657,22 @@ select.ip-input {
   background: var(--ip-surface);
   border: 1px solid var(--ip-border);
 }
+
+/* unified calendar */
+.ip-agenda-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+  max-width: 55%;
+}
+.ip-clash-banner {
+  border: 1px solid var(--ip-warning, #f5a524);
+  background: var(--ip-warning-soft, #fff6e5);
+}
+.ip-clash-banner p {
+  margin: 0;
+}
+.ip-att-stats {
+  margin-top: var(--ip-s3);
+}
