@@ -1,7 +1,7 @@
 /**
- * Career page: the child's profile on the pitch (position, strong foot),
- * body measurements and medical clearance.
- * Measurements: parents + metrics staff. Medical: parents + medical staff.
+ * Career page: the child's profile on the pitch (position, strong foot) and
+ * medical clearance (parents + medical staff). Body measurements moved to
+ * the parent-only private area (DevelopmentSection.tsx).
  * The server returns null for a part the viewer may not see, and the part
  * is then not rendered at all.
  */
@@ -13,12 +13,10 @@ import { Button, Card, SectionHeader, Segmented, Tag } from '../components/ui';
 import { Err, Field } from '../components/form';
 import { friendlyError } from '../lib/api';
 import {
-  addMeasurement,
   addMedicalClearance,
   daysUntil,
   dayLabel,
   footLabel,
-  measurementFields,
   positionsBySport,
   removeRecord,
   setPlayerProfile,
@@ -27,11 +25,6 @@ import {
 } from '../lib/careerApi';
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
-const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-const num = (s: string) => {
-  const v = Number(s.replace(',', '.'));
-  return s.trim() === '' || !Number.isFinite(v) ? null : v;
-};
 
 /* ---------------------------------------------------------------- profile */
 
@@ -128,147 +121,6 @@ function ProfileSheet({ open, career, showFoot, sport, onClose, onSaved }: { ope
             />
           </Field>
         )}
-        <Err error={error} />
-        <Button type="submit" variant="primary" block disabled={busy}>
-          {busy ? 'שומרים…' : 'שמירה'}
-        </Button>
-      </form>
-    </BottomSheet>
-  );
-}
-
-/* ----------------------------------------------------------- measurements */
-
-export function BodySection({ career, onChanged }: { career: Career; onChanged: () => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  const [manage, setManage] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const list = career.measurements;
-  if (list === null) return null;
-  const editable = career.can_edit_measurements;
-  const rows = measurementFields
-    .map((f) => {
-      const rated = list.filter((m) => m[f.key] != null);
-      if (!rated.length) return null;
-      const last = rated[rated.length - 1];
-      const prev = rated.length > 1 ? rated[rated.length - 2] : null;
-      const value = last[f.key] as number;
-      return { ...f, value, change: prev ? value - (prev[f.key] as number) : null, date: last.date };
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null);
-  const lastDate = list.length ? list[list.length - 1].date : null;
-
-  async function remove(id: string) {
-    if (!window.confirm('למחוק את המדידה הזו?')) return;
-    try {
-      await removeRecord('measurement', id);
-      await onChanged();
-    } catch (e) {
-      setError(friendlyError(e));
-    }
-  }
-
-  return (
-    <section>
-      <SectionHeader title="מדדי גוף" icon="user" action={editable && list.length ? (manage ? 'סיום' : 'ניהול') : undefined} onAction={() => setManage((v) => !v)} />
-      <Card>
-        {!rows.length ? (
-          <p className="ip-muted">עוד לא הוזנו מדידות.</p>
-        ) : (
-          <>
-            <div className="ip-measure-grid">
-              {rows.map((r) => (
-                <div key={r.key}>
-                  <span>{r.label}</span>
-                  <strong>
-                    {fmt(r.value)} <small>{r.unit}</small>
-                  </strong>
-                  {r.change != null && r.change !== 0 && <em dir="ltr">{`${r.change > 0 ? '+' : '−'}${fmt(Math.abs(r.change))}`}</em>}
-                </div>
-              ))}
-            </div>
-            {lastDate && <p className="ip-footnote">מדידה אחרונה: {dayLabel(lastDate)} · השינוי ביחס למדידה הקודמת</p>}
-          </>
-        )}
-        {manage && (
-          <ul className="ip-fitness-list ip-fitness-list--manage">
-            {[...list].reverse().map((m) => (
-              <li key={m.id}>
-                <span className="ip-list-row-text">
-                  <span className="ip-list-row-title">מדידה · {dayLabel(m.date)}</span>
-                  <span className="ip-list-row-sub">
-                    {measurementFields.filter((f) => m[f.key] != null).map((f) => `${f.label} ${fmt(m[f.key] as number)}`).join(' · ')}
-                  </span>
-                </span>
-                <button type="button" className="ip-icon-btn" aria-label="מחיקת המדידה" onClick={() => remove(m.id)}>
-                  <Icon name="close" size={18} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Err error={error} />
-        {editable && (
-          <div className="ip-btn-row">
-            <Button variant="secondary" size="sm" icon="plus" onClick={() => setOpen(true)}>
-              מדידה חדשה
-            </Button>
-          </div>
-        )}
-        <p className="ip-footnote">רק ההורים של הילד וצוות הקבוצה רואים את החלק הזה.</p>
-      </Card>
-      {editable && <MeasurementSheet open={open} career={career} onClose={() => setOpen(false)} onSaved={onChanged} />}
-    </section>
-  );
-}
-
-function MeasurementSheet({ open, career, onClose, onSaved }: { open: boolean; career: Career; onClose: () => void; onSaved: () => Promise<void> }) {
-  const [vals, setVals] = useState<Record<string, string>>({});
-  const [date, setDate] = useState(today());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (open) {
-      setVals({});
-      setDate(today());
-      setError(null);
-    }
-  }, [open]);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    const values = Object.fromEntries(measurementFields.map((f) => [f.key, num(vals[f.key] ?? '')]));
-    if (Object.values(values).every((v) => v == null)) {
-      setError('מלאו לפחות מדידה אחת.');
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await addMeasurement({ playerId: career.player.id, date, values, note: '' });
-      await onSaved();
-      onClose();
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <BottomSheet open={open} onClose={onClose} title={`מדידה ל${career.player.first_name}`}>
-      <form className="ip-form ip-form--sheet" onSubmit={submit}>
-        <p className="ip-footnote">אפשר למלא רק חלק. היקפים נמדדים בסרט מדידה, במקום הרחב ביותר של השריר.</p>
-        <div className="ip-field-row ip-field-row--wrap">
-          {measurementFields.map((f) => (
-            <Field key={f.key} label={`${f.label} (${f.unit})`}>
-              <input className="ip-input" inputMode="decimal" dir="ltr" value={vals[f.key] ?? ''} onChange={(e) => setVals({ ...vals, [f.key]: e.target.value.replace(/[^\d.,]/g, '').slice(0, 6) })} />
-            </Field>
-          ))}
-        </div>
-        <Field label="תאריך">
-          <input className="ip-input" type="date" dir="ltr" max={today()} value={date} onChange={(e) => setDate(e.target.value)} required />
-        </Field>
         <Err error={error} />
         <Button type="submit" variant="primary" block disabled={busy}>
           {busy ? 'שומרים…' : 'שמירה'}

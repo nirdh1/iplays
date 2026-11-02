@@ -92,7 +92,7 @@ export function ClubFinanceSection({ clubId, clubName, data }: { clubId: string;
   const chargeById = useMemo(() => new Map((fin?.charges ?? []).map((c) => [c.id, c])), [fin]);
 
   if (!fin) return error ? <Err error={error} /> : <p className="ip-muted">טוען…</p>;
-  if (level === 0) return <EmptyState icon="wallet" title="אין לך גישה לכספי המועדון" text="מנהל המועדון יכול לתת לך הרשאת 'תשלומים ויתרות' בלשונית הצוות." />;
+  if (level === 0) return <EmptyState icon="wallet" title="אין לך גישה לכספי המועדון" text="מנהל המועדון יכול לתת לך תפקיד גזבר (הרשאת 'תשלומים ויתרות') בלשונית התפקידים." />;
 
   const debts = filtered.filter((c) => c.balance > 0).sort((a, b) => a.due_on.localeCompare(b.due_on));
 

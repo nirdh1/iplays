@@ -1,11 +1,13 @@
 -- iplays — club finances (fees, charges, payments, reminders, reports) and
 -- club activities with registration (camps, clinics, workshops).
 --
--- Run after 20261101999000_team_ifa_link.sql.
--- Rollback: supabase/rollback/20261102100000_club_finance_and_activities.down.sql
--- Additive only: new tables, one view, helpers, RPCs and policies; one new
--- permission domain ('activities') and three new notification kinds. No
--- existing row is changed or removed.
+-- Run after 20261102500000_calendar_absences.sql (needs the roles migration
+-- 20261102400000_club_signup_roles_notes.sql for the 'camps' domain).
+-- Rollback: supabase/rollback/20261102600000_club_finance_and_activities.down.sql
+-- Additive only: new tables, one view, helpers, RPCs and policies; three new
+-- notification kinds. No existing row is changed or removed. Access uses the
+-- existing 'finance' and 'camps' domains, so the club's roles (e.g. the
+-- treasurer and camps-manager templates) work here as they are.
 --
 -- Finance model
 --   club_fee_plans    a fee the club defines: membership (once a season),
@@ -22,8 +24,8 @@
 -- Who:
 --   finance level (can_club(club,'finance',n), or can(team,'finance',n) for a
 --   charge of that team): 1 view & reports, 2 record payments, 3 create plans /
---   charges, confirm, waive, remind, 4 manage. A treasurer is a club-wide
---   'finance' grant from the club admin (existing permission tree).
+--   charges, confirm, waive, remind, 4 manage. A treasurer is anyone with a
+--   club-wide 'finance' role or grant (e.g. the treasurer role template).
 --   Parents see and report only their own children's charges.
 --
 -- Activities model
@@ -34,20 +36,16 @@
 --                           full), cancelled. A priced registration creates a
 --                           club charge; cancelling cancels it if unpaid and
 --                           promotes the first child on the waitlist.
---   Staff with can_club(club,'activities',n): 1 view sign-ups, 3 create/edit.
+--   Staff with can_club(club,'camps',n): 1 view sign-ups, 3 create/edit.
 
 begin;
 
--- ------------------------------------------------------ domain & kinds
-
-insert into public.permission_domains (domain, label, sort)
-values ('activities', 'מחנות ופעילויות', 12)
-on conflict (domain) do nothing;
+-- ---------------------------------------------------- notification kinds
 
 alter table public.notification_outbox drop constraint if exists notification_outbox_kind_check;
 alter table public.notification_outbox add constraint notification_outbox_kind_check check (kind in (
   'match_change', 'match_result', 'training', 'announcement', 'absence',
-  'join_request', 'join_decision', 'team_claim', 'team_claim_decision',
+  'join_request', 'join_decision', 'team_claim', 'team_claim_decision', 'roster_review',
   'payment_reminder', 'payment', 'activity'));
 
 -- ---------------------------------------------------------- finance tables
@@ -175,7 +173,7 @@ $$;
 
 create function public.can_club_activities(p_club uuid, p_level int)
 returns boolean language sql stable security definer set search_path = public as $$
-  select can_club(p_club, 'activities', p_level) or is_platform_admin();
+  select can_club(p_club, 'camps', p_level) or is_platform_admin();
 $$;
 
 create function public.charge_row(p_charge uuid)
@@ -441,7 +439,7 @@ end $$;
 -- Names (and the parents' name / phone) of children who have a charge or a
 -- sign-up in this club, for its finance / activities staff. Children from
 -- outside the club (camp sign-ups) are not otherwise visible to the club.
-create function public.club_people(p_club uuid, p_players uuid[])
+create function public.club_finance_people(p_club uuid, p_players uuid[])
 returns table (player_id uuid, first_name text, last_name text, birth_year int, parents text)
 language sql stable security definer set search_path = public as $$
   select p.id, p.first_name, p.last_name, p.birth_year,
@@ -507,7 +505,7 @@ revoke execute on function
   public.report_club_payment(uuid, text, text, numeric), public.review_club_payment(uuid, text),
   public.send_payment_reminders(uuid, uuid[]), public.activity_counts(uuid[]),
   public.register_for_activity(uuid, uuid, text), public.cancel_registration(uuid),
-  public.guardian_ids(uuid), public.club_people(uuid, uuid[])
+  public.guardian_ids(uuid), public.club_finance_people(uuid, uuid[])
 from public, anon;
 grant execute on function
   public.assign_fee_plan(uuid, uuid[]), public.add_club_charge(uuid, uuid, text, numeric, date, uuid),
@@ -515,7 +513,7 @@ grant execute on function
   public.report_club_payment(uuid, text, text, numeric), public.review_club_payment(uuid, text),
   public.send_payment_reminders(uuid, uuid[]), public.activity_counts(uuid[]),
   public.register_for_activity(uuid, uuid, text), public.cancel_registration(uuid),
-  public.club_people(uuid, uuid[]), public.can_club_finance(uuid, uuid, int), public.can_club_activities(uuid, int)
+  public.club_finance_people(uuid, uuid[]), public.can_club_finance(uuid, uuid, int), public.can_club_activities(uuid, int)
 to authenticated;
 revoke execute on function public.guardian_ids(uuid) from authenticated;
 

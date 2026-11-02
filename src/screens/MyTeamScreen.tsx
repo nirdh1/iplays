@@ -31,6 +31,8 @@ import { IfaTeamLink } from './IfaTeamLink';
 import { ChildDetailsSheet } from './ChildDetailsSheet';
 import { sportProfile } from '../lib/sports';
 import { endAssignment } from '../lib/clubApi';
+import { RosterReviewSection } from './RosterReview';
+import { LeagueTableSection } from './LeagueTable';
 
 export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
   const { session, teams, refresh } = useAuth();
@@ -115,6 +117,8 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
 
       {error && <p className="ip-error" role="alert">{error}</p>}
 
+      {staff && <RosterReviewSection teamId={teamId} onChanged={() => void load()} />}
+
       {staff && requests.length > 0 && (
         <section>
           <SectionHeader title={`בקשות הצטרפות · ${requests.length}`} icon="bell" />
@@ -168,6 +172,8 @@ export function MyTeamScreen({ teamId, onBack }: { teamId: string; onBack: () =>
           </Card>
         </section>
       )}
+
+      <LeagueTableSection teamId={teamId} />
 
       <section>
         {collapse && (

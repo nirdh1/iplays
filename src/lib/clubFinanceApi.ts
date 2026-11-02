@@ -185,7 +185,7 @@ export async function canClubActivities(clubId: string, level = 1): Promise<bool
 export async function clubPeople(clubId: string, ids: string[]): Promise<Map<string, Person>> {
   const unique = [...new Set(ids)];
   if (!unique.length) return new Map();
-  const { data, error } = await db().rpc('club_people', { p_club: clubId, p_players: unique });
+  const { data, error } = await db().rpc('club_finance_people', { p_club: clubId, p_players: unique });
   if (error) throw error;
   return new Map(((data ?? []) as Person[]).map((p) => [p.player_id, p]));
 }
