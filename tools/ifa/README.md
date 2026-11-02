@@ -188,3 +188,9 @@ python3 -I tools/ifa/test_ifa_watch.py
   the league whose saved league page lists the team; a games page of a team no
   saved league page lists is refused (not guessed) until that league page is
   saved. Files are never moved or deleted; a re-save with new content is sent again.
+- Weekly round update: a saved league games page (`/leagues/games/?league_id=N&season_id=28`)
+  also sends the games it shows (the round the IFA shows by default: date, time,
+  venue, result). One page per league a week updates a whole round, instead of
+  one team-games page per team. Each game is sent once, under its home team;
+  games of a team not imported yet are counted and skipped. The team-games pages
+  are still the way to load a whole season or catch games outside that round.
