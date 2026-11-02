@@ -269,7 +269,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {!demoMode && route === 'calendar' && <RealCalendarScreen onShowSample={() => setSample(true)} />}
         {!demoMode && route === 'career' && <RealCareerScreen playerId={param} onShowSample={() => setSample(true)} />}
         {!demoMode && route === 'family' && <RealFamilyScreen />}
-        {route === 'coach' && coachTeam && <TeamCoachScreen teamId={coachTeam.id} onBack={() => back('family')} />}
+        {route === 'coach' && coachTeam && <TeamCoachScreen key={`${coachTeam.id}/${sub ?? ''}`} teamId={coachTeam.id} sessionId={sub} onBack={() => back('family')} />}
         {demoMode && route === 'home' && <HomeScreen child={child} onNavigate={go} onSwitchChild={openSwitcher} onOpenMatch={() => go('match')} />}
         {demoMode && route === 'team' && <TeamScreen child={child} onOpenMatch={() => go('match')} onOpenCoach={() => go('coach')} />}
         {demoMode && route === 'coach' && !coachTeam && <DemoCoachScreen child={child} onBack={() => back('team')} />}

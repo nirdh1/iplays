@@ -148,11 +148,10 @@ export function MatchesScreen({ teamId, matchId, onBack }: { teamId: string; mat
         <p className="ip-muted ip-pad">טוען…</p>
       ) : (
         <>
-          {staff && (
-            <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>
-              הוספת משחק
-            </Button>
-          )}
+          {/* staff and any parent of the team add games (owner, 2026-11-02) */}
+          <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>
+            הוספת משחק
+          </Button>
           {/* staff and any member of the team (a parent too) can load a schedule */}
           {profile.hasMatches && (
             <Button variant="secondary" icon="calendar" onClick={() => setImporting(true)}>
@@ -368,6 +367,8 @@ function MatchDetail({
   const [attOpen, setAttOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [score, setScore] = useState({ f: match.score_for?.toString() ?? '', a: match.score_against?.toString() ?? '' });
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -426,6 +427,42 @@ function MatchDetail({
 
       <VenueCard match={match} />
 
+      {saved && <p className="ip-muted" role="status">{saved}</p>}
+
+      {/* parents: change a club game, or the time / venue of an IFA game; everyone in the team is notified */}
+      {!staff && (
+        <Card>
+          {match.source === 'ifa' ? (
+            <IfaMatchOverrides match={match} onChanged={onChanged} limited />
+          ) : (
+            <>
+              <p className="ip-muted">שינוי במשחק נשלח כהתראה לכל הקבוצה.</p>
+              <div className="ip-btn-row">
+                {match.status !== 'canceled' && (
+                  <Button variant="secondary" size="sm" icon="calendar" onClick={() => setEditing(true)}>
+                    עריכת המשחק
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={match.status === 'canceled' ? 'undo' : 'close'}
+                  onClick={() =>
+                    (match.status === 'canceled' || confirm('לבטל את המשחק? כל הקבוצה תקבל התראה.')) &&
+                    void run(async () => {
+                      await updateMatch(match.id, { status: match.status === 'canceled' ? 'scheduled' : 'canceled' });
+                      await onChanged();
+                    })
+                  }
+                >
+                  {match.status === 'canceled' ? 'החזרת המשחק' : 'ביטול המשחק'}
+                </Button>
+              </div>
+            </>
+          )}
+        </Card>
+      )}
+
       {staff && (
         <Card>
           {match.source === 'ifa' ? (
@@ -460,6 +497,11 @@ function MatchDetail({
             <Button variant="secondary" size="sm" icon="check" onClick={() => setAttOpen(true)}>
               נוכחות במשחק
             </Button>
+            {match.source !== 'ifa' && match.status !== 'canceled' && (
+              <Button variant="secondary" size="sm" icon="calendar" onClick={() => setEditing(true)}>
+                עריכת המשחק
+              </Button>
+            )}
             {match.source !== 'ifa' && (
             <Button
               variant="ghost"
@@ -520,6 +562,25 @@ function MatchDetail({
 
       {!staff && <p className="ip-footnote">לא מגיעים? מדווחים בלוח המאמן ← "דיווח איחור / אי־הגעה" לפי תאריך המשחק.</p>}
 
+      <MatchSheet
+        open={editing}
+        profile={profile}
+        initial={match}
+        onClose={() => setEditing(false)}
+        onSave={async (m) => {
+          await updateMatch(match.id, {
+            starts_at: m.startsAt,
+            opponent: m.opponent.trim(),
+            home: m.home,
+            venue: m.venue.trim(),
+            competition: m.competition,
+            lineup_size: m.lineupSize,
+          });
+          setEditing(false);
+          setSaved('המשחק עודכן. כל הקבוצה קיבלה התראה.');
+          await onChanged();
+        }}
+      />
       {attOpen && <AttendanceSheet kind="match" eventId={match.id} title={`נוכחות · נגד ${match.opponent}`} onClose={() => { setAttOpen(false); void load(); }} />}
     </div>
   );
@@ -690,20 +751,46 @@ function LineupEditor({
 
 /* ------------------------------------------------------------- new match */
 
+const hhmmOf = (iso: string) => {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
 function MatchSheet({
   open,
   profile,
+  initial,
   onClose,
   onSave,
 }: {
   open: boolean;
   profile: SportProfile;
+  /** edit this game instead of adding a new one */
+  initial?: Match | null;
   onClose: () => void;
   onSave: (m: { startsAt: string; opponent: string; home: boolean; venue: string; competition: Competition; lineupSize: number | null }) => Promise<void>;
 }) {
-  const [f, setF] = useState({ date: addDays(todayYmd(), 7), time: '10:00', opponent: '', home: true, venue: '', competition: 'league' as Competition, size: profile.lineup?.defaultSize ?? 0 });
+  const blank = () =>
+    initial
+      ? {
+          date: ymd(new Date(initial.starts_at)),
+          time: initial.time_confirmed === false ? '' : hhmmOf(initial.starts_at),
+          opponent: initial.opponent,
+          home: initial.home,
+          venue: initial.venue ?? '',
+          competition: initial.competition,
+          size: initial.lineup_size ?? profile.lineup?.defaultSize ?? 0,
+        }
+      : { date: addDays(todayYmd(), 7), time: '10:00', opponent: '', home: true, venue: '', competition: 'league' as Competition, size: profile.lineup?.defaultSize ?? 0 };
+  const [f, setF] = useState(blank);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    setF(blank());
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial?.id]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -711,7 +798,7 @@ function MatchSheet({
     setError(null);
     try {
       await onSave({ startsAt: localIso(f.date, f.time), opponent: f.opponent, home: f.home, venue: f.venue, competition: f.competition, lineupSize: profile.lineup ? f.size : null });
-      setF({ ...f, opponent: '', venue: '' });
+      if (!initial) setF({ ...f, opponent: '', venue: '' });
     } catch (err) {
       setError(errText(err));
     } finally {
@@ -720,7 +807,7 @@ function MatchSheet({
   }
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="משחק חדש">
+    <BottomSheet open={open} onClose={onClose} title={initial ? 'עריכת המשחק' : 'משחק חדש'}>
       <form className="ip-form ip-form--sheet" onSubmit={submit}>
         <Field label="יריבה">
           <input id="m-opp" className="ip-input" value={f.opponent} onChange={(e) => setF({ ...f, opponent: e.target.value.slice(0, 60) })} placeholder="לדוגמה: הפועל מזרח" required />
@@ -769,7 +856,7 @@ function MatchSheet({
         </div>
         <Err error={error} />
         <Button type="submit" variant="primary" block disabled={busy || !f.opponent.trim()}>
-          {busy ? 'שומרים…' : 'הוספת המשחק'}
+          {busy ? 'שומרים…' : initial ? 'שמירת השינויים' : 'הוספת המשחק'}
         </Button>
       </form>
     </BottomSheet>

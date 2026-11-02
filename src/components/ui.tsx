@@ -13,6 +13,7 @@ interface CardProps {
   padded?: boolean;
   as?: 'section' | 'div' | 'article';
   'aria-label'?: string;
+  id?: string;
 }
 export function Card({ children, className, tone = 'default', padded = true, as: Tag = 'div', ...rest }: CardProps) {
   const cls = ['ip-card', `ip-card--${tone}`, padded ? 'ip-card--padded' : '', className ?? ''].filter(Boolean).join(' ');
