@@ -51,9 +51,14 @@ run supabase/tests/test_ifa_agent.sql
 echo "== team page IFA link"
 run supabase/migrations/20261101999000_team_ifa_link.sql
 run supabase/tests/test_team_ifa_link.sql
+echo "== IFA roster review"
+run supabase/migrations/20261102100000_ifa_roster_review.sql
+run supabase/tests/test_ifa_roster_review.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== rollback IFA roster review"
+run supabase/rollback/20261102100000_ifa_roster_review.down.sql
 echo "== rollback team page IFA link"
 run supabase/rollback/20261101999000_team_ifa_link.down.sql
 echo "== rollback IFA local agent"

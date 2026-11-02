@@ -20,6 +20,7 @@ import { isPlatformAdmin } from '../lib/ifaApi';
 import { sportProfile } from '../lib/sports';
 import { getRidesSummary, summaryLabel, type RideSummary } from '../lib/rideApi';
 import { RidesSheet, type RideEvent } from './RidesSheet';
+import { RosterReviewHomeCard } from './RosterReview';
 
 const goFind = () => (window.location.hash = 'find');
 const goTeam = (id: string) => (window.location.hash = `myteam/${id}`);
@@ -192,6 +193,7 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
     <div className="ip-stack">
       <ScreenTitle title={first ? `שלום ${first}` : 'שלום'} subtitle={teams.length ? 'הקבוצות והילדים שלך' : undefined} />
       <RequestsSection />
+      {(isClub || teams.some((t) => isStaffRole(t.role))) && <RosterReviewHomeCard />}
       {isClub && (
         <button type="button" className="ip-card ip-card--padded ip-coach-entry" onClick={() => (window.location.hash = 'club')}>
           <span className="ip-icon-tile ip-icon-tile--navy">

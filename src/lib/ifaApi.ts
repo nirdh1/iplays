@@ -441,3 +441,45 @@ export async function teamIfaLink(teamId: string): Promise<string | null> {
   const row = (data as { ifa_team_id: number; ifa_season_id: number }[] | null)?.[0];
   return row ? `${BASE}/team-details/?team_id=${row.ifa_team_id}&season_id=${row.ifa_season_id}` : null;
 }
+
+/* ------------------------------------------------------- roster review */
+// A newer saved IFA roster page never changes a team by itself: each
+// difference waits for team staff (supabase/migrations/20261102100000_ifa_roster_review.sql).
+
+export type RosterReviewKind = 'added' | 'missing' | 'returned' | 'renamed';
+
+export interface RosterReviewRow {
+  id: number;
+  kind: RosterReviewKind;
+  ifa_player_id: number;
+  old_value: string | null;
+  new_value: string | null;
+  player_id: string | null;
+  player_name: string | null;
+  shirt_number: number | null;
+  detected_at: string;
+  last_seen_at: string;
+}
+
+/** Teams I manage that have differences waiting. Empty if the SQL is not installed yet. */
+export async function myRosterReviewCounts(): Promise<{ team_id: string; team_name: string; pending: number }[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('my_roster_review_counts');
+  if (error) return [];
+  return (data ?? []) as { team_id: string; team_name: string; pending: number }[];
+}
+
+/** Pending differences for one team. Empty if not allowed or the SQL is not installed yet. */
+export async function teamRosterReview(teamId: string): Promise<RosterReviewRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('team_roster_review', { p_team: teamId });
+  if (error) return [];
+  return (data ?? []) as RosterReviewRow[];
+}
+
+/** accept = apply these changes; otherwise keep the roster as it is (not asked again). */
+export async function decideRosterChanges(ids: number[], accept: boolean): Promise<number> {
+  const { data, error } = await db().rpc('decide_ifa_roster_changes', { p_ids: ids, p_accept: accept });
+  if (error) throw error;
+  return (data as { decided: number }).decided;
+}
