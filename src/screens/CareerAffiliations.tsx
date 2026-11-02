@@ -210,12 +210,26 @@ export function LeaveTeamSection({ career, extra, onChanged }: { career: Career;
           ))}
         </div>
       </Card>
-      <LeaveSheet team={leaving} career={career} onClose={() => setLeaving(null)} onSaved={onChanged} />
+      <LeaveSheet team={leaving} career={career} self={!extra.is_parent} onClose={() => setLeaving(null)} onSaved={onChanged} />
     </section>
   );
 }
 
-function LeaveSheet({ team, career, onClose, onSaved }: { team: TeamAffiliation | null; career: Career; onClose: () => void; onSaved: () => Promise<void> }) {
+function LeaveSheet({
+  team,
+  career,
+  self,
+  onClose,
+  onSaved,
+}: {
+  team: TeamAffiliation | null;
+  career: Career;
+  /** The player themself (not a parent) is marking the move. */
+  self: boolean;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [confirming, setConfirming] = useState(false);
   const [moved, setMoved] = useState('');
   const [date, setDate] = useState(today());
   const [busy, setBusy] = useState(false);
@@ -225,12 +239,18 @@ function LeaveSheet({ team, career, onClose, onSaved }: { team: TeamAffiliation 
       setMoved('');
       setDate(today());
       setError(null);
+      setConfirming(false);
     }
   }, [team]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!team) return;
+    // First press only asks for confirmation; the second one saves.
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -247,19 +267,38 @@ function LeaveSheet({ team, career, onClose, onSaved }: { team: TeamAffiliation 
   return (
     <BottomSheet open={team !== null} onClose={onClose} title={team ? `${career.player.first_name} עזב/ה את ${team.team_name}` : 'עזיבת קבוצה'}>
       <form className="ip-form ip-form--sheet" onSubmit={submit}>
-        <Field label="לאיזה מועדון עבר/ה? (לא חובה)">
-          <input className="ip-input" value={moved} onChange={(e) => setMoved(e.target.value.slice(0, 80))} placeholder="לדוגמה: מכבי יפו" />
-        </Field>
-        <Field label="מתאריך">
-          <input className="ip-input" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} required />
-        </Field>
-        <p className="ip-footnote">
-          ההיסטוריה של {career.player.first_name} בקבוצה נשמרת, והצוות שלה יקבל הודעה. הרישום בהתאחדות לא משתנה. אם הקבוצה החדשה נמצאת ב-iPlays, אפשר להצטרף אליה אחר כך דרך החיפוש.
-        </p>
-        <Err error={error} />
-        <Button type="submit" variant="primary" block disabled={busy}>
-          {busy ? 'שומרים…' : 'אישור'}
-        </Button>
+        {confirming && team ? (
+          <>
+            <p>
+              <strong>{self ? `אתה בטוח שאתה רוצה לעזוב את ${team.team_name}?` : `בטוחים ש${career.player.first_name} עוזב/ת את ${team.team_name}?`}</strong>
+            </p>
+            <p className="ip-footnote">
+              שום מידע לא נמחק: הפרופיל, הסטטיסטיקות, הנוכחות, המשחקים וההיסטוריה בקבוצה נשמרים, וממשיכים איתם לקבוצה הבאה. הצוות של הקבוצה יקבל הודעה, והרישום בהתאחדות לא משתנה.
+            </p>
+            <Err error={error} />
+            <Button type="submit" variant="primary" block disabled={busy}>
+              {busy ? 'שומרים…' : 'כן, לעזוב את הקבוצה'}
+            </Button>
+            <Button type="button" variant="secondary" block disabled={busy} onClick={() => setConfirming(false)}>
+              ביטול
+            </Button>
+          </>
+        ) : (
+          <>
+            <Field label="לאיזה מועדון עבר/ה? (לא חובה)">
+              <input className="ip-input" value={moved} onChange={(e) => setMoved(e.target.value.slice(0, 80))} placeholder="לדוגמה: מכבי יפו" />
+            </Field>
+            <Field label="מתאריך">
+              <input className="ip-input" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} required />
+            </Field>
+            <p className="ip-footnote">
+              ההיסטוריה של {career.player.first_name} בקבוצה נשמרת, והצוות שלה יקבל הודעה. הרישום בהתאחדות לא משתנה. אם הקבוצה החדשה נמצאת ב-iPlays, אפשר להצטרף אליה אחר כך דרך החיפוש.
+            </p>
+            <Button type="submit" variant="primary" block>
+              המשך
+            </Button>
+          </>
+        )}
       </form>
     </BottomSheet>
   );
