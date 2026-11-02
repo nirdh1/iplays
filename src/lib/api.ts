@@ -10,7 +10,7 @@ export type Role = 'admin' | 'coach' | 'assistant_coach' | 'instructor' | 'team_
 /** Team staff roles (everyone except parents). Exact access per domain is enforced in the database. */
 export const isStaffRole = (r: Role | undefined) => !!r && r !== 'parent';
 
-export type AccountType = 'parent' | 'club';
+export type AccountType = 'parent' | 'club' | 'player';
 
 export interface Profile {
   id: string;
