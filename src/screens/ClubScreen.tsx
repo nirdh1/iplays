@@ -39,11 +39,13 @@ import { ClubStaffSection } from './ClubStaffSection';
 import { ClubRolesSection } from './ClubRolesSection';
 import { ClubSignup } from './ClubSignup';
 import { ProNotesSheet } from './ProNotesSheet';
+import { ClubFinanceSection } from './ClubFinanceSection';
+import { ClubActivitiesSection } from './ClubActivitiesSection';
 import '../theme/club.css';
 
 const errText = (e: unknown) => clubError(e) ?? friendlyError(e);
 
-type Tab = 'overview' | 'teams' | 'players' | 'transfers' | 'staff' | 'roles';
+type Tab = 'overview' | 'teams' | 'players' | 'transfers' | 'staff' | 'roles' | 'finance' | 'activities';
 
 interface ClubPlayer {
   id: string;
@@ -230,6 +232,8 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
           { id: 'transfers', label: 'מעברים' },
           ...(manage ? [{ id: 'staff' as const, label: 'צוות' }] : []),
           ...(access?.manage_roles ? [{ id: 'roles' as const, label: 'תפקידים' }] : []),
+          { id: 'finance', label: 'כספים' },
+          { id: 'activities', label: 'מחנות' },
         ]}
       />
 
@@ -340,6 +344,10 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
         <ClubStaffSection club={club} data={data} />
       ) : tab === 'roles' && access ? (
         <ClubRolesSection club={club} data={data} access={access} />
+      ) : tab === 'finance' ? (
+        <ClubFinanceSection clubId={club.id} clubName={club.name} data={data} />
+      ) : tab === 'activities' ? (
+        <ClubActivitiesSection clubId={club.id} />
       ) : (
         <section className="ip-stack">
           <SectionHeader title="היסטוריית מעברים" icon="arrow" />

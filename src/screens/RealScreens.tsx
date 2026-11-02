@@ -632,6 +632,9 @@ export function RealFamilyScreen() {
     <div className="ip-stack">
       <ScreenTitle title="החשבון שלי" subtitle={profile?.full_name || undefined} />
       <FamilyInviteCard />
+      <Card padded={false}>
+        <ListRow icon="wallet" iconTone="lime" title="תשלומים ומחנות" subtitle="חיובים מהמועדון, דיווח תשלום והרשמה למחנות וקייטנות" onClick={() => (window.location.hash = 'pay')} />
+      </Card>
       <AccountSection />
       <section>
         <SectionHeader title="הילדים" />
