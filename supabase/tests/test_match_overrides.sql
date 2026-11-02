@@ -104,3 +104,4 @@ grant select on t_club to authenticated;
 select pg_temp.as_user(:CO);
 select pg_temp.fails($$select set_match_override((select id from t_club), 'venue', '"x"')$$, 'override on a club match');
 select pg_temp.as_user(null);
+
