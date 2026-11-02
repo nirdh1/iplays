@@ -151,3 +151,8 @@
 .ip-choice-row button:disabled {
   opacity: 0.4;
 }
+
+/* opened from the calendar: the training the user tapped */
+.ip-training-event.is-focus {
+  box-shadow: 0 0 0 2px var(--ip-blue, #3DA5FF);
+}

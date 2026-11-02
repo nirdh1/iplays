@@ -43,6 +43,8 @@ export interface TrainingSession {
   participants?: string[];
 }
 
+export type SessionPatch = Partial<Pick<TrainingSession, 'starts_at' | 'duration_min' | 'title' | 'location' | 'note'>>;
+
 export interface Announcement {
   id: string;
   title: string;
@@ -98,6 +100,10 @@ export interface CoachBackend {
   listSessions(): Promise<TrainingSession[]>;
   addSessions(input: SessionInput): Promise<void>;
   setCanceled(id: string, canceled: boolean): Promise<void>;
+  /** change a training's date, time, length, title, place or note; with
+   *  following, the later trainings of its weekly series get the same time
+   *  of day, length, title, place and note */
+  updateSession(s: TrainingSession, patch: Required<SessionPatch>, following: boolean): Promise<void>;
   deleteSession(id: string): Promise<void>;
   /** this training and the later ones of its weekly series */
   deleteSeriesFrom(s: TrainingSession): Promise<void>;
@@ -215,12 +221,42 @@ export function supabaseCoach(teamId: string): CoachBackend {
     },
     async deleteSeriesFrom(s) {
       if (!s.series_id) return deleteOne(s.id);
-      const { error } = await db().from('training_sessions').delete().eq('series_id', s.series_id).gte('starts_at', s.starts_at);
+      const { data, error } = await db().from('training_sessions').delete().eq('series_id', s.series_id).gte('starts_at', s.starts_at).select('id');
       if (error) throw error;
+      mustTouch(data);
     },
     async setCanceled(id, canceled) {
-      const { error } = await db().from('training_sessions').update({ canceled }).eq('id', id);
+      const { data, error } = await db().from('training_sessions').update({ canceled }).eq('id', id).select('id');
       if (error) throw error;
+      mustTouch(data);
+    },
+    async updateSession(s, patch, following) {
+      const { error } = await db().rpc('edit_training', {
+        p_session: s.id,
+        p_starts: patch.starts_at,
+        p_duration: patch.duration_min,
+        p_title: patch.title,
+        p_location: patch.location,
+        p_note: patch.note,
+        p_following: following,
+      });
+      if (!error) return;
+      if (!isMissing(error)) throw error;
+      // before 20261103300000_parents_edit_events.sql: plain updates
+      const one = await db().from('training_sessions').update(patch).eq('id', s.id).select('id');
+      if (one.error) throw one.error;
+      mustTouch(one.data);
+      if (!following || !s.series_id) return;
+      const later = await db().from('training_sessions').select('id, starts_at').eq('series_id', s.series_id).gt('starts_at', s.starts_at);
+      if (later.error) throw later.error;
+      const time = new Date(patch.starts_at);
+      for (const x of (later.data ?? []) as { id: string; starts_at: string }[]) {
+        const d = new Date(x.starts_at);
+        d.setHours(time.getHours(), time.getMinutes(), 0, 0);
+        const { starts_at: _, ...rest } = patch;
+        const { error: e2 } = await db().from('training_sessions').update({ ...rest, starts_at: d.toISOString() }).eq('id', x.id);
+        if (e2) throw e2;
+      }
     },
     async deleteSession(id) {
       return deleteOne(id);
@@ -319,8 +355,14 @@ export async function listTeamSessions(teamId: string): Promise<TrainingSession[
 }
 
 async function deleteOne(id: string) {
-  const { error } = await db().from('training_sessions').delete().eq('id', id);
+  const { data, error } = await db().from('training_sessions').delete().eq('id', id).select('id');
   if (error) throw error;
+  mustTouch(data);
+}
+
+/** Row-level security skips rows silently: no row changed = not allowed. */
+function mustTouch(rows: unknown[] | null) {
+  if (!rows || rows.length === 0) throw new Error('not allowed');
 }
 
 /** Before the calendar migration: the same list without applies_to. */
@@ -494,6 +536,11 @@ export function demoCoach(key: string, s: DemoSeed, me: { name: string; players:
     async setCanceled(id, canceled) {
       const x = t().sessions.find((y) => y.id === id);
       if (x) x.canceled = canceled;
+      return done();
+    },
+    async updateSession(s, patch) {
+      const x = t().sessions.find((y) => y.id === s.id);
+      if (x) Object.assign(x, patch);
       return done();
     },
     async deleteSession(id) {

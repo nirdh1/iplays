@@ -106,6 +106,12 @@ echo "== unified calendar, absences and medical documents"
 run supabase/migrations/20261101985000_player_career.sql
 run supabase/migrations/20261102500000_calendar_absences.sql
 run supabase/tests/test_calendar.sql
+echo "== parents edit trainings and games, everyone told who changed what"
+run supabase/migrations/20261103300000_parents_edit_events.sql
+run supabase/tests/test_parents_edit_events.sql
+run supabase/rollback/20261103300000_parents_edit_events.down.sql
+run supabase/migrations/20261103300000_parents_edit_events.sql
+run supabase/rollback/20261103300000_parents_edit_events.down.sql
 echo "== rollback unified calendar (and re-apply / roll back again: idempotent)"
 run supabase/rollback/20261102500000_calendar_absences.down.sql
 run supabase/migrations/20261102500000_calendar_absences.sql
