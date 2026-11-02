@@ -45,33 +45,38 @@ const CSV_EXT = /\.(csv|tsv|txt)$/i;
 
 export const ACCEPT = 'image/*,application/pdf,.pdf,.xlsx,.xlsm,.csv,.tsv';
 
-export async function readScheduleFile(file: File, teamName: string, onProgress?: (text: string) => void): Promise<ReadResult> {
+/** Reads any supported file into table rows (one reading per OCR pass for images). */
+export async function readFileRows(file: File, onProgress?: (text: string) => void): Promise<{ readings: string[][][]; fromImage: boolean }> {
   const name = file.name || '';
   if (/\.xls$/i.test(name)) throw new ScheduleReadError('קובץ אקסל ישן (xls). שמרו אותו כ-xlsx ונסו שוב.');
   let readings: string[][][];
-  let warning = '';
+  let fromImage = false;
   if (EXCEL_EXT.test(name) || CSV_EXT.test(name) || file.type === 'text/csv') {
     readings = [EXCEL_EXT.test(name) ? await readXlsx(file) : parseCsv(await file.text())];
   } else if (file.type === 'application/pdf' || /\.pdf$/i.test(name)) {
     onProgress?.('קוראים את ה-PDF…');
     readings = [await readPdf(file)];
-    if (readings[0].length === 0) throw new ScheduleReadError('ב-PDF הזה אין טקסט (כנראה סריקה). צלמו מסך של הלוח והעלו כתמונה.');
+    if (readings[0].length === 0) throw new ScheduleReadError('ב-PDF הזה אין טקסט (כנראה סריקה). צלמו מסך והעלו כתמונה.');
   } else if (file.type.startsWith('image/') || /\.(png|jpe?g|webp|heic)$/i.test(name)) {
     readings = await readImage(file, onProgress);
-    warning = 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל משחק לפני השמירה.';
+    fromImage = true;
   } else {
     throw new ScheduleReadError('סוג קובץ לא נתמך. אפשר תמונה, PDF, אקסל (xlsx) או CSV.');
   }
+  readings = readings.map((rows) => rows.map((r) => r.map((c) => (c ?? '').replace(/\s+/g, ' ').trim())).filter((r) => r.some(Boolean)));
+  if (!readings.some((r) => r.length)) throw new ScheduleReadError('לא נמצא טקסט בקובץ.');
+  return { readings, fromImage };
+}
+
+export async function readScheduleFile(file: File, teamName: string, onProgress?: (text: string) => void): Promise<ReadResult> {
+  const { readings, fromImage } = await readFileRows(file, onProgress);
+  const warning = fromImage ? 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל משחק לפני השמירה.' : '';
   let games: DraftGame[] = [];
-  let anyText = false;
   for (const rows of readings) {
-    const clean = rows.map((r) => r.map((c) => (c ?? '').replace(/\s+/g, ' ').trim())).filter((r) => r.some(Boolean));
-    if (clean.length) anyText = true;
-    let g = parseByColumns(clean, teamName);
-    if (g.length === 0) g = parseLoose(clean, teamName);
+    let g = parseByColumns(rows, teamName);
+    if (g.length === 0) g = parseLoose(rows, teamName);
     if (g.length > games.length) games = g;
   }
-  if (!anyText) throw new ScheduleReadError('לא נמצא טקסט בקובץ.');
   if (games.length === 0) {
     throw new ScheduleReadError(`לא מצאנו בקובץ משחקים של ${teamName}. ודאו שהשם של הקבוצה מופיע בקובץ כמו באפליקציה, ושיש תאריכים.`);
   }

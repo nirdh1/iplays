@@ -35,6 +35,7 @@ import { MedicalSection } from './CareerProfile';
 import { DevelopmentSection } from './DevelopmentSection';
 import { LeaveTeamSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
 import { SelfStatsSection } from './CareerSelfStats';
+import { IfaStatsSection } from './CareerIfaStats';
 import { IfaTeamGamesLink } from './LeagueTable';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -193,6 +194,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
 
       {extra && <PositionsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
       <SelfStatsSection playerId={p.id} name={p.first_name} />
+      {sport === 'football' && <IfaStatsSection playerId={p.id} name={p.first_name} teamName={p.team_name ?? ''} />}
       <MonthlyTrend career={career} sport={sport} />
       <Seasons career={career} scoring={scoring} goalsLabel={goalsLabel} isBasket={isBasket} />
       {career.assessments !== null && (
