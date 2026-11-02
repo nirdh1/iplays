@@ -1287,7 +1287,8 @@ button.ip-inbox-item:hover {
 }
 .ip-career-hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: var(--ip-s2);
 }
 .ip-career-hero-stats div {

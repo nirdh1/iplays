@@ -33,7 +33,7 @@ import {
 import { NoTeam, useMyKids } from './RealScreens';
 import { MedicalSection } from './CareerProfile';
 import { DevelopmentSection } from './DevelopmentSection';
-import { AffiliationsSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
+import { LeaveTeamSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
 import { SelfStatsSection } from './CareerSelfStats';
 import { IfaTeamGamesLink } from './LeagueTable';
 
@@ -183,12 +183,6 @@ function PlayerCareer({ playerId }: { playerId: string }) {
               <span>{goalsLabel}</span>
             </div>
           )}
-          {scoring && (
-            <div>
-              <strong>{t.starts}</strong>
-              <span>בהרכב הפותח</span>
-            </div>
-          )}
           <div>
             <strong>{rate == null ? '–' : `${rate}%`}</strong>
             <span>נוכחות באימונים</span>
@@ -206,7 +200,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
       )}
       <DevelopmentSection playerId={p.id} name={p.first_name} />
       <MedicalSection career={career} onChanged={load} />
-      {extra && <AffiliationsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
+      {extra && <LeaveTeamSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
       <Highlights career={career} isBasket={isBasket} />
 
       {career.edit_team_id && (
@@ -224,8 +218,7 @@ function NoCurrentTeam({ name }: { name: string }) {
   return (
     <Card>
       <p>
-        <strong>{name} לא בקבוצה כרגע.</strong> הפרופיל, הקריירה וההיסטוריה נשמרים. מצאו את הקבוצה החדשה ובקשו להצטרף &quot;עם הפרופיל הקיים&quot;,
-        או הוסיפו למטה, בהיסטוריית המסגרות, מסגרת שלא נמצאת באפליקציה.
+        <strong>{name} לא בקבוצה כרגע.</strong> הפרופיל, הקריירה וההיסטוריה נשמרים. מצאו את הקבוצה החדשה ובקשו להצטרף &quot;עם הפרופיל הקיים&quot;.
       </p>
       <div className="ip-btn-row">
         <Button variant="primary" icon="team" onClick={() => (window.location.hash = 'find')}>
