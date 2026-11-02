@@ -7,15 +7,23 @@
 import { supabase } from './supabase';
 
 export type AbsenceKind = 'absent' | 'late';
-export type AbsenceReason = 'family_event' | 'vacation' | 'sick' | 'school' | 'other';
+export type AbsenceReason = 'family_event' | 'vacation' | 'sick' | 'injury' | 'school' | 'other';
+/** Which activities a date-range report covers. */
+export type AbsenceScope = 'all' | 'training' | 'match';
 
 export const reasonLabel: Record<AbsenceReason, string> = {
-  family_event: 'אירוע משפחתי',
+  sick: 'מחלה',
+  injury: 'פציעה',
   vacation: 'חופשה / נסיעה',
-  sick: 'מחלה / פציעה',
+  family_event: 'אירוע משפחתי',
   school: 'לימודים / מבחן',
-  other: 'אחר',
+  other: 'סיבה אחרת',
 };
+export const scopeLabel: Record<AbsenceScope, string> = { all: 'כל הפעילויות', training: 'רק אימונים', match: 'רק משחקים' };
+
+/** team = the whole team; goalkeepers = the team's goalkeepers; players = picked players */
+export type TrainingKind = 'team' | 'personal' | 'goalkeeper';
+export type TrainingAudience = 'team' | 'goalkeepers' | 'players';
 
 export interface TrainingSession {
   id: string;
@@ -25,6 +33,14 @@ export interface TrainingSession {
   location: string;
   note: string;
   canceled: boolean;
+  /** set once the calendar migration (20261102500000) is installed */
+  kind?: TrainingKind;
+  audience?: TrainingAudience;
+  series_id?: string | null;
+  private?: boolean;
+  created_by?: string | null;
+  /** players of a goalkeeper / personal training */
+  participants?: string[];
 }
 
 export interface Announcement {
@@ -47,6 +63,7 @@ export interface Absence {
   reason: AbsenceReason;
   note: string;
   minutes_late: number | null;
+  applies_to: AbsenceScope;
   reported_by_name: string;
   created_at: string;
 }
@@ -59,6 +76,10 @@ export interface SessionInput {
   location: string;
   note: string;
   repeatWeeks: number; // 1 = only this date
+  /** goalkeeper / picked-players sessions (default: the whole team) */
+  kind?: TrainingKind;
+  audience?: TrainingAudience;
+  players?: string[];
 }
 
 export interface AbsenceInput {
@@ -70,6 +91,7 @@ export interface AbsenceInput {
   reason: AbsenceReason;
   note: string;
   minutes_late: number | null;
+  applies_to?: AbsenceScope;
 }
 
 export interface CoachBackend {
@@ -77,12 +99,16 @@ export interface CoachBackend {
   addSessions(input: SessionInput): Promise<void>;
   setCanceled(id: string, canceled: boolean): Promise<void>;
   deleteSession(id: string): Promise<void>;
+  /** this training and the later ones of its weekly series */
+  deleteSeriesFrom(s: TrainingSession): Promise<void>;
   listAnnouncements(): Promise<Announcement[]>;
   postAnnouncement(a: { title: string; body: string; pinned: boolean }): Promise<void>;
   setPinned(id: string, pinned: boolean): Promise<void>;
   deleteAnnouncement(id: string): Promise<void>;
   listAbsences(): Promise<Absence[]>;
-  reportAbsence(a: AbsenceInput): Promise<void>;
+  /** returns the new report's id (to attach a medical document) */
+  reportAbsence(a: AbsenceInput): Promise<string | null>;
+  updateAbsence(id: string, a: Partial<AbsenceInput>): Promise<void>;
   deleteAbsence(id: string): Promise<void>;
 }
 
@@ -113,8 +139,22 @@ export function sessionDate(s: TrainingSession): string {
 /** Does this report cover that training? */
 export function absenceCovers(a: Absence, s: TrainingSession): boolean {
   if (a.session_id) return a.session_id === s.id;
+  if (a.applies_to === 'match') return false;
   const d = sessionDate(s);
   return a.from_date <= d && d <= a.to_date;
+}
+
+/** Does a report cover an event on that date (for matches: date-range reports only)? */
+export function absenceCoversEvent(a: Absence, kind: 'training' | 'match', eventId: string, date: string): boolean {
+  if (a.session_id) return kind === 'training' && a.session_id === eventId;
+  if (a.applies_to && a.applies_to !== 'all' && a.applies_to !== kind) return false;
+  return a.from_date <= date && date <= a.to_date;
+}
+
+/** Postgres / PostgREST: a column or function that isn't there yet (migration not run). */
+export function isMissing(e: unknown): boolean {
+  const x = e as { code?: string; message?: string } | null;
+  return !!x && (['42703', 'PGRST204', 'PGRST202', 'PGRST200', '42883', 'PGRST205', '42P01'].includes(x.code ?? '') || /does not exist|Could not find/.test(x.message ?? ''));
 }
 
 /** First date that is still relevant: we keep showing reports from the last week. */
@@ -138,28 +178,44 @@ async function namesFor(ids: (string | null)[]): Promise<Map<string, string>> {
 export function supabaseCoach(teamId: string): CoachBackend {
   return {
     async listSessions() {
-      const since = new Date();
-      since.setDate(since.getDate() - 1);
-      const { data, error } = await db()
-        .from('training_sessions')
-        .select('id, starts_at, duration_min, title, location, note, canceled')
-        .eq('team_id', teamId)
-        .gte('starts_at', since.toISOString())
-        .order('starts_at')
-        .limit(60);
-      if (error) throw error;
-      return data ?? [];
+      return listTeamSessions(teamId);
     },
     async addSessions(input) {
-      const rows = Array.from({ length: Math.max(1, input.repeatWeeks) }, (_, i) => ({
+      const n = Math.max(1, input.repeatWeeks);
+      const starts = Array.from({ length: n }, (_, i) => localIso(addDays(input.date, i * 7), input.time));
+      if (input.audience && input.audience !== 'team') {
+        const { error } = await db().rpc('create_trainings', {
+          p_team: teamId,
+          p_kind: input.kind ?? 'goalkeeper',
+          p_audience: input.audience,
+          p_starts: starts,
+          p_duration: input.duration_min,
+          p_title: input.title.trim() || null,
+          p_location: input.location.trim(),
+          p_note: input.note.trim(),
+          p_players: input.players ?? [],
+        });
+        if (error) throw error;
+        return;
+      }
+      const series = n > 1 && typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : null;
+      const rows = starts.map((starts_at) => ({
         team_id: teamId,
-        starts_at: localIso(addDays(input.date, i * 7), input.time),
+        starts_at,
         duration_min: input.duration_min,
         title: input.title.trim() || 'אימון קבוצתי',
         location: input.location.trim(),
         note: input.note.trim(),
       }));
+      const first = await db().from('training_sessions').insert(series ? rows.map((r) => ({ ...r, series_id: series })) : rows);
+      if (!first.error) return;
+      if (!series || !isMissing(first.error)) throw first.error;
       const { error } = await db().from('training_sessions').insert(rows);
+      if (error) throw error;
+    },
+    async deleteSeriesFrom(s) {
+      if (!s.series_id) return deleteOne(s.id);
+      const { error } = await db().from('training_sessions').delete().eq('series_id', s.series_id).gte('starts_at', s.starts_at);
       if (error) throw error;
     },
     async setCanceled(id, canceled) {
@@ -167,8 +223,7 @@ export function supabaseCoach(teamId: string): CoachBackend {
       if (error) throw error;
     },
     async deleteSession(id) {
-      const { error } = await db().from('training_sessions').delete().eq('id', id);
-      if (error) throw error;
+      return deleteOne(id);
     },
     async listAnnouncements() {
       const { data, error } = await db()
@@ -199,11 +254,12 @@ export function supabaseCoach(teamId: string): CoachBackend {
     async listAbsences() {
       const { data, error } = await db()
         .from('player_absences')
-        .select('id, player_id, kind, from_date, to_date, session_id, reason, note, minutes_late, reported_by, created_at, players (first_name, last_name)')
+        .select('id, player_id, kind, from_date, to_date, session_id, reason, note, minutes_late, applies_to, reported_by, created_at, players (first_name, last_name)')
         .eq('team_id', teamId)
         .gte('to_date', recentCutoff())
         .order('from_date')
         .limit(200);
+      if (error && isMissing(error)) return legacyAbsences(teamId);
       if (error) throw error;
       const names = await namesFor((data ?? []).map((a) => a.reported_by));
       return (data ?? []).map(({ players, reported_by, ...a }) => {
@@ -212,6 +268,7 @@ export function supabaseCoach(teamId: string): CoachBackend {
           ...a,
           kind: a.kind as AbsenceKind,
           reason: a.reason as AbsenceReason,
+          applies_to: ((a as { applies_to?: string }).applies_to ?? 'all') as AbsenceScope,
           player_name: p ? `${p.first_name} ${p.last_name}`.trim() : 'שחקן',
           reported_by_name: (reported_by && names.get(reported_by)) || '',
         };
@@ -219,9 +276,20 @@ export function supabaseCoach(teamId: string): CoachBackend {
     },
     async reportAbsence(a) {
       const { data: u } = await db().auth.getUser();
-      const { error } = await db()
+      const { applies_to, ...rest } = a;
+      const row: Record<string, unknown> = { ...rest, note: a.note.trim(), team_id: teamId, reported_by: u.user?.id };
+      const first = await db()
         .from('player_absences')
-        .insert({ ...a, note: a.note.trim(), team_id: teamId, reported_by: u.user?.id });
+        .insert(applies_to && applies_to !== 'all' ? { ...row, applies_to } : row)
+        .select('id')
+        .single();
+      if (first.error) throw first.error;
+      return (first.data as { id: string } | null)?.id ?? null;
+    },
+    async updateAbsence(id, a) {
+      const patch: Record<string, unknown> = { ...a };
+      if (typeof a.note === 'string') patch.note = a.note.trim();
+      const { error } = await db().from('player_absences').update(patch).eq('id', id);
       if (error) throw error;
     },
     async deleteAbsence(id) {
@@ -229,6 +297,54 @@ export function supabaseCoach(teamId: string): CoachBackend {
       if (error) throw error;
     },
   };
+}
+
+/** Upcoming trainings of one team that I may see (team, goalkeeper, personal). */
+export async function listTeamSessions(teamId: string): Promise<TrainingSession[]> {
+  const since = new Date();
+  since.setDate(since.getDate() - 1);
+  const query = (cols: string) =>
+    db().from('training_sessions').select(cols).eq('team_id', teamId).gte('starts_at', since.toISOString()).order('starts_at').limit(120);
+  const full = await query('id, starts_at, duration_min, title, location, note, canceled, kind, audience, series_id, private, created_by, training_participants (player_id)');
+  if (!full.error) {
+    return ((full.data ?? []) as unknown as (TrainingSession & { training_participants?: { player_id: string }[] })[]).map(({ training_participants, ...s }) => ({
+      ...s,
+      participants: (training_participants ?? []).map((p) => p.player_id),
+    }));
+  }
+  if (!isMissing(full.error)) throw full.error;
+  const { data, error } = await query('id, starts_at, duration_min, title, location, note, canceled');
+  if (error) throw error;
+  return (data ?? []) as unknown as TrainingSession[];
+}
+
+async function deleteOne(id: string) {
+  const { error } = await db().from('training_sessions').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Before the calendar migration: the same list without applies_to. */
+async function legacyAbsences(teamId: string): Promise<Absence[]> {
+  const { data, error } = await db()
+    .from('player_absences')
+    .select('id, player_id, kind, from_date, to_date, session_id, reason, note, minutes_late, reported_by, created_at, players (first_name, last_name)')
+    .eq('team_id', teamId)
+    .gte('to_date', recentCutoff())
+    .order('from_date')
+    .limit(200);
+  if (error) throw error;
+  const names = await namesFor((data ?? []).map((a) => a.reported_by));
+  return (data ?? []).map(({ players, reported_by, ...a }) => {
+    const p = players as unknown as { first_name: string; last_name: string } | null;
+    return {
+      ...a,
+      kind: a.kind as AbsenceKind,
+      reason: a.reason as AbsenceReason,
+      applies_to: 'all' as AbsenceScope,
+      player_name: p ? `${p.first_name} ${p.last_name}`.trim() : 'שחקן',
+      reported_by_name: (reported_by && names.get(reported_by)) || '',
+    };
+  });
 }
 
 /* ----------------------------------------------------------------- demo */
@@ -320,6 +436,7 @@ function seed(s: DemoSeed): DemoTeam {
       reason: 'school',
       note: 'חוזר מחוג',
       minutes_late: 15,
+      applies_to: 'all',
       reported_by_name: 'הורה',
       created_at: ago(5),
     });
@@ -337,6 +454,7 @@ function seed(s: DemoSeed): DemoTeam {
       reason: 'family_event',
       note: 'חתונה של בן דוד',
       minutes_late: null,
+      applies_to: 'all',
       reported_by_name: 'הורה',
       created_at: ago(30),
     });
@@ -383,6 +501,9 @@ export function demoCoach(key: string, s: DemoSeed, me: { name: string; players:
       t().absences.forEach((a) => a.session_id === id && (a.session_id = null));
       return done();
     },
+    async deleteSeriesFrom(x) {
+      return this.deleteSession(x.id);
+    },
     async listAnnouncements() {
       return [...t().announcements].sort((x, y) => y.created_at.localeCompare(x.created_at));
     },
@@ -406,14 +527,22 @@ export function demoCoach(key: string, s: DemoSeed, me: { name: string; players:
         .sort((x, y) => x.from_date.localeCompare(y.from_date));
     },
     async reportAbsence(a) {
+      const id = uid();
       t().absences.push({
         ...a,
+        applies_to: a.applies_to ?? 'all',
         note: a.note.trim(),
-        id: uid(),
+        id,
         player_name: me.players.get(a.player_id) ?? s.others.find((o) => o.id === a.player_id)?.name ?? 'שחקן',
         reported_by_name: me.name,
         created_at: new Date().toISOString(),
       });
+      await done();
+      return id;
+    },
+    async updateAbsence(id, patch) {
+      const x = t().absences.find((y) => y.id === id);
+      if (x) Object.assign(x, patch);
       return done();
     },
     async deleteAbsence(id) {

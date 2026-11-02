@@ -10,6 +10,7 @@ import { isPlatformAdmin } from '../lib/ifaApi';
 const tools: { icon: IconName; tone: string; title: string; sub: string; href: string }[] = [
   { icon: 'shield', tone: 'lime', title: 'נתוני ההתאחדות', sub: 'ייבוא קבוצות, סגלים ומשחקים, ויומן סנכרונים', href: 'ifa' },
   { icon: 'team', tone: 'blue', title: 'מועדונים', sub: 'ניהול מועדונים, קבוצות ליגה ואקדמיה', href: 'club' },
+  { icon: 'grid', tone: 'lime', title: 'בקשות ומאגר מועדונים', sub: 'אישור מנהלי מועדון, מאגר מועדונים לפי עיר מנתוני ההתאחדות', href: 'clubrequests' },
 ];
 
 export function AdminPanelScreen({ onBack }: { onBack: () => void }) {

@@ -6,7 +6,8 @@
  */
 import { supabase } from './supabase';
 
-export type ClubStatus = 'draft' | 'pending_verification' | 'verified' | 'suspended';
+export type ClubStatus = 'catalog' | 'draft' | 'pending_verification' | 'verified' | 'suspended';
+export type ClubKind = 'club' | 'academy';
 export type ClubRole = 'owner' | 'admin' | 'staff';
 export type ProgramKind = 'league' | 'academy';
 export type TransferKind = 'move' | 'add' | 'end';
@@ -17,6 +18,9 @@ export interface Club {
   city: string;
   status: ClubStatus;
   role: ClubRole;
+  kind?: ClubKind;
+  /** names of the custom club roles the user holds here */
+  roles?: string[];
 }
 
 export interface Program {
@@ -57,6 +61,7 @@ export interface Transfer {
 }
 
 export const clubStatusLabel: Record<ClubStatus, string> = {
+  catalog: 'במאגר, ללא מנהל',
   draft: 'טיוטה',
   pending_verification: 'ממתין לאימות',
   verified: 'מאומת',
@@ -84,20 +89,28 @@ export function clubError(e: unknown): string | null {
   if (msg.includes('only the club owner')) return 'רק בעלי המועדון יכולים להזמין מנהלי מועדון.';
   if (msg.includes('team already has staff')) return 'לקבוצה הזו כבר יש מאמן או מועדון.';
   if (msg.includes('not on the club staff')) return 'אפשר לתת הרשאות רק לאנשי צוות של המועדון.';
+  if (msg.includes('club already exists in this city')) return 'מועדון בשם הזה כבר קיים בעיר. חפשו אותו ברשימה ושלחו בקשה לנהל אותו.';
+  if (msg.includes('pick at least one team')) return 'בחרו לפחות קבוצה אחת בכל מועדון שסימנתם.';
+  if (msg.includes('pick between 1 and 20 clubs')) return 'בחרו בין מועדון אחד ל-20 מועדונים.';
+  if (msg.includes('city is required')) return 'נא למלא עיר.';
+  if (msg.includes('review your own request')) return 'אי אפשר לאשר בקשה של עצמך.';
+  if (msg.includes('not allowed to review')) return 'אין לך הרשאה לאשר בקשות במועדון הזה.';
+  if (msg.includes('not allowed to manage roles')) return 'אין לך הרשאה לנהל תפקידים במועדון הזה.';
+  if (msg.includes('permissions domain') || msg.includes('change this role')) return 'רק בעלי המועדון ומנהליו יכולים לתת או לשנות הרשאת ניהול הרשאות.';
+  if (msg.includes('roles to themselves')) return 'אי אפשר לתת תפקיד לעצמך. בקשו ממנהל המועדון.';
+  if (msg.includes('club_roles_name_idx')) return 'כבר יש תפקיד בשם הזה במועדון.';
+  if (msg.includes('notes for this player') || msg.includes('this note')) return 'אין לך הרשאה להערות המקצועיות של השחקן הזה.';
+  if (msg.includes('player is not in this club')) return 'השחקן לא משויך למועדון הזה.';
   return null;
 }
 
-export async function getMyClubs(userId: string): Promise<Club[]> {
-  const { data, error } = await db()
-    .from('club_staff')
-    .select('role, clubs (id, name, city, status)')
-    .eq('user_id', userId)
-    .order('created_at');
+/** Every club the user works in: owner / admin / staff, coach of a club team, or holder of a club role. */
+export async function getMyClubs(_userId?: string): Promise<Club[]> {
+  const { data, error } = await db().rpc('my_workspaces');
   if (error) throw error;
-  return (data ?? []).flatMap((row) => {
-    const c = row.clubs as unknown as Omit<Club, 'role'> | null;
-    return c ? [{ ...c, role: row.role as ClubRole }] : [];
-  });
+  return ((data ?? []) as { club_id: string; name: string; city: string; status: ClubStatus; kind: ClubKind; club_role: ClubRole; roles: string[] }[]).map(
+    (r) => ({ id: r.club_id, name: r.name, city: r.city, status: r.status, kind: r.kind, role: r.club_role, roles: r.roles ?? [] }),
+  );
 }
 
 export async function createClub(name: string, city: string): Promise<string> {
@@ -308,4 +321,309 @@ export async function acceptClubInvite(code: string): Promise<string> {
 
 export function staffInviteLink(code: string) {
   return `${window.location.origin}${window.location.pathname}#staff/${code}`;
+}
+
+/* ------------------------------------------------- sign-up (spec section 3) */
+
+export interface CityClub {
+  club_id: string;
+  name: string;
+  city: string;
+  kind: ClubKind;
+  status: ClubStatus;
+  ifa_registered: boolean;
+  teams: number;
+  managed: boolean;
+  my_status: 'staff' | 'pending' | null;
+}
+
+export interface SignupTeam {
+  club_id: string;
+  team_id: string;
+  name: string;
+  age_group: string;
+  league: string;
+  program_kind: ProgramKind | null;
+  has_staff: boolean;
+  from_ifa: boolean;
+}
+
+export type AccessKind = 'club_admin' | 'team_staff';
+
+export interface AccessRequest {
+  id: string;
+  club_id: string;
+  club_name: string;
+  club_city: string;
+  club_status: ClubStatus;
+  managed: boolean;
+  user_id: string;
+  requester: string;
+  kind: AccessKind;
+  teams: { id: string; name: string }[];
+  team_role: StaffTeamRole;
+  role_title: string;
+  message: string;
+  contact_phone: string;
+  created_at: string;
+}
+
+export interface MyAccessRequest {
+  id: string;
+  club_id: string;
+  club_name: string;
+  kind: AccessKind;
+  teams: { id: string; name: string }[];
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  review_note: string;
+  created_at: string;
+}
+
+export async function searchClubsByCity(city: string): Promise<CityClub[]> {
+  const { data, error } = await db().rpc('search_clubs_by_city', { p_city: city });
+  if (error) throw error;
+  return (data ?? []) as CityClub[];
+}
+
+export async function signupClubTeams(clubIds: string[]): Promise<SignupTeam[]> {
+  if (clubIds.length === 0) return [];
+  const { data, error } = await db().rpc('signup_club_teams', { p_clubs: clubIds });
+  if (error) throw error;
+  return (data ?? []) as SignupTeam[];
+}
+
+export async function requestClubAccess(input: {
+  clubIds: string[];
+  teamIds: string[];
+  kind: AccessKind;
+  teamRole: StaffTeamRole;
+  roleTitle: string;
+  message: string;
+  phone: string;
+}): Promise<number> {
+  const { data, error } = await db().rpc('request_club_access', {
+    p_clubs: input.clubIds,
+    p_teams: input.teamIds,
+    p_kind: input.kind,
+    p_team_role: input.teamRole,
+    p_role_title: input.roleTitle,
+    p_message: input.message,
+    p_phone: input.phone,
+  });
+  if (error) throw error;
+  return data as number;
+}
+
+export async function myClubAccessRequests(): Promise<MyAccessRequest[]> {
+  const { data, error } = await db().rpc('my_club_access_requests');
+  if (error) throw error;
+  return (data ?? []) as MyAccessRequest[];
+}
+
+export async function cancelClubAccess(id: string) {
+  const { error } = await db().rpc('cancel_club_access', { p_id: id });
+  if (error) throw error;
+}
+
+export async function pendingClubAccessRequests(): Promise<AccessRequest[]> {
+  const { data, error } = await db().rpc('pending_club_access_requests');
+  if (error) throw error;
+  return (data ?? []) as AccessRequest[];
+}
+
+export async function reviewClubAccess(id: string, approve: boolean, note = '') {
+  const { error } = await db().rpc('review_club_access', { p_id: id, p_approve: approve, p_note: note });
+  if (error) throw error;
+}
+
+export async function createClubManual(input: { name: string; city: string; kind: ClubKind; ifaRegistered: boolean }): Promise<string> {
+  const { data, error } = await db().rpc('create_club_manual', {
+    p_name: input.name,
+    p_city: input.city,
+    p_kind: input.kind,
+    p_ifa_registered: input.ifaRegistered,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export interface IfaClubSuggestion {
+  base_name: string;
+  venue_hint: string | null;
+  team_ids: string[];
+  team_names: string[];
+  existing_club: string | null;
+}
+
+export async function ifaClubSuggestions(): Promise<IfaClubSuggestion[]> {
+  const { data, error } = await db().rpc('ifa_club_suggestions');
+  if (error) throw error;
+  return (data ?? []) as IfaClubSuggestion[];
+}
+
+/** Platform admin: put IFA teams into a club (clubId null = new catalog club with no owner). */
+export async function catalogClubTeams(input: { clubId: string | null; name: string; city: string; teamIds: string[]; kind?: ClubKind }) {
+  const { data, error } = await db().rpc('catalog_club_teams', {
+    p_club: input.clubId,
+    p_name: input.name,
+    p_city: input.city,
+    p_team_ids: input.teamIds,
+    p_kind: input.kind ?? 'club',
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+/* ------------------------------------------------- roles (spec section 4) */
+
+export interface ClubRoleDef {
+  id: string;
+  name: string;
+  description: string;
+  is_template: boolean;
+  perms: Record<string, number>;
+  holders: number;
+  sensitive: boolean;
+}
+
+export interface RoleAssignment {
+  id: string;
+  role_id: string;
+  role_name: string;
+  user_id: string;
+  full_name: string;
+  program_id: string | null;
+  team_id: string | null;
+  scope_label: string;
+}
+
+export interface ClubAccess {
+  is_admin: boolean;
+  manage_roles: boolean;
+  domains: Record<string, number | null>;
+}
+
+export async function myClubAccess(clubId: string): Promise<ClubAccess> {
+  const { data, error } = await db().rpc('my_club_access', { p_club: clubId });
+  if (error) throw error;
+  return data as ClubAccess;
+}
+
+export async function listClubRoles(clubId: string): Promise<ClubRoleDef[]> {
+  const { data, error } = await db().rpc('club_roles_list', { p_club: clubId });
+  if (error) throw error;
+  return (data ?? []) as ClubRoleDef[];
+}
+
+export async function listRoleAssignments(clubId: string): Promise<RoleAssignment[]> {
+  const { data, error } = await db().rpc('club_role_assignment_list', { p_club: clubId });
+  if (error) throw error;
+  return (data ?? []) as RoleAssignment[];
+}
+
+export async function saveClubRole(input: { clubId: string; roleId: string | null; name: string; description: string; perms: Record<string, number> }) {
+  const { data, error } = await db().rpc('save_club_role', {
+    p_club: input.clubId,
+    p_role: input.roleId,
+    p_name: input.name,
+    p_description: input.description,
+    p_perms: input.perms,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function archiveClubRole(roleId: string) {
+  const { error } = await db().rpc('archive_club_role', { p_role: roleId });
+  if (error) throw error;
+}
+
+export async function assignClubRole(input: { clubId: string; roleId: string; userId: string; programId?: string | null; teamId?: string | null }) {
+  const { error } = await db().rpc('assign_club_role', {
+    p_club: input.clubId,
+    p_role: input.roleId,
+    p_user: input.userId,
+    p_program: input.programId ?? null,
+    p_team: input.teamId ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function unassignClubRole(assignmentId: string) {
+  const { error } = await db().rpc('unassign_club_role', { p_assignment: assignmentId });
+  if (error) throw error;
+}
+
+export async function createRoleInvite(input: { clubId: string; roleId: string; programId?: string | null; teamId?: string | null }): Promise<string> {
+  const { data, error } = await db().rpc('create_club_role_invite', {
+    p_club: input.clubId,
+    p_role: input.roleId,
+    p_program: input.programId ?? null,
+    p_team: input.teamId ?? null,
+    p_note: '',
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+/* ------------------------------------- confidential coach notes (section 9) */
+
+export type ProNoteKind = 'note' | 'improvement' | 'progress' | 'training_summary' | 'performance';
+
+export const proNoteKindLabel: Record<ProNoteKind, string> = {
+  note: 'הערה מקצועית',
+  improvement: 'נקודה לשיפור',
+  progress: 'הערכת התקדמות',
+  training_summary: 'סיכום אימון',
+  performance: 'ביצועים במשחק',
+};
+
+export interface ProNote {
+  id: string;
+  team_id: string | null;
+  kind: ProNoteKind;
+  body: string;
+  author_id: string | null;
+  author_name: string;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export async function proNotesLevel(clubId: string, playerId: string): Promise<number> {
+  const { data, error } = await db().rpc('pro_notes_level', { p_club: clubId, p_player: playerId });
+  if (error) throw error;
+  return (data as number) ?? 0;
+}
+
+export async function listProNotes(clubId: string, playerId: string): Promise<ProNote[]> {
+  const { data, error } = await db()
+    .from('player_pro_notes')
+    .select('id, team_id, kind, body, author_id, author_name, created_at, updated_at')
+    .eq('club_id', clubId)
+    .eq('player_id', playerId)
+    .is('archived_at', null)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ProNote[];
+}
+
+export async function addProNote(input: { clubId: string; playerId: string; kind: ProNoteKind; body: string; teamId?: string | null }) {
+  const { error } = await db().rpc('add_pro_note', {
+    p_club: input.clubId,
+    p_player: input.playerId,
+    p_kind: input.kind,
+    p_body: input.body,
+    p_team: input.teamId ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function updateProNote(id: string, kind: ProNoteKind, body: string) {
+  const { error } = await db().rpc('update_pro_note', { p_id: id, p_kind: kind, p_body: body });
+  if (error) throw error;
+}
+
+export async function archiveProNote(id: string) {
+  const { error } = await db().rpc('archive_pro_note', { p_id: id });
+  if (error) throw error;
 }

@@ -30,7 +30,8 @@ import {
   type FitnessTestType,
 } from '../lib/careerApi';
 import { NoTeam, useMyKids } from './RealScreens';
-import { BodySection, MedicalSection, ProfileSection } from './CareerProfile';
+import { MedicalSection, ProfileSection } from './CareerProfile';
+import { DevelopmentSection } from './DevelopmentSection';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
@@ -160,7 +161,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
       {career.assessments !== null && (
         <Athletic career={career} onAdd={setSheet} onChanged={load} />
       )}
-      <BodySection career={career} onChanged={load} />
+      <DevelopmentSection playerId={p.id} name={p.first_name} />
       <MedicalSection career={career} onChanged={load} />
       <Highlights career={career} isBasket={isBasket} />
 

@@ -428,7 +428,7 @@ export function liveError(e: unknown): string | null {
 }
 
 /* ------------------------------------------------- live session (spec 16-17)
- * Server side: supabase/migrations/20261102400000_live_match_session.sql
+ * Server side: supabase/migrations/20261102600000_live_match_session.sql
  */
 
 export type LiveStatus = 'not_started' | 'running' | 'break' | 'finished';

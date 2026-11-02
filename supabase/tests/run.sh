@@ -64,12 +64,37 @@ echo "== family members tests (with inbox notifications installed; applied here 
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
 echo "== live match tests"
-run supabase/migrations/20261102400000_live_match_session.sql
+run supabase/migrations/20261102600000_live_match_session.sql
 run supabase/tests/test_live_match.sql
 echo "== rollback live match, re-apply"
-run supabase/rollback/20261102400000_live_match_session.down.sql
+run supabase/rollback/20261102600000_live_match_session.down.sql
 psql -q -d $DB -tc "select 'after live rollback: ' || count(*) || ' reports kept' from match_reports"
-run supabase/migrations/20261102400000_live_match_session.sql
+run supabase/migrations/20261102600000_live_match_session.sql
+echo "== body metrics, goals and nutrition (parent-only)"
+run supabase/migrations/20261101985000_player_career.sql
+run supabase/tests/test_body_private.sql
+echo "== rollback body metrics, goals and nutrition"
+run supabase/rollback/20261102500000_body_goals_nutrition.down.sql
+psql -q -d $DB -tc "select 'after body rollback: ' || count(*) || ' goals, ' || (select count(*) from player_measurements) || ' measurements kept' from child_goals"
+run supabase/migrations/20261102500000_body_goals_nutrition.sql
+run supabase/rollback/20261102500000_body_goals_nutrition.down.sql
+run supabase/rollback/20261101985000_player_career.down.sql
+echo "== club sign-up, custom roles and coach notes"
+run supabase/migrations/20261102400000_club_signup_roles_notes.sql
+run supabase/tests/test_club_signup_roles_notes.sql
+echo "== unified calendar, absences and medical documents"
+run supabase/migrations/20261101985000_player_career.sql
+run supabase/migrations/20261102500000_calendar_absences.sql
+run supabase/tests/test_calendar.sql
+echo "== rollback unified calendar (and re-apply / roll back again: idempotent)"
+run supabase/rollback/20261102500000_calendar_absences.down.sql
+run supabase/migrations/20261102500000_calendar_absences.sql
+run supabase/rollback/20261102500000_calendar_absences.down.sql
+psql -q -d $DB -tc "select 'after calendar rollback: ' || count(*) || ' trainings kept, ' || (select count(*) from training_participants) || ' participants kept' from training_sessions"
+echo "== rollback club sign-up, roles and notes (keeps data; tables dropped here so the older rollbacks below can run)"
+run supabase/rollback/20261102400000_club_signup_roles_notes.down.sql
+psql -q -d $DB -c "select 'kept after rollback: ' || (select count(*) from club_roles) || ' roles, ' || (select count(*) from player_pro_notes) || ' notes'"
+psql -q -d $DB -c "alter table club_invites drop column role_id, drop column role_program_id, drop column role_team_id" -c "drop table player_pro_notes, club_role_assignments, club_role_permissions, club_roles, club_access_requests" -c "delete from permission_grants where domain in ('permissions','pro_notes','camps')" -c "delete from permission_domains where domain in ('permissions','pro_notes','camps')"
 echo "== rollback IFA agent games"
 run supabase/rollback/20261102300000_ifa_agent_games.down.sql
 echo "== rollback coach overrides"
@@ -87,7 +112,7 @@ run supabase/rollback/20261101996000_family_members.down.sql
 run supabase/rollback/20261101995000_inbox_notifications.down.sql
 echo "== rollback team fund, match events, rides"
 run supabase/rollback/20261101990000_team_fund.down.sql
-run supabase/rollback/20261102400000_live_match_session.down.sql
+run supabase/rollback/20261102600000_live_match_session.down.sql
 run supabase/rollback/20261101971000_match_events.down.sql
 run supabase/rollback/20261101970000_rides.down.sql
 # the match-events rollback keeps its table and read policy (uses can()); drop the policy so the M3 rollback below can run

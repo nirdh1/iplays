@@ -1,4 +1,4 @@
--- Rollback of 20261102400000_live_match_session.sql.
+-- Rollback of 20261102600000_live_match_session.sql.
 -- Keeps every row: match_live, match_reporter_queue, match_reports and the new
 -- match_events columns stay (running the migration again picks them up). The
 -- wider match_events.kind list (cards) also stays, so recorded cards remain

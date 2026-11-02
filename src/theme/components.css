@@ -2658,6 +2658,25 @@ select.ip-input {
   border: 1px solid var(--ip-border);
 }
 
+/* unified calendar */
+.ip-agenda-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+  max-width: 55%;
+}
+.ip-clash-banner {
+  border: 1px solid var(--ip-warning, #f5a524);
+  background: var(--ip-warning-soft, #fff6e5);
+}
+.ip-clash-banner p {
+  margin: 0;
+}
+.ip-att-stats {
+  margin-top: var(--ip-s3);
+}
+
 /* coach overrides on IFA games (MatchOverrides.tsx) */
 .ip-conflict { border: 2px solid var(--ip-warning, #f5a524); display: flex; flex-direction: column; gap: 8px; }
 .ip-conflict p { margin: 0; }
@@ -2665,3 +2684,53 @@ select.ip-input {
 .ip-conflict-versions > span { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--ip-bg, #F4F7FB); }
 .ip-override-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .ip-override-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.9rem; }
+
+/* League table (real IFA results) */
+.ip-table--league td:nth-child(n + 3),
+.ip-table--league th:nth-child(n + 3) {
+  width: 44px;
+  padding-inline: var(--ip-s2);
+}
+.ip-table--league td:nth-child(2) {
+  overflow-wrap: anywhere;
+}
+.ip-league-us {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+  padding: var(--ip-s4);
+}
+.ip-league-pos {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--ip-navy, #0b1f3b);
+  color: var(--ip-lime, #7cf23d);
+  font-size: var(--ip-fs-lg, 20px);
+  flex: none;
+}
+.ip-league-form {
+  display: inline-flex;
+  gap: 3px;
+  flex: none;
+}
+.ip-league-form-dot {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+.ip-league-form-dot.is-W { background: #22a35a; }
+.ip-league-form-dot.is-D { background: #8a94a6; }
+.ip-league-form-dot.is-L { background: #d64545; }
+.ip-league-note,
+.ip-league-empty {
+  padding: var(--ip-s3) var(--ip-s4);
+  font-size: var(--ip-fs-xs);
+}
