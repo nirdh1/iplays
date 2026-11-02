@@ -54,6 +54,15 @@ run supabase/tests/test_team_ifa_link.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== unified calendar, absences and medical documents"
+run supabase/migrations/20261101985000_player_career.sql
+run supabase/migrations/20261102100000_calendar_absences.sql
+run supabase/tests/test_calendar.sql
+echo "== rollback unified calendar (and re-apply / roll back again: idempotent)"
+run supabase/rollback/20261102100000_calendar_absences.down.sql
+run supabase/migrations/20261102100000_calendar_absences.sql
+run supabase/rollback/20261102100000_calendar_absences.down.sql
+psql -q -d $DB -tc "select 'after calendar rollback: ' || count(*) || ' trainings kept, ' || (select count(*) from training_participants) || ' participants kept' from training_sessions"
 echo "== rollback team page IFA link"
 run supabase/rollback/20261101999000_team_ifa_link.down.sql
 echo "== rollback IFA local agent"
