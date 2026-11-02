@@ -73,6 +73,11 @@ run supabase/migrations/20261102720000_smarter_search.sql
 echo "== family members tests (with inbox notifications installed; applied here because their triggers change the IFA notification counts above)"
 run supabase/migrations/20261101995000_inbox_notifications.sql
 run supabase/tests/test_family.sql
+echo "== guardian removal tests"
+run supabase/migrations/20261103000000_guardian_removal.sql
+run supabase/tests/test_guardian_removal.sql
+run supabase/rollback/20261103000000_guardian_removal.down.sql
+run supabase/migrations/20261103000000_guardian_removal.sql
 echo "== live match tests"
 run supabase/migrations/20261102600000_live_match_session.sql
 run supabase/tests/test_live_match.sql
@@ -101,6 +106,12 @@ run supabase/rollback/20261102500000_calendar_absences.down.sql
 run supabase/migrations/20261102500000_calendar_absences.sql
 run supabase/rollback/20261102500000_calendar_absences.down.sql
 psql -q -d $DB -tc "select 'after calendar rollback: ' || count(*) || ' trainings kept, ' || (select count(*) from training_participants) || ' participants kept' from training_sessions"
+echo "== self-reported goals and assists (career)"
+run supabase/migrations/20261102800000_player_self_stats.sql
+run supabase/tests/test_self_stats.sql
+run supabase/rollback/20261102800000_player_self_stats.down.sql
+run supabase/migrations/20261102800000_player_self_stats.sql
+run supabase/rollback/20261102800000_player_self_stats.down.sql
 echo "== rollback club sign-up, roles and notes (keeps data; tables dropped here so the older rollbacks below can run)"
 run supabase/rollback/20261102400000_club_signup_roles_notes.down.sql
 psql -q -d $DB -c "select 'kept after rollback: ' || (select count(*) from club_roles) || ' roles, ' || (select count(*) from player_pro_notes) || ' notes'"
