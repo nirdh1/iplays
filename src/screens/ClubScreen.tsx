@@ -34,11 +34,13 @@ import {
 } from '../lib/clubApi';
 import { ClubDashboard } from './ClubDashboard';
 import { ClubStaffSection } from './ClubStaffSection';
+import { ClubFinanceSection } from './ClubFinanceSection';
+import { ClubActivitiesSection } from './ClubActivitiesSection';
 import '../theme/club.css';
 
 const errText = (e: unknown) => clubError(e) ?? friendlyError(e);
 
-type Tab = 'overview' | 'teams' | 'players' | 'transfers' | 'staff';
+type Tab = 'overview' | 'teams' | 'players' | 'transfers' | 'staff' | 'finance' | 'activities';
 
 interface ClubPlayer {
   id: string;
@@ -241,6 +243,8 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
           { id: 'players', label: 'שחקנים' },
           { id: 'transfers', label: 'מעברים' },
           ...(manage ? [{ id: 'staff' as const, label: 'צוות' }] : []),
+          { id: 'finance', label: 'כספים' },
+          { id: 'activities', label: 'מחנות' },
         ]}
       />
 
@@ -346,6 +350,10 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
         </section>
       ) : tab === 'staff' ? (
         <ClubStaffSection club={club} data={data} />
+      ) : tab === 'finance' ? (
+        <ClubFinanceSection clubId={club.id} clubName={club.name} data={data} />
+      ) : tab === 'activities' ? (
+        <ClubActivitiesSection clubId={club.id} />
       ) : (
         <section className="ip-stack">
           <SectionHeader title="היסטוריית מעברים" icon="arrow" />
