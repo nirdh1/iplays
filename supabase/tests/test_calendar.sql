@@ -39,7 +39,8 @@ $$;
 \set K3 '''20000000-0000-0000-0000-0000000000c3'''
 
 select pg_temp.as_user(null);
-insert into auth.users (id, email) values (:COACH, 'coach@cal'), (:TM, 'tm@cal'), (:MOM, 'mom@cal'), (:DAD, 'dad@cal'), (:OUT, 'out@cal'), (:STR, 'str@cal');
+insert into auth.users (id, email) values (:COACH, 'coach@cal'), (:TM, 'tm@cal'), (:MOM, 'mom@cal'), (:DAD, 'dad@cal'), (:OUT, 'out@cal'), (:STR, 'str@cal')
+  on conflict (id) do nothing; -- c1 also exists as the club owner from test_body_private.sql
 insert into teams (id, name, club, sport, created_by) values (:CT, 'יומן FC', 'בדיקה', 'football', :COACH);
 insert into team_members (team_id, user_id, role) values
   (:CT, :COACH, 'coach'), (:CT, :TM, 'team_manager'), (:CT, :MOM, 'parent'), (:CT, :DAD, 'parent'), (:CT, :OUT, 'parent')

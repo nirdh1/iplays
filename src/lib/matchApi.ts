@@ -311,8 +311,13 @@ export async function attendanceSummary(teamId: string, from: string, to: string
 
 export type Side = 'home' | 'away';
 
+export type EventKind2 = 'goal' | 'yellow' | 'red';
+
 export interface MatchEvent {
   id: string;
+  kind?: EventKind2;
+  period?: number | null;
+  clock_seconds?: number | null;
   side: Side;
   points: number;
   shirt_number: number | null;
@@ -338,10 +343,11 @@ export function matchIsLive(m: Pick<Match, 'starts_at' | 'status' | 'time_confir
 }
 
 /** Our goals / their goals from a list of reports. */
-export function liveScore(events: Pick<MatchEvent, 'side' | 'points'>[], home: boolean) {
+export function liveScore(events: Pick<MatchEvent, 'side' | 'points' | 'kind'>[], home: boolean) {
   let h = 0;
   let a = 0;
   for (const e of events) {
+    if (e.kind && e.kind !== 'goal') continue;
     if (e.side === 'home') h += e.points;
     else a += e.points;
   }
@@ -362,7 +368,7 @@ export async function getMatchEvents(matchId: string): Promise<MatchEvent[]> {
 
 /** Live totals per match of one team (for lists), from the reports. */
 export async function getTeamLiveScores(teamId: string): Promise<Map<string, { home: number; away: number }>> {
-  const { data, error } = await db().from('match_events').select('match_id, side, points').eq('team_id', teamId).is('deleted_at', null);
+  const { data, error } = await db().from('match_events').select('match_id, side, points').eq('team_id', teamId).eq('kind', 'goal').is('deleted_at', null);
   const out = new Map<string, { home: number; away: number }>();
   if (error) return out;
   for (const r of (data ?? []) as { match_id: string; side: Side; points: number }[]) {
@@ -389,14 +395,15 @@ export async function removeMatchEvent(eventId: string) {
   if (error) throw error;
 }
 
-/** Calls onChange whenever a report of this match is added, changed or removed (Supabase Realtime). */
+/** Calls onChange whenever anything live about this match changes: events, pending reports, clock, reporter (Supabase Realtime). */
 export function subscribeMatchEvents(matchId: string, onChange: () => void): () => void {
   if (!supabase) return () => {};
   const client = supabase;
-  const ch = client
-    .channel(`match-events-${matchId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_events', filter: `match_id=eq.${matchId}` }, () => onChange())
-    .subscribe();
+  let ch = client.channel(`match-live-${matchId}`);
+  for (const table of ['match_events', 'match_reports', 'match_live', 'match_reporter_queue']) {
+    ch = ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `match_id=eq.${matchId}` }, () => onChange());
+  }
+  ch.subscribe();
   return () => {
     void client.removeChannel(ch);
   };
@@ -407,9 +414,120 @@ export function liveError(e: unknown): string | null {
   if (msg.includes('match not live')) return 'אפשר לדווח רק סביב מועד המשחק (משעתיים לפני ועד יום אחרי).';
   if (msg.includes('match canceled')) return 'המשחק בוטל.';
   if (msg.includes('too many reports')) return 'יותר מדי דיווחים למשחק הזה.';
-  if (msg.includes('report not found')) return 'הדיווח כבר הוסר.';
-  if (msg.includes('report_match_goal') || msg.includes('match_events')) return 'הדיווח בזמן אמת עוד לא הופעל בשרת (צריך להריץ את קובץ ה־SQL).';
+  if (msg.includes('report not found')) return 'הדיווח כבר טופל או הוסר.';
+  if (msg.includes('reporter taken')) return 'מישהו אחר כבר מדווח. אפשר להצטרף לתור.';
+  if (msg.includes('offer pending')) return 'התפקיד הוצע כרגע להורה אחר בתור. אפשר להצטרף לתור.';
+  if (msg.includes('offer expired')) return 'עברו 60 השניות והתפקיד עבר להורה הבא בתור.';
+  if (msg.includes('not the reporter')) return 'רק המדווח/ת הראשי/ת יכול/ה לעשות את זה.';
+  if (msg.includes('already final')) return 'התוצאה הסופית כבר אושרה. תיקון: דרך המאמן.';
+  if (msg.includes('finish the match first')) return 'קודם מסיימים את המשחק.';
+  if (msg.includes('clock action not possible')) return 'השעון כבר עודכן ממכשיר אחר.';
+  if (msg.includes('choose the team')) return 'צריך לבחור לאיזו קבוצה.';
+  if (/submit_match_report|match_live_state|report_match_goal|match_events/.test(msg)) return 'הדיווח בזמן אמת עוד לא הופעל בשרת (צריך להריץ את קובץ ה־SQL).';
   return null;
+}
+
+/* ------------------------------------------------- live session (spec 16-17)
+ * Server side: supabase/migrations/20261102600000_live_match_session.sql
+ */
+
+export type LiveStatus = 'not_started' | 'running' | 'break' | 'finished';
+
+export interface LiveState {
+  status: LiveStatus;
+  period: number;
+  /** game clock in seconds, computed on the server when this was read */
+  clock_seconds: number;
+  running: boolean;
+  server_now: string;
+  reporter_id?: string | null;
+  reporter_label?: string | null;
+  offer_to?: string | null;
+  offer_label?: string | null;
+  offer_seconds_left?: number | null;
+  queue: { user_id: string; label: string }[];
+  final_home?: number | null;
+  final_away?: number | null;
+  finalized_at?: string | null;
+  staff: boolean;
+}
+
+export interface PendingReport {
+  id: string;
+  kind: EventKind2;
+  side: Side | null;
+  points: number;
+  shirt_number: number | null;
+  player_id: string | null;
+  scorer_name: string | null;
+  minute: number | null;
+  confirmations: number;
+  created_at: string;
+  created_by: string | null;
+  reporter_name: string | null;
+}
+
+/** null: the session part is not installed yet (PR #21 behaviour only). */
+export async function getLiveState(matchId: string): Promise<LiveState | null> {
+  const { data, error } = await db().rpc('match_live_state', { p_match: matchId });
+  if (error) {
+    if (liveMissing(error) || /match_live_state/.test(error.message ?? '')) return null;
+    throw error;
+  }
+  return (data ?? null) as LiveState | null;
+}
+
+export async function getPendingReports(matchId: string): Promise<PendingReport[]> {
+  const { data, error } = await db().rpc('match_reports_feed', { p_match: matchId });
+  if (error) return [];
+  return (data ?? []) as PendingReport[];
+}
+
+export async function submitReport(
+  matchId: string,
+  r: { kind?: EventKind2; side?: Side | null; shirt?: number | null; points?: number; name?: string | null },
+): Promise<{ applied: boolean; id: string; merged: boolean }> {
+  const { data, error } = await db().rpc('submit_match_report', {
+    p_match: matchId,
+    p_kind: r.kind ?? 'goal',
+    p_side: r.side ?? null,
+    p_shirt: r.shirt ?? null,
+    p_points: r.points ?? 1,
+    p_name: r.name ?? null,
+  });
+  if (error) throw error;
+  return data as { applied: boolean; id: string; merged: boolean };
+}
+
+export async function updateReport(reportId: string, side: Side | null, shirt: number | null, name?: string | null) {
+  const { error } = await db().rpc('update_match_report', { p_report: reportId, p_side: side, p_shirt: shirt, p_name: name ?? null });
+  if (error) throw error;
+}
+
+export async function reviewReport(reportId: string, approve: boolean, side?: Side | null) {
+  const { error } = await db().rpc('review_match_report', { p_report: reportId, p_approve: approve, p_side: side ?? null, p_shirt: null, p_points: null });
+  if (error) throw error;
+}
+
+async function liveRpc(fn: string, args: Record<string, unknown>) {
+  const { error } = await db().rpc(fn, args);
+  if (error) throw error;
+}
+
+export const claimReporter = (matchId: string, force = false) => liveRpc('claim_match_reporter', { p_match: matchId, p_force: force });
+export const joinReporterQueue = (matchId: string) => liveRpc('join_reporter_queue', { p_match: matchId });
+export const leaveReporterQueue = (matchId: string) => liveRpc('leave_reporter_queue', { p_match: matchId });
+export const releaseReporter = (matchId: string) => liveRpc('release_match_reporter', { p_match: matchId });
+export const answerReporterOffer = (matchId: string, accept: boolean) => liveRpc('answer_reporter_offer', { p_match: matchId, p_accept: accept });
+export const matchClock = (matchId: string, action: 'start' | 'end_period' | 'start_period' | 'finish' | 'reopen') =>
+  liveRpc('match_clock', { p_match: matchId, p_action: action });
+export const finalizeResult = (matchId: string, home: number, away: number) =>
+  liveRpc('finalize_match_result', { p_match: matchId, p_home: home, p_away: away });
+
+/** "12:05" from seconds. */
+export function clockLabel(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 /* ---------------------------------------------- coach overrides on IFA games */
