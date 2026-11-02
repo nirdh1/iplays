@@ -202,6 +202,26 @@ export async function findPlayers(query: string, birthYear?: number | null): Pro
   return (data ?? []) as FoundPlayer[];
 }
 
+/** find_teams(): supabase/migrations/20261102720000_smarter_search.sql */
+export interface FoundTeam extends TeamHit {
+  /** estimated from the age group, only when the team has no exact birth years */
+  birth_year_est: number | null;
+}
+
+/** "נערים א׳ · שנתון 2010 (משוער)", "שנתון 2012", or null */
+export function teamYearLabel(t: FoundTeam): string | null {
+  const exact = birthYearsLabel(t.birth_year_from, t.birth_year_to);
+  const year = exact ?? (t.birth_year_est ? `שנתון ${t.birth_year_est} (משוער)` : null);
+  return [t.age_group && !t.name.includes(t.age_group) ? t.age_group : null, year].filter(Boolean).join(' · ') || null;
+}
+
+/** Words in any order, ת"א = תל אביב etc., a year in the text filters by birth year. */
+export async function findTeams(query: string, birthYear?: number | null, sport?: string | null): Promise<FoundTeam[]> {
+  const { data, error } = await db().rpc('find_teams', { p_query: query, p_birth_year: birthYear ?? null, p_sport: sport ?? null });
+  if (error) throw error;
+  return (data ?? []) as FoundTeam[];
+}
+
 export async function searchTeams(query: string, birthYear?: number | null, sport?: string | null): Promise<TeamHit[]> {
   const { data, error } = await db().rpc('search_teams', { p_query: query, p_birth_year: birthYear ?? null, p_sport: sport ?? null });
   if (error) throw error;

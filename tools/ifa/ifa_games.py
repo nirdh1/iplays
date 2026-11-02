@@ -112,9 +112,11 @@ def to_payload(games_page, league_page=None, source_url=''):
             unmatched.append({'date': r.get('תאריך'), 'home': home, 'away': away,
                               'missing': [n for n, i in ((home, hid), (away, aid)) if i is None]})
             continue
-        key = (hid, aid)
+        # a pairing can meet more than once (3-round leagues); the same
+        # pairing twice on the same date is a page problem
+        key = (hid, aid, r.get('תאריך'))
         if key in seen:
-            problems.append({'row': r, 'error': 'same home/away pairing twice on the page'})
+            problems.append({'row': r, 'error': 'same home/away pairing twice on the same date'})
             continue
         seen.add(key)
         res = r.get('תוצאה', '')
@@ -128,8 +130,9 @@ def to_payload(games_page, league_page=None, source_url=''):
             'venue': r.get('אצטדיון', ''),
             'status': 'played' if res else 'scheduled',
             'result_raw': res,
-            'home_score': int(sm.group(1)) if sm else None,
-            'away_score': int(sm.group(2)) if sm else None,
+            # the IFA writes the result AWAY-HOME ("1-7" = home 7, away 1)
+            'home_score': int(sm.group(2)) if sm else None,
+            'away_score': int(sm.group(1)) if sm else None,
         })
     return payload, {'rows': len(game_rows(games_page)), 'games': len(payload['games']),
                      'with_ifa_id': sum(1 for g in payload['games'] if g['ifa_game_id'] != '-1'),

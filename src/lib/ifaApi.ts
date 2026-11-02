@@ -308,8 +308,9 @@ export function parseGamesHtml(gamesHtml: string, leagueHtml?: string): ParsedGa
       venue: cols['אצטדיון'] ?? '',
       status: res ? 'played' : 'scheduled',
       result_raw: res,
-      home_score: sm ? Number(sm[1]) : null,
-      away_score: sm ? Number(sm[2]) : null,
+      // the IFA writes the result AWAY-HOME ("1-7" = home 7, away 1)
+      home_score: sm ? Number(sm[2]) : null,
+      away_score: sm ? Number(sm[1]) : null,
     });
   });
   return out;
