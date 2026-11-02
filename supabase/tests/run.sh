@@ -57,6 +57,11 @@ run supabase/tests/test_ifa_roster_review.sql
 echo "== coach overrides on IFA games"
 run supabase/migrations/20261102200000_match_overrides.sql
 run supabase/tests/test_match_overrides.sql
+echo "== load a game schedule from a file"
+run supabase/migrations/20261103100000_schedule_import.sql
+run supabase/tests/test_schedule_import.sql
+run supabase/rollback/20261103100000_schedule_import.down.sql
+run supabase/migrations/20261103100000_schedule_import.sql
 echo "== IFA agent sends games"
 run supabase/migrations/20261102300000_ifa_agent_games.sql
 run supabase/tests/test_ifa_agent_games.sql
