@@ -47,6 +47,7 @@ import { slotLabel, sportProfile, type SportProfile } from '../lib/sports';
 import { AttendanceSheet } from './AttendanceSheet';
 import { LiveMatch } from './LiveMatch';
 import '../theme/club.css';
+import { IfaMatchOverrides } from './MatchOverrides';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' });
@@ -412,7 +413,7 @@ function MatchDetail({
       {staff && (
         <Card>
           {match.source === 'ifa' ? (
-            <p className="ip-muted">מועד, מגרש ותוצאה מתעדכנים אוטומטית מאתר ההתאחדות.</p>
+            <IfaMatchOverrides match={match} onChanged={onChanged} />
           ) : (
           <form
             className="ip-match-score-form"

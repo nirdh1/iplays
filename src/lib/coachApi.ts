@@ -33,7 +33,7 @@ export interface TrainingSession {
   location: string;
   note: string;
   canceled: boolean;
-  /** set once the calendar migration (20261102100000) is installed */
+  /** set once the calendar migration (20261102500000) is installed */
   kind?: TrainingKind;
   audience?: TrainingAudience;
   series_id?: string | null;

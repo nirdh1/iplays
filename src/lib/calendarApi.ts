@@ -1,7 +1,7 @@
 /**
  * Unified calendar helpers: personal / goalkeeper trainings, medical
  * documents for absences, attendance reports and conflict detection.
- * Server side: supabase/migrations/20261102100000_calendar_absences.sql
+ * Server side: supabase/migrations/20261102500000_calendar_absences.sql
  */
 import { supabase } from './supabase';
 import { isMissing, type AbsenceReason, type TrainingAudience, type TrainingKind } from './coachApi';

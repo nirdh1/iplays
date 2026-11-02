@@ -124,6 +124,106 @@
   font-size: var(--ip-fs-xs);
 }
 
+/* Club sign-up, roles, coach notes (ClubSignup, ClubRolesSection, ProNotesSheet, ClubRequestsScreen) */
+.ip-club-search {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ip-s2);
+}
+.ip-club-search > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ip-club-search > .ip-btn {
+  flex: none;
+}
+.ip-club-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ip-s3);
+  padding: var(--ip-s3) var(--ip-s4);
+  cursor: pointer;
+}
+.ip-club-pick + .ip-club-pick {
+  border-top: 1px solid var(--ip-line, rgba(11, 31, 59, 0.08));
+}
+.ip-club-pick input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--ip-navy);
+}
+.ip-club-pick.is-disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+.ip-club-pick--small {
+  padding: var(--ip-s2);
+  border: 1px solid var(--ip-line, rgba(11, 31, 59, 0.12));
+  border-radius: 12px;
+}
+.ip-club-pick--small + .ip-club-pick--small {
+  border-top: 1px solid var(--ip-line, rgba(11, 31, 59, 0.12));
+}
+.ip-club-teamgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--ip-s2);
+  margin-top: var(--ip-s2);
+}
+.ip-club-role + .ip-club-role {
+  border-top: 1px solid var(--ip-line, rgba(11, 31, 59, 0.08));
+}
+.ip-club-holders {
+  padding: 0 var(--ip-s4) var(--ip-s2);
+  font-size: var(--ip-fs-xs);
+}
+.ip-club-perms {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ip-club-perm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ip-s2);
+}
+.ip-club-perm > span {
+  min-width: 0;
+}
+.ip-club-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+}
+.ip-club-notes li {
+  padding: var(--ip-s3);
+  border-radius: 12px;
+  background: var(--ip-surface-2, #f8fafd);
+}
+.ip-club-note-body {
+  margin: 6px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ip-club-request .ip-list-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ip-success {
+  padding: var(--ip-s3);
+  border-radius: 12px;
+  background: var(--ip-lime-100, #ebfddf);
+  color: var(--ip-navy);
+  font-weight: 600;
+}
+
 /* Search, team page, join requests, kit (FindScreen, TeamPageScreen, ChildDetailsSheet) */
 .ip-find-actions {
   display: flex;

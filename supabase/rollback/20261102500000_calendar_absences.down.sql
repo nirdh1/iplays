@@ -1,4 +1,4 @@
--- Rollback of 20261102100000_calendar_absences.sql.
+-- Rollback of 20261102500000_calendar_absences.sql.
 --
 -- Restores the previous attendance, career and notification functions and
 -- the earlier training policies, and removes the new RPCs. Keeps every

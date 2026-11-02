@@ -1,9 +1,9 @@
 -- iplays — unified calendar, personal / goalkeeper trainings, absences by
 -- activity type, medical documents and attendance reports.
 --
--- Run after 20261101999000_team_ifa_link.sql (needs the inbox, family
+-- Run after 20261102400000_club_signup_roles_notes.sql (needs the inbox, family
 -- members and player career migrations, which are all installed).
--- Rollback: supabase/rollback/20261102100000_calendar_absences.down.sql
+-- Rollback: supabase/rollback/20261102500000_calendar_absences.down.sql
 -- Additive only: new columns get defaults, nothing is deleted.
 --
 -- Trainings (training_sessions) get a type and an audience:

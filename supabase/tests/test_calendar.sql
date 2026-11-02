@@ -1,6 +1,6 @@
 -- Unified calendar, personal / goalkeeper trainings, absences by activity
 -- type, medical documents and attendance reports.
--- Runs after 20261102100000_calendar_absences.sql (self-contained data).
+-- Runs after 20261102500000_calendar_absences.sql (self-contained data).
 \set ON_ERROR_STOP on
 
 create or replace function pg_temp.as_user(p uuid) returns void language plpgsql as $$
