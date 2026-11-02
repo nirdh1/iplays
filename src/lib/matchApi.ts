@@ -427,8 +427,9 @@ export function liveError(e: unknown): string | null {
   return null;
 }
 
+<<<<<<< HEAD
 /* ------------------------------------------------- live session (spec 16-17)
- * Server side: supabase/migrations/20261102100000_live_match_session.sql
+ * Server side: supabase/migrations/20261102400000_live_match_session.sql
  */
 
 export type LiveStatus = 'not_started' | 'running' | 'break' | 'finished';
@@ -528,4 +529,88 @@ export const finalizeResult = (matchId: string, home: number, away: number) =>
 export function clockLabel(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+=======
+/* ---------------------------------------------- coach overrides on IFA games */
+// supabase/migrations/20261102200000_match_overrides.sql: staff can set their own
+// value for one field of an IFA game; it wins over the IFA until they release it.
+// A later, different IFA value is a conflict they resolve.
+
+export type OverrideField = 'starts_at' | 'venue' | 'status' | 'score';
+
+export interface MatchOverride {
+  match_id: string;
+  field: OverrideField;
+  value: unknown;
+  ifa_value: unknown;
+  conflict_ifa_value: unknown;
+  conflict_at: string | null;
+}
+
+export interface MatchConflict {
+  match_id: string;
+  team_id: string;
+  team_name: string;
+  opponent: string;
+  starts_at: string;
+  field: OverrideField;
+  mine: unknown;
+  ifa: unknown;
+  conflict_at: string;
+}
+
+/** Active overrides of one match (staff only; empty if the SQL is not installed yet). */
+export async function getMatchOverrides(matchId: string): Promise<MatchOverride[]> {
+  const { data, error } = await db()
+    .from('team_match_overrides')
+    .select('match_id, field, value, ifa_value, conflict_ifa_value, conflict_at')
+    .eq('match_id', matchId)
+    .eq('status', 'active');
+  if (error) return [];
+  return (data ?? []) as MatchOverride[];
+}
+
+export async function setMatchOverride(matchId: string, field: OverrideField, value: unknown) {
+  const { error } = await db().rpc('set_match_override', { p_match: matchId, p_field: field, p_value: value });
+  if (error) throw error;
+}
+
+export async function releaseMatchOverride(matchId: string, field: OverrideField) {
+  const { error } = await db().rpc('release_match_override', { p_match: matchId, p_field: field });
+  if (error) throw error;
+}
+
+export async function resolveMatchConflict(matchId: string, field: OverrideField, keepMine: boolean) {
+  const { error } = await db().rpc('resolve_match_conflict', { p_match: matchId, p_field: field, p_keep_mine: keepMine });
+  if (error) throw error;
+}
+
+export async function myMatchConflicts(): Promise<MatchConflict[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('my_match_conflicts');
+  if (error) return [];
+  return (data ?? []) as MatchConflict[];
+}
+
+export const OVERRIDE_FIELD_LABEL: Record<OverrideField, string> = {
+  starts_at: 'מועד',
+  venue: 'מגרש',
+  status: 'סטטוס',
+  score: 'תוצאה',
+};
+
+/** A stored override value as text, e.g. "12/12 · 10:00", "3 : 1". */
+export function overrideValueLabel(field: OverrideField, v: unknown): string {
+  if (v == null) return '—';
+  if (field === 'starts_at') {
+    const o = v as { starts_at?: string; time_confirmed?: boolean };
+    if (!o.starts_at) return '—';
+    const d = new Date(o.starts_at);
+    const date = d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+    return o.time_confirmed === false ? `${date} · ${TIME_TBD}` : `${date} · ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  if (field === 'venue') return (v as string) || VENUE_TBD;
+  if (field === 'status') return ({ scheduled: 'מתוכנן', played: 'שוחק', canceled: 'בוטל' } as Record<string, string>)[v as string] ?? String(v);
+  const [a, b] = v as [number | null, number | null];
+  return a == null || b == null ? 'ללא תוצאה' : `${a} : ${b}`;
+>>>>>>> origin/main
 }

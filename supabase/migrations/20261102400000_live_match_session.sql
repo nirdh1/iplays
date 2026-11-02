@@ -1,9 +1,9 @@
 -- iplays — live match: shared clock and halves, one primary reporter with a
 -- queue, secondary reports that the primary approves, cards, final result.
 --
--- Run after 20261101971000_match_events.sql (and after the rest of the
--- 20261101* migrations; it only depends on match_events and team_matches).
--- Rollback: supabase/rollback/20261102100000_live_match_session.down.sql
+-- Run after 20261102200000_match_overrides.sql (needs 20261101971000_match_events.sql;
+-- it only depends on match_events and team_matches; it writes the score only of the team's own games, never IFA games).
+-- Rollback: supabase/rollback/20261102400000_live_match_session.down.sql
 -- Additive: three new tables, new columns on match_events, a wider
 -- match_events.kind list (adds cards), functions and policies. No row is
 -- changed or removed. Career counts (kind = 'goal', not deleted) are unchanged.
