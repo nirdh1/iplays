@@ -1,23 +1,11 @@
 /** Share the team's page (#t/<id>) on WhatsApp or by copying the link. Any member can share it. */
-import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Button } from '../components/ui';
 import { teamLink } from '../lib/joinApi';
 
 export function TeamLinkShare({ teamId, teamName }: { teamId: string; teamName: string }) {
-  const [copied, setCopied] = useState(false);
   const link = teamLink(teamId);
   const text = `הקבוצה ${teamName} ב-iplays. נכנסים, מוצאים את הילד ומצטרפים: ${link}`;
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  }
 
 
   return (
@@ -34,9 +22,6 @@ export function TeamLinkShare({ teamId, teamName }: { teamId: string; teamName: 
             שיתוף…
           </Button>
         )}
-        <Button variant="secondary" icon={copied ? 'check' : 'plus'} onClick={copy}>
-          {copied ? 'הועתק' : 'העתקת קישור'}
-        </Button>
       </div>
     </div>
   );

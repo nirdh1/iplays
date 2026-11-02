@@ -494,19 +494,8 @@ function DeclareSheet({ player, onClose, onConfirm }: { player: Player | null; o
 
 /** Invite code + link with copy and native share. */
 export function InviteShare({ code, teamName }: { code: string; teamName: string }) {
-  const [copied, setCopied] = useState(false);
   const link = inviteLink(code);
   const text = `הצטרפו לקבוצה ${teamName} ב-iplays: ${link}`;
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  }
 
 
   return (
@@ -526,9 +515,6 @@ export function InviteShare({ code, teamName }: { code: string; teamName: string
             שיתוף…
           </Button>
         )}
-        <Button variant="secondary" icon={copied ? 'check' : 'plus'} onClick={copy}>
-          {copied ? 'הועתק' : 'העתקת קישור'}
-        </Button>
       </div>
     </div>
   );
