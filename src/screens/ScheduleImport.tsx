@@ -32,6 +32,7 @@ export function ScheduleImportSheet({
   const [warning, setWarning] = useState('');
   const [fileName, setFileName] = useState('');
   const [busy, setBusy] = useState<'' | 'reading' | 'saving'>('');
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ added: number; skipped: number } | null>(null);
 
@@ -56,7 +57,7 @@ export function ScheduleImportSheet({
     setFileName(file.name);
     setBusy('reading');
     try {
-      const r = await readScheduleFile(file, teamId, teamName);
+      const r = await readScheduleFile(file, teamName, setProgress);
       setGames(markDuplicates(r.games, existing));
       setWarning(r.warning);
       if (r.games.length === 0) setError(`לא מצאנו בקובץ משחקים של ${teamName}.`);
@@ -64,6 +65,7 @@ export function ScheduleImportSheet({
       setError(e instanceof ScheduleReadError ? e.message : friendlyError(e));
     } finally {
       setBusy('');
+      setProgress('');
     }
   }
 
@@ -106,12 +108,12 @@ export function ScheduleImportSheet({
         ) : !games ? (
           <>
             <p className="ip-muted">
-              צלמו מסך של לוח המשחקים (למשל מאתר ההתאחדות), או בחרו קובץ PDF, אקסל או CSV. נקרא את המשחקים של {teamName}, ותוכלו לבדוק ולתקן לפני השמירה.
+              צלמו מסך של לוח המשחקים (למשל מאתר ההתאחדות), או בחרו קובץ PDF, אקסל או CSV. הקובץ נקרא בטלפון עצמו, בחינם. נציג את המשחקים של {teamName} ותוכלו לבדוק ולתקן לפני השמירה. צילום מסך חד וישר נקרא הכי טוב.
             </p>
             <Button variant="primary" icon="plus" block disabled={!!busy} onClick={() => fileRef.current?.click()}>
               {busy === 'reading' ? `קוראים את ${fileName || 'הקובץ'}…` : 'בחירת תמונה או קובץ'}
             </Button>
-            {busy === 'reading' && <p className="ip-muted">זה יכול לקחת עד דקה.</p>}
+            {busy === 'reading' && <p className="ip-muted" role="status">{progress || 'קוראים…'} מתמונה זה יכול לקחת עד דקה.</p>}
           </>
         ) : (
           <>

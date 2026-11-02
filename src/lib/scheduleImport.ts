@@ -1,12 +1,16 @@
 /**
  * Load a team's game schedule from a file: image (screenshot / photo), PDF,
- * Excel (.xlsx) or CSV.
+ * Excel (.xlsx) or CSV. Everything is read for free, in the browser:
  *
- * - Images and PDFs are read by the read-schedule Edge Function (Claude).
- * - Spreadsheets are converted to rows in the browser. They go to the same
- *   function when it is set up; otherwise a column-name parser reads them.
- * Nothing is saved until the user reviews the games and taps save, which calls
- * import_team_matches (supabase/migrations/20261103100000_schedule_import.sql).
+ * - Excel / CSV: a small built-in reader.
+ * - PDF: pdf.js text extraction (text PDFs; a scanned PDF has no text).
+ * - Images: tesseract.js OCR in Hebrew + English (loaded only when needed).
+ *
+ * PDF and image text is rebuilt into table rows by position, then read by
+ * column headers when there are any, or row by row (date, time, the team's
+ * name and the team next to it). OCR makes mistakes, so every game is shown
+ * for review and fixing; nothing is saved until the user taps save, which
+ * calls import_team_matches (supabase/migrations/20261103100000_schedule_import.sql).
  */
 import { supabase } from './supabase';
 import type { Competition } from './matchApi';
@@ -32,7 +36,6 @@ export interface DraftGame {
 export interface ReadResult {
   games: DraftGame[];
   warning: string;
-  via: 'ai' | 'columns';
 }
 
 export class ScheduleReadError extends Error {}
@@ -42,89 +45,164 @@ const CSV_EXT = /\.(csv|tsv|txt)$/i;
 
 export const ACCEPT = 'image/*,application/pdf,.pdf,.xlsx,.xlsm,.csv,.tsv';
 
-export async function readScheduleFile(file: File, teamId: string, teamName: string): Promise<ReadResult> {
+export async function readScheduleFile(file: File, teamName: string, onProgress?: (text: string) => void): Promise<ReadResult> {
   const name = file.name || '';
   if (/\.xls$/i.test(name)) throw new ScheduleReadError('קובץ אקסל ישן (xls). שמרו אותו כ-xlsx ונסו שוב.');
+  let readings: string[][][];
+  let warning = '';
   if (EXCEL_EXT.test(name) || CSV_EXT.test(name) || file.type === 'text/csv') {
-    const rows = EXCEL_EXT.test(name) ? await readXlsx(file) : parseCsv(await file.text());
-    const clean = rows.filter((r) => r.some((c) => c.trim()));
-    if (clean.length === 0) throw new ScheduleReadError('הקובץ ריק.');
-    const tsv = clean.map((r) => r.map((c) => c.replace(/[\t\n\r]+/g, ' ').trim()).join('\t')).join('\n');
-    try {
-      return await askAi(teamId, teamName, { kind: 'text', data: tsv.slice(0, 190_000), file_name: name });
-    } catch (e) {
-      if (!(e instanceof NotConfigured)) throw e;
-      const games = parseByColumns(clean, teamName);
-      if (games.length === 0) {
-        throw new ScheduleReadError('לא מצאנו בקובץ עמודות של תאריך ויריבה (או קבוצה ביתית ואורחת). בדקו שבשורה הראשונה יש כותרות.');
-      }
-      return { games, warning: '', via: 'columns' };
-    }
+    readings = [EXCEL_EXT.test(name) ? await readXlsx(file) : parseCsv(await file.text())];
+  } else if (file.type === 'application/pdf' || /\.pdf$/i.test(name)) {
+    onProgress?.('קוראים את ה-PDF…');
+    readings = [await readPdf(file)];
+    if (readings[0].length === 0) throw new ScheduleReadError('ב-PDF הזה אין טקסט (כנראה סריקה). צלמו מסך של הלוח והעלו כתמונה.');
+  } else if (file.type.startsWith('image/') || /\.(png|jpe?g|webp|heic)$/i.test(name)) {
+    readings = await readImage(file, onProgress);
+    warning = 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל משחק לפני השמירה.';
+  } else {
+    throw new ScheduleReadError('סוג קובץ לא נתמך. אפשר תמונה, PDF, אקסל (xlsx) או CSV.');
   }
-  if (file.type === 'application/pdf' || /\.pdf$/i.test(name)) {
-    return askAi(teamId, teamName, { kind: 'pdf', media_type: 'application/pdf', data: await toBase64(file) }, true);
+  let games: DraftGame[] = [];
+  let anyText = false;
+  for (const rows of readings) {
+    const clean = rows.map((r) => r.map((c) => (c ?? '').replace(/\s+/g, ' ').trim())).filter((r) => r.some(Boolean));
+    if (clean.length) anyText = true;
+    let g = parseByColumns(clean, teamName);
+    if (g.length === 0) g = parseLoose(clean, teamName);
+    if (g.length > games.length) games = g;
   }
-  if (file.type.startsWith('image/') || /\.(png|jpe?g|webp|heic)$/i.test(name)) {
-    const img = await shrinkImage(file);
-    return askAi(teamId, teamName, { kind: 'image', media_type: img.type, data: img.data }, true);
+  if (!anyText) throw new ScheduleReadError('לא נמצא טקסט בקובץ.');
+  if (games.length === 0) {
+    throw new ScheduleReadError(`לא מצאנו בקובץ משחקים של ${teamName}. ודאו שהשם של הקבוצה מופיע בקובץ כמו באפליקציה, ושיש תאריכים.`);
   }
-  throw new ScheduleReadError('סוג קובץ לא נתמך. אפשר תמונה, PDF, אקסל (xlsx) או CSV.');
+  return { games, warning };
 }
 
-/* ------------------------------------------------------------ AI reading */
+/* ------------------------------------------- PDF and image to table rows */
 
-class NotConfigured extends Error {}
-
-interface AiGame {
-  date: string;
-  time: string;
-  opponent: string;
-  home: boolean;
-  venue: string;
-  competition: Competition;
-  round: string;
+interface Piece {
+  text: string;
+  x0: number;
+  x1: number;
+  y: number; // vertical center, top-down
+  h: number;
 }
 
-async function askAi(
-  teamId: string,
-  teamName: string,
-  payload: { kind: 'image' | 'pdf' | 'text'; data: string; media_type?: string; file_name?: string },
-  needsAi = false,
-): Promise<ReadResult> {
-  const { data, error } = await db().functions.invoke('read-schedule', { body: { team_id: teamId, team_name: teamName, ...payload } });
-  if (error) {
-    let code = '';
-    let status = 0;
-    const res = (error as { context?: Response }).context;
-    if (res && typeof res.json === 'function') {
-      status = res.status;
-      try {
-        code = ((await res.clone().json()) as { error?: string }).error ?? '';
-      } catch {
-        /* not json */
-      }
-    }
-    // function not deployed yet (404 / network) or no API key
-    if (code === 'not_configured' || status === 404 || !res) {
-      if (needsAi) throw new ScheduleReadError('קריאת תמונות ו-PDF עוד לא הופעלה באפליקציה. בינתיים אפשר להעלות אקסל או CSV.');
-      throw new NotConfigured();
-    }
-    throw new ScheduleReadError(
-      code === 'forbidden'
-        ? 'אין לך הרשאה להוסיף משחקים לקבוצה הזו.'
-        : code === 'too_large'
-          ? 'הקובץ גדול מדי. נסו צילום מסך או קובץ קטן יותר.'
-          : code === 'busy'
-            ? 'יש עומס כרגע. נסו שוב בעוד דקה.'
-            : 'לא הצלחנו לקרוא את הקובץ. נסו צילום ברור יותר.',
-    );
+/** Groups positioned text into rows (by height) and cells (by horizontal gaps), right to left. */
+export function piecesToRows(pieces: Piece[]): string[][] {
+  const ps = pieces.filter((p) => p.text.trim());
+  if (ps.length === 0) return [];
+  const hs = ps.map((p) => p.h).sort((a, b) => a - b);
+  const mh = hs[Math.floor(hs.length / 2)] || 10;
+  ps.sort((a, b) => a.y - b.y);
+  const lines: Piece[][] = [];
+  for (const p of ps) {
+    const last = lines[lines.length - 1];
+    if (last && Math.abs(last[0].y - p.y) < mh * 0.6) last.push(p);
+    else lines.push([p]);
   }
-  const r = data as { team_found: boolean; warning: string; games: AiGame[] };
-  const games = (r.games ?? [])
-    .filter((g) => /^\d{4}-\d{2}-\d{2}$/.test(g.date) && g.opponent?.trim())
-    .map((g, i) => draft(i, g.date, /^\d{1,2}:\d{2}$/.test(g.time) && g.time !== '00:00' ? g.time.padStart(5, '0') : '', g.opponent, g.home, g.venue, g.competition, g.round));
-  if (!r.team_found && games.length === 0) throw new ScheduleReadError(r.warning || `לא מצאנו בקובץ משחקים של ${teamName}.`);
-  return { games, warning: r.warning ?? '', via: 'ai' };
+  return lines.map((line) => {
+    line.sort((a, b) => b.x1 - a.x1); // right to left
+    const cells: string[] = [];
+    let cur = '';
+    let left = Infinity;
+    for (const p of line) {
+      if (cur && left - p.x1 > mh * 1.4) {
+        cells.push(cur);
+        cur = '';
+      }
+      cur = cur ? `${cur} ${p.text.trim()}` : p.text.trim();
+      left = Math.min(left, p.x0);
+    }
+    if (cur) cells.push(cur);
+    return cells;
+  });
+}
+
+async function readPdf(file: File): Promise<string[][]> {
+  const pdfjs = await import('pdfjs-dist');
+  const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const rows: string[][] = [];
+  for (let n = 1; n <= Math.min(doc.numPages, 30); n++) {
+    const page = await doc.getPage(n);
+    const vp = page.getViewport({ scale: 1 });
+    const content = await page.getTextContent();
+    const pieces: Piece[] = [];
+    for (const it of content.items) {
+      if (!('str' in it) || !it.str.trim()) continue;
+      const x = it.transform[4] as number;
+      const h = Math.abs((it.transform[3] as number) || it.height || 10);
+      pieces.push({ text: it.str, x0: x, x1: x + it.width, y: vp.height - (it.transform[5] as number) - h / 2, h });
+    }
+    rows.push(...piecesToRows(pieces));
+  }
+  return rows;
+}
+
+/**
+ * OCR twice: page-segmentation 11 (sparse text: each table cell on its own,
+ * best for dates and times) and 6 (one block: keeps names together). The
+ * reading that yields more games wins.
+ */
+async function readImage(file: File, onProgress?: (text: string) => void): Promise<string[][][]> {
+  onProgress?.('טוענים את זיהוי הטקסט (בפעם הראשונה זה לוקח יותר)…');
+  const { createWorker } = await import('tesseract.js');
+  // served from our own site (see vite.config.ts), not a CDN
+  const base = new URL('ocr/', document.baseURI).href;
+  let pass = 0;
+  const worker = await createWorker(['heb', 'eng'], 1, {
+    workerPath: `${base}worker.min.js`,
+    corePath: base,
+    langPath: `${base}lang`,
+    logger: (m: { status: string; progress: number }) => {
+      if (m.status === 'recognizing text') onProgress?.(`מזהים טקסט… ${Math.round(((pass + m.progress) / 2) * 100)}%`);
+    },
+  });
+  try {
+    const img = await prepareImage(file);
+    const out: string[][][] = [];
+    for (const psm of ['11', '6']) {
+      await worker.setParameters({ tessedit_pageseg_mode: psm as never, preserve_interword_spaces: '1' });
+      const { data } = await worker.recognize(img, {}, { blocks: true });
+      const pieces: Piece[] = [];
+      for (const b of data.blocks ?? []) {
+        for (const par of b.paragraphs) {
+          for (const line of par.lines) {
+            for (const w of line.words) {
+              const text = w.text.replace(/[\u200e\u200f\u202a-\u202e|]/g, '').trim();
+              if (text) pieces.push({ text, x0: w.bbox.x0, x1: w.bbox.x1, y: (w.bbox.y0 + w.bbox.y1) / 2, h: w.bbox.y1 - w.bbox.y0 });
+            }
+          }
+        }
+      }
+      out.push(piecesToRows(pieces));
+      pass++;
+    }
+    return out;
+  } finally {
+    await worker.terminate();
+  }
+}
+
+/** Small screenshots are enlarged (OCR reads ~30 px letters best); huge photos are reduced. */
+async function prepareImage(file: File): Promise<Blob | File> {
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) {
+    if (/heic/i.test(file.type) || /\.heic$/i.test(file.name)) throw new ScheduleReadError('לא הצלחנו לפתוח תמונת HEIC. צלמו מסך (PNG) או שמרו כ-JPG.');
+    return file;
+  }
+  const long = Math.max(bitmap.width, bitmap.height);
+  const scale = long < 1400 ? 2 : long > 3500 ? 3500 / long : 1;
+  if (scale === 1) return file;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return (await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/png'))) ?? file;
 }
 
 function draft(i: number, date: string, time: string, opponent: string, home: boolean, venue = '', competition: Competition = 'league', round = ''): DraftGame {
@@ -179,29 +257,6 @@ export async function importGames(teamId: string, games: DraftGame[]): Promise<{
 }
 
 /* ------------------------------------------------------- file helpers */
-
-async function toBase64(file: Blob): Promise<string> {
-  const buf = new Uint8Array(await file.arrayBuffer());
-  let s = '';
-  for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-  return btoa(s);
-}
-
-/** Large photos are scaled down (max 2000 px) and sent as JPEG; screenshots stay PNG when small. */
-async function shrinkImage(file: File): Promise<{ type: string; data: string }> {
-  const okType = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type);
-  if (okType && file.size < 3_500_000) return { type: file.type, data: await toBase64(file) };
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) throw new ScheduleReadError('לא הצלחנו לפתוח את התמונה. נסו צילום מסך (PNG או JPG).');
-  const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.88));
-  if (!blob) throw new ScheduleReadError('לא הצלחנו לעבד את התמונה.');
-  return { type: 'image/jpeg', data: await toBase64(blob) };
-}
 
 /** CSV / TSV with quotes. */
 export function parseCsv(text: string): string[][] {
@@ -432,4 +487,80 @@ export function parseByColumns(rows: string[][], teamName: string): DraftGame[] 
     out.push(draft(i, date, time, opponent, home, cell(cVenue), 'league', cell(cRound)));
   });
   return out;
+}
+
+/* ------------------------------ row-by-row parser (PDF / image tables) */
+
+const DATE_RE = /(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?/;
+const TIME_RE = /\b(\d{1,2}):(\d{2})\b/;
+const NOT_NAME = /^(מחזור|תאריך|שעה|יום|מגרש|בית|חוץ|נגד|vs|-|–|:|\d+)$/i;
+const DAY_WORD = /^(יום\s*)?(ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת|א'|ב'|ג'|ד'|ה'|ו'|ש')$/;
+const hasLetters = (s: string) => /[\u0590-\u05FFa-zA-Z]{2,}/.test(s);
+
+/** Splits "הפועל א - מכבי ב" style cells into the two team names. */
+function splitTeams(cell: string): string[] {
+  const parts = cell.split(/\s+(?:-|–|נגד|vs\.?)\s+/i).map((x) => x.trim()).filter(Boolean);
+  return parts.length === 2 ? parts : [cell];
+}
+
+/** A cell without dates, times or labels, left with the text of a name. */
+function nameText(cell: string): string {
+  return cell.replace(DATE_RE, ' ').replace(TIME_RE, ' ').replace(/\b(מחזור|יום)\s*\S*/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+export function parseLoose(rows: string[][], teamName: string): DraftGame[] {
+  const out: DraftGame[] = [];
+  let lastDate: string | null = null;
+  let lastRound = '';
+  rows.forEach((row, i) => {
+    const line = row.join(' ');
+    const dm = DATE_RE.exec(line);
+    const d = dm ? parseDate(dm[0]) : null;
+    if (d) lastDate = d;
+    const rm = /מחזור\s*(\d+)/.exec(line);
+    if (rm) lastRound = rm[1];
+    if (nameScore(line, teamName) < 0.5) return;
+    // names in reading order (right to left): each cell, "A - B" cells split in two
+    const names: string[] = [];
+    for (const c of row) {
+      for (const part of splitTeams(c)) {
+        const t = nameText(part);
+        if (t && hasLetters(t) && !NOT_NAME.test(t) && !DAY_WORD.test(t)) names.push(t);
+      }
+    }
+    let mine = -1;
+    let best = 0.49;
+    names.forEach((n, k) => {
+      const sc = nameScore(n, teamName);
+      if (sc > best) {
+        best = sc;
+        mine = k;
+      }
+    });
+    if (mine < 0 || !lastDate) return;
+    // the opponent sits next to the team: the cell before it (then the team is away) or after it (home)
+    const after = names[mine + 1];
+    const before = names[mine - 1];
+    let home = true;
+    let opponent = '';
+    if (after && !(before && mine === names.length - 1)) {
+      opponent = after;
+      home = true;
+    } else if (before) {
+      opponent = before;
+      home = false;
+    }
+    if (!opponent) return;
+    const venueIdx = home ? mine + 2 : mine + 1;
+    const venue = names[venueIdx] && venueIdx !== mine ? names[venueIdx] : '';
+    out.push(draft(i, lastDate, parseTime(line), opponent, home, venue, /גביע/.test(line) ? 'cup' : /ידידות/.test(line) ? 'friendly' : 'league', lastRound));
+  });
+  // the same game twice (e.g. a repeated header page): keep the first
+  const seen = new Set<string>();
+  return out.filter((g) => {
+    const k = `${g.date}|${g.opponent}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
