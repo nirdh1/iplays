@@ -23,12 +23,13 @@ import {
   PARENT_DECLARATION,
   programLabel,
   searchClubs,
-  searchPlayers,
+  findPlayers,
+  foundBirthLabel,
   searchTeams,
   type ClubHit,
   type ClubTeamRow,
   type MyRequest,
-  type PlayerHit,
+  type FoundPlayer,
   type TeamHit,
 } from '../lib/joinApi';
 
@@ -41,7 +42,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
   const [opening, setOpening] = useState(false);
   const [q, setQ] = useState('');
   const [year, setYear] = useState('');
-  const [players, setPlayers] = useState<PlayerHit[] | null>(null);
+  const [players, setPlayers] = useState<FoundPlayer[] | null>(null);
   const [clubs, setClubs] = useState<ClubHit[] | null>(null);
   const [club, setClub] = useState<ClubHit | null>(null);
   const [clubTeams, setClubTeams] = useState<ClubTeamRow[] | null>(null);
@@ -64,7 +65,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
     setError(null);
     try {
       if (mode === 'team') setTeams(await searchTeams(q.trim().length >= 2 ? q : '', by));
-      else if (mode === 'child') setPlayers(await searchPlayers(q, by));
+      else if (mode === 'child') setPlayers(await findPlayers(q, by));
       else {
         setClub(null);
         setClubTeams(null);
@@ -95,7 +96,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
         <button type="button" className="ip-icon-btn ip-icon-btn--soft" aria-label="חזרה" onClick={onBack}>
           <Icon name="back" size={20} />
         </button>
-        <h1>חיפוש קבוצה, ילד או מועדון</h1>
+        <h1>חיפוש קבוצה, שחקן או מועדון</h1>
         <span />
       </div>
 
@@ -131,7 +132,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
             label="מה מחפשים"
             items={[
               { id: 'team', label: 'קבוצה' },
-              { id: 'child', label: 'ילד' },
+              { id: 'child', label: 'שחקן' },
               { id: 'club', label: 'מועדון' },
             ]}
             value={mode}
@@ -141,7 +142,7 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
             }}
           />
           <div className="ip-field-row">
-            <Field label={mode === 'team' ? 'קבוצה, מועדון או עיר' : mode === 'child' ? 'שם הילד' : 'שם המועדון או העיר'}>
+            <Field label={mode === 'team' ? 'קבוצה, מועדון או עיר' : mode === 'child' ? 'שם השחקן/ית' : 'שם המועדון או העיר'}>
               <input id="find-q" className="ip-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={mode === 'team' ? 'לא חובה, לדוגמה: מכבי' : mode === 'child' ? 'לדוגמה: נועם לוי' : 'לדוגמה: מכבי'} autoFocus />
             </Field>
             <Field label={mode === 'team' ? 'שנתון הילד' : 'שנתון'}>
@@ -191,21 +192,30 @@ export function FindScreen({ onBack }: { onBack: () => void }) {
 
       {mode === 'child' && players && (
         <section>
-          <SectionHeader title={`נמצאו ${players.length}`} icon="user" />
+          <SectionHeader title={players.length >= 50 ? 'נמצאו יותר מ-50, כדאי לדייק את השם או להוסיף שנתון' : `נמצאו ${players.length}`} icon="user" />
           {players.length === 0 ? (
-            <EmptyState icon="user" title="לא נמצא ילד בשם הזה" text="נסו שם אחר, בלי שנתון, או חפשו את המועדון." />
+            <EmptyState icon="user" title="לא נמצא שחקן בשם הזה" text="נסו חלק מהשם, בלי שנתון, או חפשו את הקבוצה." />
           ) : (
-            <Card padded={false}>
-              {players.map((p) => (
-                <ListRow
-                  key={`${p.player_id}-${p.team_id}`}
-                  icon="user"
-                  title={`${p.first_name} ${p.last_name}`}
-                  subtitle={[p.birth_year && `שנתון ${p.birth_year}`, p.team_name, p.club_name, p.program_kind && programLabel[p.program_kind]].filter(Boolean).join(' · ')}
-                  onClick={() => openTeam(p.team_id)}
-                />
-              ))}
-            </Card>
+            <>
+              {players.some((p) => p.same_name > 1) && (
+                <p className="ip-muted ip-pad">יש כמה שחקנים עם אותו שם. הקבוצה והשנתון שליד כל אחד עוזרים לזהות את הנכון.</p>
+              )}
+              <Card padded={false}>
+                {players.map((p) => (
+                  <ListRow
+                    key={`${p.player_id}-${p.team_id}`}
+                    icon="user"
+                    title={`${p.first_name} ${p.last_name}`.trim()}
+                    subtitle={[p.team_name, foundBirthLabel(p), p.club_name, p.program_kind && programLabel[p.program_kind]].filter(Boolean).join(' · ')}
+                    trailing={p.same_name > 1 ? <Tag tone="warning">{`${p.same_name} עם אותו שם`}</Tag> : undefined}
+                    onClick={() => openTeam(p.team_id)}
+                  />
+                ))}
+              </Card>
+              {players.some((p) => p.name_hidden) && (
+                <p className="ip-muted ip-pad">משמירה על פרטיות הילדים: שחקן שעוד אין לו הורה באפליקציה מוצג בשם פרטי ואות ראשונה של שם המשפחה. השנתון המשוער מחושב לפי שכבת הגיל של הליגה.</p>
+              )}
+            </>
           )}
         </section>
       )}
