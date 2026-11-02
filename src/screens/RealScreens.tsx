@@ -17,7 +17,7 @@ import { isGoalkeeperPosition, overlapping, trainingTypeLabel } from '../lib/cal
 import { AddTrainingButton, KidsAttendance } from './CalendarExtras';
 import { AccountSection, RequestsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
-import { FamilyInviteCard, FamilyMembersSection } from './FamilySection';
+import { FamilyInviteCard, FamilyMembersSection, InviteFriendsSection } from './FamilySection';
 import { isPlatformAdmin } from '../lib/ifaApi';
 import { sportProfile } from '../lib/sports';
 import { getRidesSummary, summaryLabel, type RideSummary } from '../lib/rideApi';
@@ -663,6 +663,7 @@ export function RealFamilyScreen() {
         )}
       </section>
       <FamilyMembersSection />
+      <InviteFriendsSection />
     </div>
   );
 }
