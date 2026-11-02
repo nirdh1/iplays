@@ -1,6 +1,6 @@
 /**
- * Career page: the child's profile on the pitch (position, strong foot),
- * body measurements and medical clearance.
+ * Career page: body measurements and medical clearance (positions and
+ * affiliations live in CareerAffiliations.tsx).
  * Measurements: parents + metrics staff. Medical: parents + medical staff.
  * The server returns null for a part the viewer may not see, and the part
  * is then not rendered at all.
@@ -9,7 +9,7 @@ import '../theme/career.css';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Icon } from '../components/Icon';
 import { BottomSheet } from '../components/shell';
-import { Button, Card, SectionHeader, Segmented, Tag } from '../components/ui';
+import { Button, Card, SectionHeader, Tag } from '../components/ui';
 import { Err, Field } from '../components/form';
 import { friendlyError } from '../lib/api';
 import {
@@ -17,13 +17,9 @@ import {
   addMedicalClearance,
   daysUntil,
   dayLabel,
-  footLabel,
   measurementFields,
-  positionsBySport,
   removeRecord,
-  setPlayerProfile,
   type Career,
-  type StrongFoot,
 } from '../lib/careerApi';
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
@@ -32,110 +28,6 @@ const num = (s: string) => {
   const v = Number(s.replace(',', '.'));
   return s.trim() === '' || !Number.isFinite(v) ? null : v;
 };
-
-/* ---------------------------------------------------------------- profile */
-
-export function ProfileSection({ career, onChanged }: { career: Career; onChanged: () => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  const p = career.player;
-  const sport = career.sport ?? p.sport ?? 'football';
-  const showFoot = sport === 'football';
-  const editable = career.can_edit_profile;
-  if (!p.position && !p.strong_foot && !editable) return null;
-  return (
-    <section>
-      <SectionHeader title="פרטי שחקן" icon="user" action={editable ? 'עריכה' : undefined} onAction={() => setOpen(true)} />
-      <Card>
-        <div className="ip-profile-facts">
-          <div>
-            <span>תפקיד</span>
-            <strong>{p.position || 'לא צוין'}</strong>
-          </div>
-          {showFoot && (
-            <div>
-              <span>רגל חזקה</span>
-              <strong>{p.strong_foot ? footLabel[p.strong_foot] : 'לא צוין'}</strong>
-            </div>
-          )}
-        </div>
-      </Card>
-      {editable && <ProfileSheet open={open} career={career} showFoot={showFoot} sport={sport} onClose={() => setOpen(false)} onSaved={onChanged} />}
-    </section>
-  );
-}
-
-function ProfileSheet({ open, career, showFoot, sport, onClose, onSaved }: { open: boolean; career: Career; showFoot: boolean; sport: string; onClose: () => void; onSaved: () => Promise<void> }) {
-  const p = career.player;
-  const [position, setPosition] = useState(p.position);
-  const [foot, setFoot] = useState<StrongFoot | ''>(p.strong_foot ?? '');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (open) {
-      setPosition(p.position);
-      setFoot(p.strong_foot ?? '');
-      setError(null);
-    }
-  }, [open, p.position, p.strong_foot]);
-  const options = positionsBySport[sport] ?? [];
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await setPlayerProfile(p.id, position.trim(), foot || null);
-      await onSaved();
-      onClose();
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <BottomSheet open={open} onClose={onClose} title={`פרטי השחקן: ${p.first_name}`}>
-      <form className="ip-form ip-form--sheet" onSubmit={submit}>
-        <Field label="תפקיד במגרש">
-          <input className="ip-input" list="ip-positions" value={position} onChange={(e) => setPosition(e.target.value.slice(0, 30))} placeholder="בחרו או כתבו" />
-          <datalist id="ip-positions">
-            {options.map((o) => (
-              <option key={o} value={o} />
-            ))}
-          </datalist>
-        </Field>
-        {options.length > 0 && (
-          <div className="ip-chip-row">
-            {options.map((o) => (
-              <button type="button" key={o} className={`ip-chip ${position === o ? 'is-on' : ''}`} onClick={() => setPosition(o)}>
-                {o}
-              </button>
-            ))}
-          </div>
-        )}
-        {showFoot && (
-          <Field label="רגל חזקה">
-            <Segmented
-              label="רגל חזקה"
-              items={[
-                { id: 'right', label: 'ימין' },
-                { id: 'left', label: 'שמאל' },
-                { id: 'both', label: 'שתיהן' },
-              ]}
-              value={foot as StrongFoot}
-              onChange={(v) => setFoot(v === foot ? '' : v)}
-            />
-          </Field>
-        )}
-        <Err error={error} />
-        <Button type="submit" variant="primary" block disabled={busy}>
-          {busy ? 'שומרים…' : 'שמירה'}
-        </Button>
-      </form>
-    </BottomSheet>
-  );
-}
 
 /* ----------------------------------------------------------- measurements */
 

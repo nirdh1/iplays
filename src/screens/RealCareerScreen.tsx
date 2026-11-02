@@ -30,7 +30,8 @@ import {
   type FitnessTestType,
 } from '../lib/careerApi';
 import { NoTeam, useMyKids } from './RealScreens';
-import { BodySection, MedicalSection, ProfileSection } from './CareerProfile';
+import { BodySection, MedicalSection } from './CareerProfile';
+import { AffiliationsSection, PositionsSection, useProfileExtra } from './CareerAffiliations';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
@@ -96,6 +97,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
   const [career, setCareer] = useState<Career | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'assessment' | 'fitness' | null>(null);
+  const { extra, reload: reloadExtra } = useProfileExtra(playerId);
 
   const load = useCallback(() => {
     return getCareer(playerId)
@@ -176,7 +178,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
         {p.club && <span className="ip-on-navy-muted">{p.club}</span>}
       </Card>
 
-      <ProfileSection career={career} onChanged={load} />
+      {extra && <PositionsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
       <MonthlyTrend career={career} sport={sport} />
       <Seasons career={career} scoring={scoring} goalsLabel={goalsLabel} isBasket={isBasket} />
       {career.assessments !== null && (
@@ -184,6 +186,7 @@ function PlayerCareer({ playerId }: { playerId: string }) {
       )}
       <BodySection career={career} onChanged={load} />
       <MedicalSection career={career} onChanged={load} />
+      {extra && <AffiliationsSection career={career} extra={extra} onChanged={() => Promise.all([load(), reloadExtra()]).then(() => undefined)} />}
       <Highlights career={career} isBasket={isBasket} />
 
       {career.edit_team_id && (

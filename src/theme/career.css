@@ -142,3 +142,41 @@
 .ip-field-row--wrap > * {
   flex: 1 1 120px;
 }
+
+/* ---------- Positions and affiliations ---------- */
+.ip-position-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--ip-s3);
+}
+.ip-position-tags > span {
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-text-2);
+  font-weight: 600;
+}
+.ip-position-tags > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ip-affil-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+  padding: var(--ip-s3) var(--ip-s4);
+}
+.ip-affil-list li + li {
+  border-top: 1px solid var(--ip-border);
+}
+.ip-affil-list li.is-past .ip-list-row-title {
+  color: var(--ip-text-2);
+}
+.ip-affil-list .ip-list-row-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ip-affil-list + .ip-pad .ip-btn-row {
+  flex-wrap: wrap;
+}
