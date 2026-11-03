@@ -10,7 +10,7 @@ import { Button, Tag } from '../components/ui';
 import { Err } from '../components/form';
 import { friendlyError } from '../lib/api';
 import { competitionLabel, type Competition, type Match } from '../lib/matchApi';
-import { ACCEPT, importGames, markDuplicates, readScheduleFile, ScheduleReadError, type DraftGame } from '../lib/scheduleImport';
+import { ACCEPT, applyGameUpdates, changeLabel, importGames, markDuplicates, readScheduleFile, ScheduleReadError, type DraftGame } from '../lib/scheduleImport';
 import { UploadIntro } from '../components/IfaSteps';
 import '../theme/coach.css';
 
@@ -48,7 +48,7 @@ export function ScheduleImportSheet({
   const [busy, setBusy] = useState<'' | 'reading' | 'saving'>('');
   const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ added: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ added: number; skipped: number; updated: number; failed: number } | null>(null);
 
   function reset() {
     setGames(null);
@@ -84,16 +84,21 @@ export function ScheduleImportSheet({
   }
 
   const edit = (key: string, patch: Partial<DraftGame>) => setGames((gs) => gs?.map((g) => (g.key === key ? { ...g, ...patch } : g)) ?? null);
-  const chosen = (games ?? []).filter((g) => g.include && g.opponent.trim() && g.date);
+  const chosen = (games ?? []).filter((g) => !g.duplicate && g.include && g.opponent.trim() && g.date);
+  const updates = (games ?? []).filter((g) => g.duplicate && g.update && g.changes?.length && g.date);
+  const known = (games ?? []).filter((g) => g.duplicate);
+  const unchanged = known.filter((g) => !g.changes?.length).length;
+  const withChanges = known.length - unchanged;
 
   async function save() {
     setBusy('saving');
     setError(null);
     try {
-      const r = await importGames(teamId, chosen);
-      setResult(r);
+      const u = updates.length ? await applyGameUpdates(updates) : { updated: 0, failed: 0 };
+      const r = chosen.length ? await importGames(teamId, chosen) : { added: 0, skipped: 0 };
+      setResult({ ...r, ...u });
       setGames(null);
-      onDone(r.added);
+      onDone(r.added + u.updated);
     } catch (e) {
       setError(friendlyError(e));
     } finally {
@@ -109,8 +114,10 @@ export function ScheduleImportSheet({
         {result ? (
           <>
             <p className="ip-success" role="status">
-              נוספו {result.added} משחקים ללוח של {teamName}.
+              {result.added > 0 || result.updated === 0 ? `נוספו ${result.added} משחקים ללוח של ${teamName}.` : ''}
+              {result.updated > 0 && ` עודכנו ${result.updated} משחקים שכבר היו בלוח.`}
               {result.skipped > 0 && ` ${result.skipped} כבר היו בלוח ודולגו.`}
+              {result.failed > 0 && ` ${result.failed} עדכונים לא נשמרו (אין הרשאה לשנות את המשחק).`}
             </p>
             <Button variant="secondary" block onClick={reset}>
               טעינת קובץ נוסף
@@ -136,6 +143,14 @@ export function ScheduleImportSheet({
             <p className="ip-muted">
               מצאנו {games.length} משחקים ב{fileName ? `־${fileName}` : 'קובץ'}. בדקו תאריך, שעה ויריבה. משחק בלי שעה יופיע כ"שעה טרם נקבעה".
             </p>
+            {known.length > 0 && (
+              <p className="ip-muted" role="status">
+                {known.length} כבר בלוח:{' '}
+                {withChanges === 0
+                  ? 'אין בהם שינוי.'
+                  : `${unchanged > 0 ? `${unchanged} בלי שינוי, ` : ''}ב־${withChanges} יש פרטים חדשים (מסומנים בצהוב).`}
+              </p>
+            )}
             {warning && <p className="ip-muted">{warning}</p>}
             <div className="ip-stack ip-stack--tight">
               {games.map((g) => (
@@ -143,8 +158,8 @@ export function ScheduleImportSheet({
               ))}
             </div>
             <Err error={error} />
-            <Button variant="primary" block disabled={!!busy || chosen.length === 0} onClick={() => void save()}>
-              {busy === 'saving' ? 'שומרים…' : `הוספת ${chosen.length} משחקים ללוח`}
+            <Button variant="primary" block disabled={!!busy || chosen.length + updates.length === 0} onClick={() => void save()}>
+              {busy === 'saving' ? 'שומרים…' : saveLabel(chosen.length, updates.length)}
             </Button>
             <Button variant="ghost" block disabled={!!busy} onClick={reset}>
               קובץ אחר
@@ -157,14 +172,24 @@ export function ScheduleImportSheet({
   );
 }
 
+function saveLabel(add: number, upd: number) {
+  if (add && upd) return `הוספת ${add} משחקים ועדכון ${upd}`;
+  if (upd) return upd === 1 ? 'עדכון משחק אחד בלוח' : `עדכון ${upd} משחקים בלוח`;
+  if (!add) return 'אין מה לשמור';
+  return `הוספת ${add} משחקים ללוח`;
+}
+
+const roundLabel = (r: string) => (/^\d+$/.test(r) ? `מחזור ${r}` : r);
+
 function GameRow({ g, onChange }: { g: DraftGame; onChange: (p: Partial<DraftGame>) => void }) {
+  if (g.duplicate) return <KnownGameRow g={g} onChange={onChange} />;
   return (
     <div className="ip-card ip-card--default ip-card--padded" style={{ opacity: g.include ? 1 : 0.6 }}>
       <label className="ip-check">
         <input type="checkbox" checked={g.include} onChange={(e) => onChange({ include: e.target.checked })} />
         <strong>{g.opponent || 'יריבה'}</strong>
-        {g.round && <Tag>{/^\d+$/.test(g.round) ? `מחזור ${g.round}` : g.round}</Tag>}
-        {g.duplicate && <Tag tone="warning">כבר בלוח</Tag>}
+        {g.round && <Tag>{roundLabel(g.round)}</Tag>}
+        <Tag tone="lime">חדש</Tag>
       </label>
       {g.include && (
         <div className="ip-stack ip-stack--tight">
@@ -187,6 +212,47 @@ function GameRow({ g, onChange }: { g: DraftGame; onChange: (p: Partial<DraftGam
             </select>
           </div>
           <input className="ip-input" aria-label="מגרש" value={g.venue} onChange={(e) => onChange({ venue: e.target.value.slice(0, 80) })} placeholder="מגרש / אולם (לא חובה)" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A game that is already in the schedule: "no change", or what changed (old ← new) and whether to apply it. */
+function KnownGameRow({ g, onChange }: { g: DraftGame; onChange: (p: Partial<DraftGame>) => void }) {
+  const changes = g.changes ?? [];
+  const day = g.date.split('-').reverse().slice(0, 2).map(Number).join('.');
+  return (
+    <div className="ip-card ip-card--default ip-card--padded" style={{ opacity: changes.length && g.update ? 1 : 0.75 }}>
+      <div className="ip-check">
+        <strong>{g.opponent || 'יריבה'}</strong>
+        {g.round && <Tag>{roundLabel(g.round)}</Tag>}
+        {changes.length ? <Tag tone="warning">יש עדכון</Tag> : <Tag>כבר בלוח · ללא שינוי</Tag>}
+      </div>
+      {changes.length === 0 ? (
+        <p className="ip-muted">
+          {day}
+          {g.time ? ` · ${g.time}` : ''}
+          {g.venue ? ` · ${g.venue}` : ''}: כמו בלוח.
+        </p>
+      ) : (
+        <div className="ip-stack ip-stack--tight">
+          <ul className="ip-game-changes">
+            {changes.map((c) => (
+              <li key={c.field}>
+                <span className="ip-muted">{changeLabel[c.field]}:</span> <s>{c.old}</s> ← <strong>{c.new}</strong>
+              </li>
+            ))}
+          </ul>
+          <label className="ip-check">
+            <input type="checkbox" checked={!!g.update} onChange={(e) => onChange({ update: e.target.checked })} />
+            לעדכן את המשחק בלוח
+          </label>
+          {g.moved && (
+            <Button variant="ghost" size="sm" onClick={() => onChange({ duplicate: false, match: undefined, changes: undefined, update: false, moved: false, include: true })}>
+              זה משחק אחר? להוסיף כחדש
+            </Button>
+          )}
         </div>
       )}
     </div>
