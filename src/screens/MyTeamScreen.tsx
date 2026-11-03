@@ -34,6 +34,7 @@ import { endAssignment } from '../lib/clubApi';
 import { RosterReviewSection } from './RosterReview';
 import { LeagueTableSection } from './LeagueTable';
 import { RosterFromFileSheet } from './ScreenshotUpdates';
+import { IfaUpdateIcon } from '../components/IfaSteps';
 import { GallerySection } from './GallerySection';
 import { TeamDirectorySection } from './ContactsSection';
 
@@ -237,7 +238,13 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
         )}
         {(!collapse || showRoster) && (
         <>
-        {!collapse && <SectionHeader title={roster ? `סגל · ${roster.length} שחקנים` : 'סגל'} icon="team" />}
+        {!collapse && (
+          <SectionHeader
+            title={roster ? `סגל · ${roster.length} שחקנים` : 'סגל'}
+            icon="team"
+            extra={staff ? <IfaUpdateIcon label="עדכון הסגל מההתאחדות" onClick={() => setSheet('rosterFile')} /> : undefined}
+          />
+        )}
         <Card padded={false}>
           {roster === null ? (
             <p className="ip-muted ip-pad">טוען…</p>
@@ -294,11 +301,6 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
           {staff && (
             <Button variant="primary" icon="plus" onClick={() => setSheet('player')}>
               הוספת שחקן
-            </Button>
-          )}
-          {staff && (
-            <Button variant="secondary" icon="photo" onClick={() => setSheet('rosterFile')}>
-              עדכון מצילום מסך
             </Button>
           )}
           <Button variant={staff ? 'secondary' : 'primary'} icon="user" onClick={() => setSheet('child')}>

@@ -17,6 +17,7 @@ import { friendlyError } from '../lib/api';
 import { getTeamLeagueTable, ifaTeamGamesUrl, ourRow, type LeagueRow, type LeagueTable } from '../lib/leagueApi';
 import { compareSnapshot, deleteLeagueSnapshot, getLeagueSnapshot, nameSimilarity, type LeagueSnapshot } from '../lib/screenshotTables';
 import { LeagueSnapshotSheet } from './ScreenshotUpdates';
+import { IfaUpdateIcon } from '../components/IfaSteps';
 
 const formLabel: Record<string, string> = { W: 'נ', D: 'ת', L: 'ה' };
 
@@ -288,8 +289,7 @@ export function LeagueTableSection({ teamId, ourName, allowUpload = false }: { t
       <SectionHeader
         title={title ? `טבלה · ${title}` : 'טבלת הליגה'}
         icon="trophy"
-        action={allowUpload ? 'עדכון מצילום מסך' : undefined}
-        onAction={() => setUploading(true)}
+        extra={allowUpload ? <IfaUpdateIcon label="עדכון הטבלה מההתאחדות" onClick={() => setUploading(true)} /> : undefined}
       />
       {hasComputed && snap && (
         <Segmented<'results' | 'snap'>

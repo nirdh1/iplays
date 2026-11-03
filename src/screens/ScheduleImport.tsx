@@ -10,6 +10,7 @@ import { Err } from '../components/form';
 import { friendlyError } from '../lib/api';
 import { competitionLabel, type Competition, type Match } from '../lib/matchApi';
 import { ACCEPT, importGames, markDuplicates, readScheduleFile, ScheduleReadError, type DraftGame } from '../lib/scheduleImport';
+import { IfaSteps } from '../components/IfaSteps';
 import '../theme/coach.css';
 
 export function ScheduleImportSheet({
@@ -107,6 +108,7 @@ export function ScheduleImportSheet({
           </>
         ) : !games ? (
           <>
+            <IfaSteps teamId={teamId} kind="games" />
             <p className="ip-muted">
               צלמו מסך של לוח המשחקים (למשל מאתר ההתאחדות), או בחרו קובץ PDF, אקסל או CSV. הקובץ נקרא בטלפון עצמו, בחינם. נציג את המשחקים של {teamName} ותוכלו לבדוק ולתקן לפני השמירה. צילום מסך חד וישר נקרא הכי טוב.
             </p>
