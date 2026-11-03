@@ -56,3 +56,13 @@ export function ourRow(t: LeagueTable): LeagueRow | undefined {
 export function ifaTeamGamesUrl(ifaTeamId: number, ifaSeasonId: number): string {
   return `https://www.football.org.il/team-details/team-games/?team_id=${ifaTeamId}&season_id=${ifaSeasonId}`;
 }
+
+/** The league's standings page on the IFA site. */
+export function ifaLeagueTableUrl(ifaLeagueId: number, ifaSeasonId: number): string {
+  return `https://www.football.org.il/leagues/league/?league_id=${ifaLeagueId}&season_id=${ifaSeasonId}`;
+}
+
+/** The league's games (round) page on the IFA site. */
+export function ifaLeagueGamesUrl(ifaLeagueId: number, ifaSeasonId: number): string {
+  return `https://www.football.org.il/leagues/games/?league_id=${ifaLeagueId}&season_id=${ifaSeasonId}`;
+}

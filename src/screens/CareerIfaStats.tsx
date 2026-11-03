@@ -12,6 +12,7 @@ import { Icon } from '../components/Icon';
 import { BottomSheet } from '../components/shell';
 import { Button, Card, SectionHeader } from '../components/ui';
 import { Err, Field } from '../components/form';
+import { IfaSteps, IfaUpdateIcon } from '../components/IfaSteps';
 import { friendlyError } from '../lib/api';
 import {
   currentSeason,
@@ -65,7 +66,11 @@ export function IfaStatsSection({ playerId, name, teamName }: { playerId: string
   const url = links.player_url ?? links.team_url;
   return (
     <section>
-      <SectionHeader title="לפי ההתאחדות (מקובץ)" icon="shield" />
+      <SectionHeader
+        title="לפי ההתאחדות (מקובץ)"
+        icon="shield"
+        extra={links.can_edit ? <IfaUpdateIcon label="עדכון נתוני השחקן מההתאחדות" onClick={() => setLoading(true)} /> : undefined}
+      />
       <Card>
         {rows.length === 0 ? (
           <p className="ip-muted">עוד לא נטענו נתונים מההתאחדות.</p>
@@ -120,13 +125,37 @@ export function IfaStatsSection({ playerId, name, teamName }: { playerId: string
         </p>
       </Card>
       {links.can_edit && (
-        <LoadSheet open={loading} playerId={playerId} teamName={teamName ?? ''} onClose={() => setLoading(false)} onSaved={load} />
+        <LoadSheet
+          open={loading}
+          playerId={playerId}
+          teamName={teamName ?? ''}
+          ifaUrl={url}
+          ifaUrlLabel={links.player_url ? `הכרטיס של ${name}` : 'דף הקבוצה'}
+          onClose={() => setLoading(false)}
+          onSaved={load}
+        />
       )}
     </section>
   );
 }
 
-function LoadSheet({ open, playerId, teamName, onClose, onSaved }: { open: boolean; playerId: string; teamName: string; onClose: () => void; onSaved: () => Promise<void> }) {
+function LoadSheet({
+  open,
+  playerId,
+  teamName,
+  ifaUrl,
+  ifaUrlLabel,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  playerId: string;
+  teamName: string;
+  ifaUrl?: string | null;
+  ifaUrlLabel: string;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<StatValues | null>(null);
   const [season, setSeason] = useState(currentSeason());
@@ -198,6 +227,7 @@ function LoadSheet({ open, playerId, teamName, onClose, onSaved }: { open: boole
         <input ref={fileRef} type="file" accept={ACCEPT} hidden onChange={(e) => void pick(e.target.files?.[0])} />
         {!values ? (
           <>
+            {ifaUrl && <IfaSteps kind="player" links={[{ label: ifaUrlLabel, href: ifaUrl }]} />}
             <p className="ip-muted">בחרו צילום מסך או PDF של כרטיס השחקן באתר ההתאחדות.</p>
             <Button variant="primary" icon="plus" block disabled={!!busy} onClick={() => fileRef.current?.click()}>
               {busy === 'reading' ? 'קוראים…' : 'בחירת תמונה או קובץ'}

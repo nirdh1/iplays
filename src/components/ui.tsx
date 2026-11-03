@@ -25,12 +25,13 @@ export function Card({ children, className, tone = 'default', padded = true, as:
 }
 
 /* ---------- Section header ---------- */
-export function SectionHeader({ title, icon, action, onAction }: { title: string; icon?: IconName; action?: string; onAction?: () => void }) {
+export function SectionHeader({ title, icon, action, onAction, extra }: { title: string; icon?: IconName; action?: string; onAction?: () => void; extra?: ReactNode }) {
   return (
     <div className="ip-section-header">
       <h2 className="ip-section-title">
         {icon && <Icon name={icon} size={20} className="ip-section-icon" />}
         {title}
+        {extra}
       </h2>
       {action && (
         <button type="button" className="ip-link" onClick={onAction}>

@@ -27,6 +27,7 @@ import {
   type DraftLeagueRow,
   type RosterCompare,
 } from '../lib/screenshotTables';
+import { IfaSteps } from '../components/IfaSteps';
 import '../theme/coach.css';
 
 const today = () => {
@@ -116,7 +117,7 @@ export function LeagueSnapshotSheet({
   }
 
   return (
-    <BottomSheet open={open} onClose={close} title="עדכון הטבלה מצילום מסך">
+    <BottomSheet open={open} onClose={close} title="עדכון הטבלה מההתאחדות">
       <div className="ip-form ip-form--sheet">
         <input ref={pk.ref} type="file" accept={ACCEPT} hidden onChange={(e) => void pick(e.target.files?.[0])} />
         {done ? (
@@ -130,6 +131,7 @@ export function LeagueSnapshotSheet({
           </>
         ) : !rows ? (
           <>
+            <IfaSteps teamId={teamId} kind="table" />
             <p className="ip-muted">
               צלמו מסך של טבלת הליגה (למשל באתר ההתאחדות, בדפדפן שלכם) או בחרו PDF / אקסל. הקובץ נקרא בטלפון עצמו, בחינם, ותוכלו לבדוק ולתקן כל שורה לפני השמירה. הטבלה מצילום לא משנה את הטבלה שמחושבת מהתוצאות; היא מוצגת לידה.
             </p>
@@ -309,7 +311,7 @@ export function RosterFromFileSheet({
   }
 
   return (
-    <BottomSheet open={open} onClose={close} title="עדכון הסגל מצילום מסך">
+    <BottomSheet open={open} onClose={close} title="עדכון הסגל מההתאחדות">
       <div className="ip-form ip-form--sheet">
         <input ref={pk.ref} type="file" accept={ACCEPT} hidden onChange={(e) => void pick(e.target.files?.[0])} />
         {result ? (
@@ -330,6 +332,7 @@ export function RosterFromFileSheet({
           </>
         ) : !cmp ? (
           <>
+            <IfaSteps teamId={teamId} kind="roster" />
             <p className="ip-muted">
               צלמו מסך של רשימת השחקנים (למשל עמוד הסגל באתר ההתאחדות, בדפדפן שלכם) או בחרו PDF / אקסל. נשווה לסגל של {teamName} ונציג מי חדש ומי לא מופיע. שום דבר לא משתנה עד שתאשרו.
             </p>

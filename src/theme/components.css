@@ -2811,3 +2811,55 @@ select.ip-input {
   font-size: var(--ip-fs-xs);
   color: var(--ip-warning-ink, #9a5b00);
 }
+
+/* "עדכון מההתאחדות" steps (IfaSteps.tsx) */
+.ip-ifa-steps {
+  margin: 0;
+  padding-inline-start: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ip-s2);
+  font-size: var(--ip-fs-sm);
+}
+.ip-ifa-steps li.is-done { color: var(--ip-muted, #5b6b82); }
+.ip-ifa-steps li.is-next { font-weight: 700; }
+.ip-ifa-steps-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* the small ⟳ "update from the IFA site" icon beside a heading */
+.ip-ifa-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-inline-start: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ip-blue-soft, #e8f0fe);
+  color: var(--ip-blue, #1f5fd1);
+  cursor: pointer;
+  vertical-align: middle;
+  flex: none;
+}
+.ip-ifa-icon:focus-visible { outline: 2px solid var(--ip-blue, #1f5fd1); outline-offset: 2px; }
+.ip-ifa-icon.is-fresh { animation: ip-ifa-pulse 1.8s ease-out 3; }
+@keyframes ip-ifa-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(31, 95, 209, 0.45); }
+  100% { box-shadow: 0 0 0 10px rgba(31, 95, 209, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .ip-ifa-icon.is-fresh { animation: none; } }
+.ip-ifa-explainer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  padding: var(--ip-s3);
+  border-radius: 12px;
+  background: var(--ip-blue-soft, #e8f0fe);
+  font-size: var(--ip-fs-sm);
+}
+.ip-ifa-explainer .ip-ifa-icon { margin: 0; background: #fff; cursor: default; }

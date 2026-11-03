@@ -49,6 +49,7 @@ import { LiveMatch } from './LiveMatch';
 import '../theme/club.css';
 import { IfaMatchOverrides } from './MatchOverrides';
 import { ScheduleImportSheet } from './ScheduleImport';
+import { IfaUpdateIcon } from '../components/IfaSteps';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' });
@@ -159,7 +160,11 @@ export function MatchesScreen({ teamId, matchId, onBack }: { teamId: string; mat
             </Button>
           )}
           <section>
-            <SectionHeader title="משחקים קרובים" icon="calendar" />
+            <SectionHeader
+              title="משחקים קרובים"
+              icon="calendar"
+              extra={profile.hasMatches ? <IfaUpdateIcon label="עדכון המשחקים מההתאחדות" onClick={() => setImporting(true)} /> : undefined}
+            />
             {upcoming.length === 0 ? (
               <Card>
                 <EmptyState icon="ball" title="אין משחקים קרובים" text={staff ? 'הוסיפו משחק או טענו לוח משחקים מקובץ.' : 'אפשר לטעון את לוח המשחקים מצילום מסך או מקובץ.'} />
