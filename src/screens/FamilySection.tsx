@@ -33,7 +33,7 @@ import {
   type FamilyMember,
   type FamilyPerms,
 } from '../lib/familyApi';
-import { TeamLinkShare } from './TeamLinkShare';
+import { AppLinkShare, TeamLinkShare } from './TeamLinkShare';
 import '../theme/coach.css';
 
 const errText = (e: unknown) => familyError(e) ?? friendlyError(e);
@@ -102,7 +102,7 @@ function InviteLinkBox({ code, text, phone = '' }: { code: string; text: string;
           </Button>
         )}
       </div>
-      <p className="ip-footnote">הקישור חד־פעמי ותקף 14 יום. מי שיפתח אותו ויאשר יצורף לילד מיד.</p>
+      <p className="ip-footnote">הקישור חד־פעמי ותקף 14 יום. מי שיפתח אותו ויאשר יצורף לילד מיד ויראה את הפרטים שלו לפי ההרשאות שבחרתם. שלחו אותו רק לבני משפחה. לחבר או להורה אחר שלחו את קישור הקבוצה או האפליקציה מ"שיתוף קישור בלי פרטי הילד".</p>
     </div>
   );
 }
@@ -508,45 +508,45 @@ export function FamilyInviteCard() {
   );
 }
 
-/** Invite anyone (a friend, another parent): the team page link, or the app itself. */
+/** Share a link with no child data: the team page, or just the app. */
 export function InviteFriendsSection() {
   const { teams } = useAuth();
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [kind, setKind] = useState<'team' | 'app'>(teams.length ? 'team' : 'app');
   const team = teams.find((t) => t.id === teamId) ?? teams[0];
-  const appLink = `${window.location.origin}${window.location.pathname}`;
   return (
     <section>
-      <SectionHeader title="הזמנת חברים" icon="chat" />
+      <SectionHeader title="שיתוף קישור בלי פרטי הילד" icon="chat" />
       <Card>
-        {team ? (
-          <div className="ip-form">
-            {teams.length > 1 && (
-              <div className="ip-player-chips">
-                {teams.map((t) => (
-                  <button key={t.id} type="button" className={t.id === team.id ? 'is-on' : ''} aria-pressed={t.id === team.id} onClick={() => setTeamId(t.id)}>
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            <TeamLinkShare teamId={team.id} teamName={team.name} />
-          </div>
-        ) : (
-          <div className="ip-form">
-            <p className="ip-muted">שולחים לחבר קישור לאפליקציה. אחרי ההרשמה הוא מחפש את הקבוצה או הילד שלו.</p>
-            <div className="ip-btn-row">
-              <a
-                className="ip-btn ip-btn--lime ip-btn--md"
-                href={`https://wa.me/?text=${encodeURIComponent(`בואו ל-iplays, האפליקציה של הקבוצה: ${appLink}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Icon name="chat" size={20} />
-                <span>שליחה בוואטסאפ</span>
-              </a>
-            </div>
-          </div>
-        )}
+        <div className="ip-form">
+          {team && (
+            <Segmented
+              label="מה לשתף"
+              items={[
+                { id: 'team', label: 'דף הקבוצה' },
+                { id: 'app', label: 'האפליקציה בלבד' },
+              ]}
+              value={kind}
+              onChange={setKind}
+            />
+          )}
+          {team && kind === 'team' ? (
+            <>
+              {teams.length > 1 && (
+                <div className="ip-player-chips">
+                  {teams.map((t) => (
+                    <button key={t.id} type="button" className={t.id === team.id ? 'is-on' : ''} aria-pressed={t.id === team.id} onClick={() => setTeamId(t.id)}>
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <TeamLinkShare teamId={team.id} teamName={team.name} />
+            </>
+          ) : (
+            <AppLinkShare />
+          )}
+        </div>
       </Card>
     </section>
   );
