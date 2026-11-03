@@ -13,7 +13,7 @@
  * calls import_team_matches (supabase/migrations/20261103100000_schedule_import.sql).
  */
 import { supabase } from './supabase';
-import type { Competition } from './matchApi';
+import { setMatchOverride, updateMatch, type Competition } from './matchApi';
 
 function db() {
   if (!supabase) throw new Error('backend not configured');
@@ -31,6 +31,20 @@ export interface DraftGame {
   round: string;
   include: boolean;
   duplicate?: boolean;
+  /** The game already in the schedule that this row is (when duplicate). */
+  match?: { id: string; source: string; startsAt: string; timeKnown: boolean; venue: string };
+  /** What the file says differently from the schedule (empty = no change). */
+  changes?: GameChange[];
+  /** Apply `changes` to the game in the schedule. */
+  update?: boolean;
+  /** Matched by opponent on another day (the date moved), not on the same day. */
+  moved?: boolean;
+}
+
+export interface GameChange {
+  field: 'date' | 'time' | 'venue';
+  old: string;
+  new: string;
 }
 
 export interface ReadResult {
@@ -237,15 +251,129 @@ function draft(i: number, date: string, time: string, opponent: string, home: bo
 
 /* ------------------------------------------------------------- saving */
 
-/** Marks games the team already has that day against the same opponent (or an IFA game). */
-export function markDuplicates(games: DraftGame[], existing: { starts_at: string; opponent: string; source?: string; status: string }[]): DraftGame[] {
-  const seen = existing
+export interface ExistingGame {
+  id?: string;
+  starts_at: string;
+  opponent: string;
+  source?: string;
+  status: string;
+  venue?: string;
+  time_confirmed?: boolean;
+}
+
+/** Days a game may have moved and still be recognized as the same game. */
+const MOVE_WINDOW_DAYS = 21;
+
+/** Same opponent? IFA and the app spell names differently ("ר״ג" / "רמת גן"). */
+export function sameOpponent(a: string, b: string): boolean {
+  const x = normName(a);
+  const y = normName(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const s1 = nameScore(a, b);
+  const s2 = nameScore(b, a);
+  const lo = Math.min(s1, s2);
+  const shorter = (x.length <= y.length ? x : y).split(' ').filter((w) => w.length > 1).length;
+  return lo >= 0.75 || (Math.max(s1, s2) === 1 && lo >= 0.5 && shorter >= 2);
+}
+
+function sameVenue(a: string, b: string): boolean {
+  const x = normName(a).replace(/\s+/g, '');
+  const y = normName(b).replace(/\s+/g, '');
+  if (x === y) return true;
+  if (x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x))) return true;
+  return nameScore(a, b) >= 0.75 && nameScore(b, a) >= 0.75;
+}
+
+const dayDiff = (a: string, b: string) => Math.round((Date.parse(a + 'T12:00:00') - Date.parse(b + 'T12:00:00')) / 86400000);
+const hebDay = (d: string) => {
+  const [y, m, dd] = d.split('-');
+  return `${+dd}.${+m}.${y.slice(2)}`;
+};
+
+/**
+ * Finds, for each game in the file, the game already in the schedule: same day
+ * and the same opponent (or an IFA game that day), else the same opponent up
+ * to three weeks away (the game moved). Each game in the schedule is used once.
+ * A found game is marked duplicate (not added again), and what the file says
+ * differently (date, time, venue) is listed in `changes`, ready to apply.
+ */
+export function markDuplicates(games: DraftGame[], existing: ExistingGame[]): DraftGame[] {
+  const pool = existing
     .filter((m) => m.status !== 'canceled')
-    .map((m) => ({ day: localDay(m.starts_at), opp: m.opponent.trim().toLowerCase(), ifa: m.source === 'ifa' }));
+    .map((m) => ({ m, day: localDay(m.starts_at), ifa: m.source === 'ifa', used: false }));
+  const found = new Map<string, (typeof pool)[number] & { moved: boolean }>();
+  const take = (g: DraftGame, ok: (p: (typeof pool)[number]) => boolean, moved: boolean) => {
+    if (found.has(g.key)) return;
+    const c = pool
+      .filter((p) => !p.used && ok(p))
+      .sort((a, b) => Math.abs(dayDiff(a.day, g.date)) - Math.abs(dayDiff(b.day, g.date)))[0];
+    if (c) {
+      c.used = true;
+      found.set(g.key, { ...c, moved });
+    }
+  };
+  // 1. same day, same opponent  2. same day, an IFA game  3. same opponent, moved
+  for (const g of games) take(g, (p) => p.day === g.date && sameOpponent(p.m.opponent, g.opponent), false);
+  for (const g of games) take(g, (p) => p.day === g.date && p.ifa, false);
+  for (const g of games)
+    take(g, (p) => p.m.status === 'scheduled' && Math.abs(dayDiff(p.day, g.date)) <= MOVE_WINDOW_DAYS && sameOpponent(p.m.opponent, g.opponent), true);
+
   return games.map((g) => {
-    const dup = seen.some((s) => s.day === g.date && (s.ifa || s.opp === g.opponent.trim().toLowerCase()));
-    return { ...g, duplicate: dup, include: dup ? false : g.include };
+    const f = found.get(g.key);
+    if (!f) return { ...g, duplicate: false, match: undefined, changes: undefined, update: false, moved: false };
+    const m = f.m;
+    const d = new Date(m.starts_at);
+    const timeKnown = m.time_confirmed !== false;
+    const oldTime = timeKnown ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '';
+    const changes: GameChange[] = [];
+    // a played game is history: nothing to update
+    if (m.status === 'scheduled' && m.id) {
+      if (f.day !== g.date) changes.push({ field: 'date', old: hebDay(f.day), new: hebDay(g.date) });
+      if (g.time && g.time !== oldTime) changes.push({ field: 'time', old: oldTime || 'טרם נקבעה', new: g.time });
+      const oldVenue = (m.venue ?? '').trim();
+      if (g.venue.trim() && !sameVenue(oldVenue, g.venue)) changes.push({ field: 'venue', old: oldVenue || 'טרם נקבע', new: g.venue.trim() });
+    }
+    return {
+      ...g,
+      duplicate: true,
+      include: false,
+      moved: f.moved,
+      match: m.id ? { id: m.id, source: m.source ?? 'manual', startsAt: m.starts_at, timeKnown, venue: m.venue ?? '' } : undefined,
+      changes,
+      update: changes.length > 0,
+    };
   });
+}
+
+export const changeLabel: Record<GameChange['field'], string> = { date: 'תאריך', time: 'שעה', venue: 'מגרש' };
+
+/** Writes the chosen changes to games already in the schedule. IFA games: time and venue (as overrides). */
+export async function applyGameUpdates(games: DraftGame[]): Promise<{ updated: number; failed: number }> {
+  let updated = 0;
+  let failed = 0;
+  for (const g of games) {
+    if (!g.match || !g.changes?.length || !g.update) continue;
+    const when = g.changes.some((c) => c.field === 'date' || c.field === 'time');
+    const venue = g.changes.some((c) => c.field === 'venue');
+    const old = new Date(g.match.startsAt);
+    const [y, mo, d] = g.date.split('-').map(Number);
+    const [hh, mm] = g.time ? g.time.split(':').map(Number) : [old.getHours(), old.getMinutes()];
+    const startsAt = new Date(y, mo - 1, d, hh, mm).toISOString();
+    const timeKnown = !!g.time || g.match.timeKnown;
+    try {
+      if (g.match.source === 'ifa') {
+        if (when) await setMatchOverride(g.match.id, 'starts_at', { starts_at: startsAt, time_confirmed: timeKnown });
+        if (venue) await setMatchOverride(g.match.id, 'venue', g.venue.trim());
+      } else {
+        await updateMatch(g.match.id, { ...(when ? { starts_at: startsAt } : {}), ...(venue ? { venue: g.venue.trim() } : {}) });
+      }
+      updated++;
+    } catch {
+      failed++;
+    }
+  }
+  return { updated, failed };
 }
 
 function localDay(iso: string) {
