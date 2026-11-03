@@ -13,6 +13,7 @@ import {
   getSyncRuns,
   isPlatformAdmin,
   parseRosterHtml,
+  saveIfaCoaches,
   syncIfaRoster,
   type ParsedRoster,
   type RosterSyncResult,
@@ -97,6 +98,7 @@ export function IfaAdminScreen({ onBack }: { onBack: () => void }) {
         apply,
       );
       if (apply) {
+        if (r.ok && parsed.coaches.length) await saveIfaCoaches(seasonId, teamId, parsed.coaches);
         setResult(r);
         setCheck(null);
       } else {

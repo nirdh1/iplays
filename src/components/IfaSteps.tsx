@@ -9,6 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
+import { Button } from './ui';
 import { getTeamLeagueTable, ifaLeagueGamesUrl, ifaLeagueTableUrl, ifaTeamGamesUrl } from '../lib/leagueApi';
 import { teamIfaLink } from '../lib/ifaApi';
 
@@ -89,13 +90,48 @@ function IconExplainer() {
   );
 }
 
-export function IfaSteps({ teamId, kind, links: given }: { teamId?: string; kind: IfaPageKind; links?: PageLink[] }) {
+const WHAT: Record<IfaPageKind, { title: string; what: string }> = {
+  table: { title: 'צלמו את טבלת הליגה', what: 'הטבלה' },
+  roster: { title: 'צלמו את רשימת השחקנים', what: 'רשימת השחקנים' },
+  games: { title: 'צלמו את משחקי המחזור', what: 'המשחקים' },
+  player: { title: 'צלמו את הנתונים הסטטיסטיים של השחקן', what: 'הנתונים' },
+};
+
+/**
+ * The top of an upload sheet. With a known IFA page: a title saying exactly
+ * what to photograph, one button to the page, where the screenshot is kept,
+ * and (once the user is back) a large "pick the screenshot you just took".
+ * Without one: the sheet's own text and a pick button.
+ */
+export function UploadIntro({
+  teamId,
+  kind,
+  links: given,
+  busy,
+  progress,
+  fileName,
+  onPick,
+  fallback,
+}: {
+  teamId?: string;
+  kind: IfaPageKind;
+  links?: PageLink[];
+  busy: boolean;
+  progress: string;
+  fileName: string;
+  onPick: () => void;
+  fallback: string;
+}) {
   const [links, setLinks] = useState<PageLink[] | null>(given ?? null);
   const [opened, setOpened] = useState(false);
   const [back, setBack] = useState(false);
 
   useEffect(() => {
-    if (given || !teamId) return;
+    if (given) {
+      setLinks(given);
+      return;
+    }
+    if (!teamId) return;
     let live = true;
     void pagesFor(teamId, kind).then((l) => live && setLinks(l));
     return () => {
@@ -103,7 +139,7 @@ export function IfaSteps({ teamId, kind, links: given }: { teamId?: string; kind
     };
   }, [teamId, kind, given]);
 
-  // the user returns from the IFA tab: point at step 3
+  // the user returns from the IFA tab: the next step is picking the screenshot
   useEffect(() => {
     if (!opened) return;
     const onVis = () => document.visibilityState === 'visible' && setBack(true);
@@ -115,28 +151,58 @@ export function IfaSteps({ teamId, kind, links: given }: { teamId?: string; kind
     };
   }, [opened]);
 
-  if (!links?.length) return null;
-  const what = kind === 'table' ? 'הטבלה' : kind === 'roster' ? 'רשימת השחקנים' : kind === 'player' ? 'כרטיס השחקן' : 'המשחקים';
+  const pickLabel = busy ? `קוראים את ${fileName || 'הצילום'}…` : back ? 'בחירת הצילום שצילמתם עכשיו' : 'בחירת צילום מסך';
+  const status = busy && (
+    <p className="ip-muted" role="status">
+      {progress || 'קוראים…'} מתמונה זה יכול לקחת עד דקה.
+    </p>
+  );
+
+  if (!links?.length) {
+    return (
+      <>
+        <p className="ip-muted">{fallback}</p>
+        <Button variant="primary" icon="photo" block disabled={busy} onClick={onPick}>
+          {busy ? `קוראים את ${fileName || 'הקובץ'}…` : 'בחירת צילום מסך או קובץ'}
+        </Button>
+        {status}
+      </>
+    );
+  }
+
+  const w = WHAT[kind];
   return (
     <>
-    <IconExplainer />
-    <ol className="ip-ifa-steps">
-      <li className={opened ? 'is-done' : ''}>
-        <span>פותחים את הדף באתר ההתאחדות:</span>
-        <span className="ip-ifa-steps-links">
-          {links.map((l) => (
-            <a key={l.href} className="ip-btn ip-btn--secondary ip-btn--sm" href={l.href} target="_blank" rel="noopener noreferrer" onClick={() => setOpened(true)}>
-              <span>{l.label}</span>
-              <Icon name="external" size={16} />
-            </a>
-          ))}
-        </span>
-      </li>
-      <li className={back ? 'is-done' : ''}>
-        מצלמים מסך של {what} (הצילום נשמר בגלריה של הטלפון). שימו את כל {what} במסך אחד; אם צריך, הקטינו את התצוגה.
-      </li>
-      <li className={back ? 'is-next' : ''}>חוזרים לכאן ובוחרים את הצילום בכפתור למטה.</li>
-    </ol>
+      <IconExplainer />
+      <h3 className="ip-ifa-title">{w.title}</h3>
+      <ol className="ip-ifa-steps">
+        <li className={opened ? 'is-done' : ''}>
+          <span className="ip-ifa-steps-links">
+            {links.map((l, i) => (
+              <a
+                key={l.href}
+                className={`ip-btn ip-btn--${opened || i > 0 ? 'secondary' : 'primary'} ip-btn--md`}
+                href={l.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpened(true)}
+              >
+                <span>פתיחת {l.label} באתר ההתאחדות</span>
+                <Icon name="external" size={16} />
+              </a>
+            ))}
+          </span>
+        </li>
+        <li className={back ? 'is-done' : ''}>
+          שם, צלמו מסך של {w.what}. הצילום נשמר לבד בתמונות של הטלפון (באלבום "צילומי מסך").
+        </li>
+        <li className={back ? 'is-next' : ''}>חזרו לכאן ובחרו אותו. הצילום האחרון מופיע ראשון.</li>
+      </ol>
+      <Button variant={opened ? 'primary' : 'secondary'} icon="photo" block disabled={busy} onClick={onPick}>
+        {pickLabel}
+      </Button>
+      {status}
+      <p className="ip-footnote">אפשר גם לבחור PDF, אקסל או CSV.</p>
     </>
   );
 }

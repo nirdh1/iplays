@@ -2863,3 +2863,19 @@ select.ip-input {
   font-size: var(--ip-fs-sm);
 }
 .ip-ifa-explainer .ip-ifa-icon { margin: 0; background: #fff; cursor: default; }
+
+/* coach name from the IFA site, in the team hero (MyTeamScreen) */
+.ip-team-coach {
+  margin: 4px 0 0;
+  font-size: var(--ip-fs-sm);
+}
+.ip-ifa-title {
+  margin: 0;
+  font-size: var(--ip-fs-lg, 18px);
+  font-weight: 800;
+}
+.ip-ifa-steps-links .ip-btn { flex: 1 1 100%; justify-content: center; }
+.ip-ifa-steps { list-style: decimal; }
+.ip-ifa-steps li::marker { font-weight: 700; color: var(--ip-blue, #1f5fd1); }
+.ip-ifa-steps-links { display: flex; width: 100%; }
+.ip-ifa-steps-links .ip-btn { text-decoration: none; width: 100%; }

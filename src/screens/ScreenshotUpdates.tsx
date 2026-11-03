@@ -27,7 +27,7 @@ import {
   type DraftLeagueRow,
   type RosterCompare,
 } from '../lib/screenshotTables';
-import { IfaSteps } from '../components/IfaSteps';
+import { UploadIntro } from '../components/IfaSteps';
 import '../theme/coach.css';
 
 const today = () => {
@@ -131,14 +131,15 @@ export function LeagueSnapshotSheet({
           </>
         ) : !rows ? (
           <>
-            <IfaSteps teamId={teamId} kind="table" />
-            <p className="ip-muted">
-              צלמו מסך של טבלת הליגה (למשל באתר ההתאחדות, בדפדפן שלכם) או בחרו PDF / אקסל. הקובץ נקרא בטלפון עצמו, בחינם, ותוכלו לבדוק ולתקן כל שורה לפני השמירה. הטבלה מצילום לא משנה את הטבלה שמחושבת מהתוצאות; היא מוצגת לידה.
-            </p>
-            <Button variant="primary" icon="photo" block disabled={!!busy} onClick={pk.open}>
-              {busy === 'reading' ? `קוראים את ${pk.fileName || 'הקובץ'}…` : 'בחירת צילום מסך או קובץ'}
-            </Button>
-            {busy === 'reading' && <p className="ip-muted" role="status">{pk.progress || 'קוראים…'} מתמונה זה יכול לקחת עד דקה.</p>}
+            <UploadIntro
+              teamId={teamId}
+              kind="table"
+              busy={busy === 'reading'}
+              progress={pk.progress}
+              fileName={pk.fileName}
+              onPick={pk.open}
+              fallback="צלמו מסך של טבלת הליגה או בחרו PDF / אקסל. הקובץ נקרא בטלפון, בחינם, ותוכלו לתקן כל שורה לפני השמירה. הטבלה מצילום מוצגת ליד הטבלה המחושבת ולא משנה אותה."
+            />
             <Err error={error} />
           </>
         ) : (
@@ -332,14 +333,15 @@ export function RosterFromFileSheet({
           </>
         ) : !cmp ? (
           <>
-            <IfaSteps teamId={teamId} kind="roster" />
-            <p className="ip-muted">
-              צלמו מסך של רשימת השחקנים (למשל עמוד הסגל באתר ההתאחדות, בדפדפן שלכם) או בחרו PDF / אקסל. נשווה לסגל של {teamName} ונציג מי חדש ומי לא מופיע. שום דבר לא משתנה עד שתאשרו.
-            </p>
-            <Button variant="primary" icon="photo" block disabled={!!busy} onClick={pk.open}>
-              {busy === 'reading' ? `קוראים את ${pk.fileName || 'הקובץ'}…` : 'בחירת צילום מסך או קובץ'}
-            </Button>
-            {busy === 'reading' && <p className="ip-muted" role="status">{pk.progress || 'קוראים…'} מתמונה זה יכול לקחת עד דקה.</p>}
+            <UploadIntro
+              teamId={teamId}
+              kind="roster"
+              busy={busy === 'reading'}
+              progress={pk.progress}
+              fileName={pk.fileName}
+              onPick={pk.open}
+              fallback={`צלמו מסך של רשימת השחקנים או בחרו PDF / אקסל. נשווה לסגל של ${teamName} ונציג מי חדש ומי לא מופיע. שום דבר לא משתנה עד שתאשרו.`}
+            />
             <Err error={error} />
           </>
         ) : (
