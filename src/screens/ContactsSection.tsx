@@ -85,8 +85,9 @@ function ContactActions({ person, withAddress = true, name }: { person: Pick<Con
 }
 
 /** One person with every detail this viewer may see, and the quick buttons. */
-function PersonBlock({ person, label }: { person: ContactPerson; label?: string }) {
+function PersonBlock({ person, label, onEditMe }: { person: ContactPerson; label?: string; onEditMe?: () => void }) {
   const nothing = !person.phone && !person.whatsapp && !person.email && !person.address;
+  const editMe = person.is_me && onEditMe;
   return (
     <div className="ip-ct-person">
       <div className="ip-ct-person-head">
@@ -97,11 +98,24 @@ function PersonBlock({ person, label }: { person: ContactPerson; label?: string 
           </span>
           <span className="ip-list-row-sub">{label ?? personRole(person)}</span>
         </span>
+        {editMe && <EditMeButton onClick={onEditMe} />}
       </div>
-      {nothing ? (
+      {person.is_me && !person.phone ? (
         <p className="ip-ct-hidden">
-          <Icon name="lock" size={16} /> לא שותפו פרטי קשר
+          <Icon name="phone" size={16} /> עוד לא הזנת טלפון.{' '}
+          {editMe && (
+            <button type="button" className="ip-link" onClick={onEditMe}>
+              להוספה
+            </button>
+          )}
         </p>
+      ) : null}
+      {nothing ? (
+        !person.is_me && (
+          <p className="ip-ct-hidden">
+            <Icon name="lock" size={16} /> לא שותפו פרטי קשר
+          </p>
+        )
       ) : (
         <dl className="ip-ct-details">
           {person.phone && (
@@ -154,6 +168,15 @@ function PersonBlock({ person, label }: { person: ContactPerson; label?: string 
       )}
       <ContactActions person={person} name={person.name} withAddress={false} />
     </div>
+  );
+}
+
+/** Pencil next to the signed-in user's own entry: edit phone, e-mail, address and sharing (same data as #me). */
+function EditMeButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="ip-ct-action ip-ct-edit" onClick={onClick} aria-label="עריכת הפרטים שלי" title="עריכת הפרטים שלי">
+      <Icon name="edit" size={18} />
+    </button>
   );
 }
 
@@ -398,6 +421,7 @@ export function TeamDirectorySection({ teamId }: { teamId: string }) {
                     </span>
                   </button>
                   {first && <ContactActions person={first} name={first.name} withAddress={false} />}
+                  {p.contacts.some((c) => c.is_me) && <EditMeButton onClick={() => setMine(true)} />}
                 </li>
               );
             })}
@@ -411,7 +435,16 @@ export function TeamDirectorySection({ teamId }: { teamId: string }) {
       )}
 
       <BottomSheet open={!!open} onClose={() => setOpen(null)} title={open ? fullName(open) : ''}>
-        {open && <PlayerContactCard player={open} kidsOf={kidsOf} />}
+        {open && (
+          <PlayerContactCard
+            player={open}
+            kidsOf={kidsOf}
+            onEditMe={() => {
+              setOpen(null);
+              setMine(true);
+            }}
+          />
+        )}
       </BottomSheet>
       <BottomSheet open={mine} onClose={() => setMine(false)} title="הפרטים שלי באלפון">
         {mine && <MyCardEditor onSaved={() => void load()} />}
@@ -420,7 +453,7 @@ export function TeamDirectorySection({ teamId }: { teamId: string }) {
   );
 }
 
-function PlayerContactCard({ player, kidsOf }: { player: DirectoryPlayer; kidsOf: Map<string, string[]> }) {
+function PlayerContactCard({ player, kidsOf, onEditMe }: { player: DirectoryPlayer; kidsOf: Map<string, string[]>; onEditMe: () => void }) {
   const labels = parentLabels(player.contacts);
   return (
     <div className="ip-ct-card">
@@ -433,7 +466,7 @@ function PlayerContactCard({ player, kidsOf }: { player: DirectoryPlayer; kidsOf
       {player.contacts.map((c, i) => {
         const siblings = c.user_id ? (kidsOf.get(c.user_id) ?? []).filter((n) => n !== player.first_name) : [];
         const base = labels.get(c) ?? personRole(c);
-        return <PersonBlock key={c.user_id ?? c.id ?? i} person={c} label={siblings.length ? `${base} · גם של ${siblings.join(', ')}` : base} />;
+        return <PersonBlock key={c.user_id ?? c.id ?? i} person={c} label={siblings.length ? `${base} · גם של ${siblings.join(', ')}` : base} onEditMe={onEditMe} />;
       })}
       {!player.contacts.length && !player.phone && <p className="ip-muted">אין עדיין אנשי קשר לשחקן הזה.</p>}
     </div>
@@ -540,7 +573,7 @@ export function PlayerContactsSection({ playerId, name }: { playerId: string; na
 
         {me && (
           <div className="ip-ct-mine">
-            <PersonBlock person={me} label={`${labels.get(me) ?? personRole(me)} · הפרטים שלך`} />
+            <PersonBlock person={me} label={`${labels.get(me) ?? personRole(me)} · הפרטים שלך`} onEditMe={() => setMine(true)} />
             <p className="ip-muted ip-ct-small">
               משותף עם הורים אחרים: {SHARE_LABELS.filter((s) => me.sharing?.[s.key]).map((s) => s.label).join(', ') || 'שום פרט'}. הפרטים שלך משמשים לכל הילדים שלך.
             </p>

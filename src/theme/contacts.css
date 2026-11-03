@@ -227,3 +227,20 @@
   color: var(--ip-success);
   font-weight: 700;
 }
+
+/* pencil next to my own entry (opens the same details as #me) */
+.ip-ct-edit {
+  flex: none;
+  border: 0;
+  cursor: pointer;
+  background: var(--ip-blue-100);
+  color: var(--ip-blue-700);
+}
+.ip-ct-person-head .ip-list-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.ip-ct-hidden .ip-link {
+  min-height: 0;
+  padding: 0;
+}
