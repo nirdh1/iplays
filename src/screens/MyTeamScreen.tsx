@@ -28,6 +28,7 @@ import { Err, Field } from '../components/form';
 import { joinError, PARENT_DECLARATION, pendingJoinRequests, reviewJoinRequest, type PendingRequest } from '../lib/joinApi';
 import { TeamLinkShare } from './TeamLinkShare';
 import { IfaTeamLink } from './IfaTeamLink';
+import { teamIfaCoaches, type IfaCoach } from '../lib/ifaApi';
 import { ChildDetailsSheet } from './ChildDetailsSheet';
 import { sportProfile } from '../lib/sports';
 import { endAssignment } from '../lib/clubApi';
@@ -57,6 +58,14 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
   const [showRoster, setShowRoster] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [tab, setTab] = useState<TeamTab>(tabOf(initialTab));
+  const [coaches, setCoaches] = useState<IfaCoach[]>([]);
+  useEffect(() => {
+    let live = true;
+    void teamIfaCoaches(teamId).then((c) => live && setCoaches(c));
+    return () => {
+      live = false;
+    };
+  }, [teamId]);
   useEffect(() => {
     if (initialTab === 'gallery' || initialTab === 'contacts') setTab(initialTab);
   }, [initialTab]);
@@ -126,6 +135,13 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
             <p className="ip-on-navy-muted">
               {sportLabel[team.sport]} · עונת {team.season} · {roleLabel[team.role]}
             </p>
+            {coaches.length > 0 && (
+              <p className="ip-team-coach" title="השם כפי שמופיע באתר ההתאחדות">
+                {coaches[0].role.includes('מאמן הקבוצה') ? 'מאמן' : coaches[0].role}: <strong>{coaches[0].name}</strong>
+                {coaches.length > 1 && <span className="ip-on-navy-muted"> · {coaches.slice(1, 3).map((c) => `${c.role.split(',')[0]}: ${c.name}`).join(' · ')}</span>}
+                <span className="ip-on-navy-muted"> (לפי ההתאחדות)</span>
+              </p>
+            )}
             <IfaTeamLink teamId={teamId} />
           </div>
         </div>

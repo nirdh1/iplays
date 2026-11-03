@@ -7,12 +7,12 @@
  */
 import '../theme/career.css';
 import '../theme/coach.css';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { BottomSheet } from '../components/shell';
 import { Button, Card, SectionHeader } from '../components/ui';
 import { Err, Field } from '../components/form';
-import { IfaSteps, IfaUpdateIcon } from '../components/IfaSteps';
+import { IfaUpdateIcon, UploadIntro } from '../components/IfaSteps';
 import { friendlyError } from '../lib/api';
 import {
   currentSeason,
@@ -157,6 +157,7 @@ function LoadSheet({
   onSaved: () => Promise<void>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const playerLinks = useMemo(() => (ifaUrl ? [{ label: ifaUrlLabel, href: ifaUrl }] : undefined), [ifaUrl, ifaUrlLabel]);
   const [values, setValues] = useState<StatValues | null>(null);
   const [season, setSeason] = useState(currentSeason());
   const [team, setTeam] = useState(teamName);
@@ -227,16 +228,15 @@ function LoadSheet({
         <input ref={fileRef} type="file" accept={ACCEPT} hidden onChange={(e) => void pick(e.target.files?.[0])} />
         {!values ? (
           <>
-            {ifaUrl && <IfaSteps kind="player" links={[{ label: ifaUrlLabel, href: ifaUrl }]} />}
-            <p className="ip-muted">בחרו צילום מסך או PDF של כרטיס השחקן באתר ההתאחדות.</p>
-            <Button variant="primary" icon="plus" block disabled={!!busy} onClick={() => fileRef.current?.click()}>
-              {busy === 'reading' ? 'קוראים…' : 'בחירת תמונה או קובץ'}
-            </Button>
-            {busy === 'reading' && (
-              <p className="ip-muted" role="status">
-                {progress || 'קוראים…'}
-              </p>
-            )}
+            <UploadIntro
+              kind="player"
+              links={playerLinks}
+              busy={busy === 'reading'}
+              progress={progress}
+              fileName={fileName}
+              onPick={() => fileRef.current?.click()}
+              fallback="בחרו צילום מסך או PDF של כרטיס השחקן באתר ההתאחדות."
+            />
             <Button variant="ghost" block disabled={!!busy} onClick={() => setValues({})}>
               מילוי ידני
             </Button>

@@ -18,6 +18,11 @@ function db() {
 
 const BASE = 'https://www.football.org.il';
 
+export interface IfaCoach {
+  name: string;
+  role: string;
+}
+
 export interface ParsedPlayer {
   ifa_player_id: string;
   name: string;
@@ -30,6 +35,8 @@ export interface ParsedRoster {
   teamId: number | null;
   seasonId: number | null;
   players: ParsedPlayer[];
+  /** staff whose role names a coach, head coach first (names are public on the IFA page) */
+  coaches: IfaCoach[];
   staffSkipped: number;
   problems: string[];
 }
@@ -88,7 +95,39 @@ export function parseRosterHtml(html: string): ParsedRoster {
   if (teamId === null) problems.push('מזהה הקבוצה לא מופיע בדף באופן חד-משמעי. יש להזין אותו ידנית.');
   if (seasonId === null) problems.push('מזהה העונה לא מופיע בדף באופן חד-משמעי. יש להזין אותו ידנית.');
 
-  return { teamName, teamId, seasonId, players, staffSkipped: staff ? staff.querySelectorAll('.text').length : 0, problems };
+  return { teamName, teamId, seasonId, players, coaches: parseCoaches(staff), staffSkipped: staff ? staff.querySelectorAll('.text').length : 0, problems };
+}
+
+/** Coaches from the staff list: "<div class=text>NAME<span>ROLE, ROLE</span></div>". */
+function parseCoaches(staff: Element | null): IfaCoach[] {
+  if (!staff) return [];
+  const out: IfaCoach[] = [];
+  for (const t of Array.from(staff.querySelectorAll('.text'))) {
+    const span = t.querySelector('span');
+    const roles = clean(span?.textContent)
+      .split(',')
+      .map((r) => r.trim())
+      .filter((r) => r.includes('מאמן'));
+    if (!roles.length) continue;
+    const name = clean(Array.from(t.childNodes).filter((n) => n !== span).map((n) => n.textContent ?? '').join(' '));
+    if (name && !out.some((c) => c.name === name)) out.push({ name, role: [...new Set(roles)].join(', ') });
+  }
+  const rank = (r: string) => (r.includes('מאמן הקבוצה') ? 0 : r.includes('עוזר') ? 1 : 2);
+  return out.sort((a, b) => rank(a.role) - rank(b.role));
+}
+
+/** Platform admin: store the coaches read from a saved roster page. Quietly skipped before the SQL is run. */
+export async function saveIfaCoaches(seasonId: number, ifaTeamId: number, coaches: IfaCoach[]): Promise<void> {
+  const { error } = await db().rpc('set_ifa_team_coaches', { p_season: seasonId, p_ifa_team: ifaTeamId, p_coaches: coaches });
+  if (error && !(error.code === 'PGRST202' || /could not find the function/i.test(error.message))) throw error;
+}
+
+/** The team's coaches as the IFA site lists them ([] when unknown or before the SQL is run). */
+export async function teamIfaCoaches(teamId: string): Promise<IfaCoach[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('team_ifa_coaches', { p_team: teamId });
+  if (error || !data) return [];
+  return ((data as { coaches?: IfaCoach[] }).coaches ?? []).filter((c) => c?.name);
 }
 
 export interface ImportResult {
