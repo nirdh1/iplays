@@ -1,0 +1,229 @@
+/* Team contacts directory + player contacts (screens/ContactsSection.tsx). Mobile first, RTL. */
+.ip-ct-intro {
+  display: grid;
+  gap: var(--ip-s3);
+}
+.ip-ct-intro-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s2);
+  flex-wrap: wrap;
+}
+.ip-ct-intro-row p {
+  margin: 0;
+  flex: 1;
+  min-width: 12rem;
+  color: var(--ip-text-2);
+}
+.ip-ct-intro-row > .ip-icon {
+  color: var(--ip-blue-700);
+  flex: none;
+}
+.ip-ct-search {
+  position: relative;
+  display: block;
+}
+.ip-ct-search .ip-icon {
+  position: absolute;
+  inset-inline-start: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ip-text-3);
+  pointer-events: none;
+}
+.ip-ct-search .ip-input {
+  width: 100%;
+  padding-inline-start: 42px;
+}
+.ip-ct-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ip-ct-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s2);
+  padding: var(--ip-s2) var(--ip-s3);
+  border-bottom: 1px solid var(--ip-border);
+}
+.ip-ct-row:last-child {
+  border-bottom: 0;
+}
+.ip-ct-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+  min-height: var(--ip-touch);
+  text-align: start;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.ip-ct-row-main .ip-list-row-text {
+  min-width: 0;
+}
+.ip-ct-row-main .ip-list-row-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ip-ct-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.ip-ct-action {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ip-surface-2);
+  color: var(--ip-navy);
+  text-decoration: none;
+}
+.ip-ct-action:active {
+  background: var(--ip-blue-100);
+}
+.ip-ct-action--wa {
+  background: var(--ip-lime-100);
+  color: var(--ip-lime-600);
+}
+.ip-ct-foot {
+  text-align: center;
+  font-size: var(--ip-fs-sm);
+}
+.ip-ct-card {
+  display: grid;
+  gap: var(--ip-s4);
+}
+.ip-ct-person {
+  display: grid;
+  gap: var(--ip-s2);
+}
+.ip-ct-person-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+}
+.ip-ct-details {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  padding-inline-start: 52px;
+}
+.ip-ct-details > div {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: var(--ip-s2);
+  align-items: baseline;
+}
+.ip-ct-details dt {
+  color: var(--ip-text-3);
+  font-size: var(--ip-fs-sm);
+}
+.ip-ct-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ip-ct-details a {
+  color: var(--ip-blue-700);
+  text-decoration: none;
+}
+.ip-ct-details dd a[dir='ltr'] {
+  unicode-bidi: isolate;
+}
+.ip-ct-nav {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.ip-ct-nav .ip-chip {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--ip-text);
+}
+.ip-ct-person > .ip-ct-actions {
+  padding-inline-start: 52px;
+}
+.ip-ct-hidden {
+  margin: 0;
+  padding-inline-start: 52px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ip-text-3);
+  font-size: var(--ip-fs-sm);
+}
+.ip-ct-note {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ip-text-2);
+  font-size: var(--ip-fs-sm);
+}
+.ip-ct-mine,
+.ip-ct-extras {
+  display: grid;
+  gap: var(--ip-s2);
+  padding-top: var(--ip-s3);
+  border-top: 1px solid var(--ip-border);
+}
+.ip-ct-mine > .ip-btn,
+.ip-ct-extras > .ip-btn {
+  justify-self: start;
+}
+.ip-ct-small {
+  margin: 0;
+  font-size: var(--ip-fs-sm);
+}
+.ip-ct-extra {
+  display: grid;
+  gap: 4px;
+}
+.ip-ct-extra > .ip-btn {
+  justify-self: start;
+}
+.ip-ct-kidphone {
+  display: grid;
+  gap: var(--ip-s2);
+}
+.ip-ct-kidphone > .ip-btn {
+  justify-self: start;
+}
+.ip-ct-editor {
+  display: grid;
+  gap: var(--ip-s4);
+}
+.ip-ct-address-row {
+  display: grid;
+  grid-template-columns: 1fr 6rem;
+  gap: var(--ip-s2);
+}
+.ip-ct-share {
+  display: grid;
+  gap: 2px;
+  padding: var(--ip-s3);
+  border-radius: var(--ip-r-md);
+  background: var(--ip-surface-2);
+}
+.ip-ct-share p {
+  margin: 0 0 var(--ip-s2);
+  font-size: var(--ip-fs-sm);
+}
+.ip-ct-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ip-success);
+  font-weight: 700;
+}

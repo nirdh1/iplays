@@ -79,12 +79,30 @@ export function friendlyError(e: unknown): string {
 }
 
 export async function getMyProfile(userId: string): Promise<Profile | null> {
-  const withTypes = await db().from('profiles').select('id, full_name, phone, email, account_types').eq('id', userId).maybeSingle();
-  if (!withTypes.error) return withTypes.data as Profile | null;
-  // before 20261101980000_account_types.sql the column doesn't exist
-  const { data, error } = await db().from('profiles').select('id, full_name, phone, email').eq('id', userId).maybeSingle();
-  if (error) throw error;
-  return data ? { ...data, account_types: ['parent'] } : null;
+  // profiles.phone / email are not readable directly since the team-contacts
+  // migration (team mates must not see them); they come from my_contact_card().
+  let types = true;
+  let base = await db().from('profiles').select('id, full_name, account_types').eq('id', userId).maybeSingle();
+  if (base.error) {
+    // before 20261101980000_account_types.sql the column doesn't exist
+    types = false;
+    base = await db().from('profiles').select('id, full_name').eq('id', userId).maybeSingle();
+  }
+  if (base.error) throw base.error;
+  if (!base.data) return null;
+  const row = base.data as { id: string; full_name: string; account_types?: AccountType[] };
+  return { id: row.id, full_name: row.full_name, account_types: types && row.account_types ? row.account_types : ['parent'], ...(await myPhoneEmail(userId)) };
+}
+
+async function myPhoneEmail(userId: string): Promise<{ phone: string | null; email: string | null }> {
+  const card = await db().rpc('my_contact_card');
+  if (!card.error && card.data) {
+    const c = card.data as { phone?: string; login_email?: string };
+    return { phone: c.phone || null, email: c.login_email || null };
+  }
+  // before 20261103500000_team_contacts.sql the columns are still readable
+  const old = await db().from('profiles').select('phone, email').eq('id', userId).maybeSingle();
+  return { phone: (old.data?.phone as string | null) ?? null, email: (old.data?.email as string | null) ?? null };
 }
 
 export async function updateMyAccountTypes(userId: string, types: AccountType[]) {

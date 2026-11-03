@@ -34,8 +34,10 @@ import { endAssignment } from '../lib/clubApi';
 import { RosterReviewSection } from './RosterReview';
 import { LeagueTableSection } from './LeagueTable';
 import { GallerySection } from './GallerySection';
+import { TeamDirectorySection } from './ContactsSection';
 
-type TeamTab = 'team' | 'gallery';
+type TeamTab = 'team' | 'contacts' | 'gallery';
+const tabOf = (t?: string): TeamTab => (t === 'gallery' || t === 'contacts' ? t : 'team');
 
 export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: string; tab?: string; onBack: () => void }) {
   const { session, teams, refresh } = useAuth();
@@ -52,14 +54,14 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
   const [claim, setClaim] = useState<Player | null>(null);
   const [showRoster, setShowRoster] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
-  const [tab, setTab] = useState<TeamTab>(initialTab === 'gallery' ? 'gallery' : 'team');
+  const [tab, setTab] = useState<TeamTab>(tabOf(initialTab));
   useEffect(() => {
-    if (initialTab === 'gallery') setTab('gallery');
+    if (initialTab === 'gallery' || initialTab === 'contacts') setTab(initialTab);
   }, [initialTab]);
   const changeTab = (t: TeamTab) => {
     setTab(t);
     // keep the tab in the address so a notification / back button lands on it
-    window.history.replaceState(null, '', `#myteam/${teamId}${t === 'gallery' ? '/gallery' : ''}`);
+    window.history.replaceState(null, '', `#myteam/${teamId}${t === 'team' ? '' : `/${t}`}`);
   };
 
   const load = useCallback(async () => {
@@ -131,6 +133,7 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
         label="עמוד הקבוצה"
         items={[
           { id: 'team', label: 'הקבוצה' },
+          { id: 'contacts', label: 'אלפון הקבוצה' },
           { id: 'gallery', label: 'גלריה' },
         ]}
         value={tab}
@@ -139,6 +142,8 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
 
       {tab === 'gallery' ? (
         <GallerySection teamId={teamId} />
+      ) : tab === 'contacts' ? (
+        <TeamDirectorySection teamId={teamId} />
       ) : (
       <>
       {error && <p className="ip-error" role="alert">{error}</p>}
