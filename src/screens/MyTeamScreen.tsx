@@ -232,14 +232,7 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
               <ul className="ip-roster">
                 {roster!.filter((p) => p.guardians.includes(me)).map((p) => (
                   <li key={p.id} className="is-mine">
-                    <span className="ip-roster-no">{p.shirt_number ?? '–'}</span>
-                    <InitialsAvatar name={`${p.first_name} ${p.last_name}`} size={40} tone="lime" />
-                    <span className="ip-list-row-text">
-                      <span className="ip-list-row-title">
-                        {p.first_name} {p.last_name}
-                      </span>
-                      <span className="ip-list-row-sub">{[p.position, p.birth_year && `שנתון ${p.birth_year}`].filter(Boolean).join(' · ') || ' '}</span>
-                    </span>
+                    <MyChildOpen p={p} />
                     <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
                       ציוד
                     </Button>
@@ -248,7 +241,7 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
               </ul>
             </Card>
             <button type="button" className="ip-link" onClick={() => setShowRoster((v) => !v)} aria-expanded={showRoster}>
-              {showRoster ? 'הסתרת הסגל' : `הסגל המלא · ${roster!.length} שחקנים`}
+              {showRoster ? 'הסתרת שאר הסגל' : `שאר הסגל · ${roster!.length - mineCount} שחקנים`}
             </button>
           </>
         )}
@@ -268,18 +261,25 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
             <EmptyState icon="team" title="עוד אין שחקנים" text={staff ? 'הוסיפו שחקנים או חכו שההורים יוסיפו את הילדים שלהם.' : 'הוסיפו את הילד שלכם כדי שיופיע בסגל.'} />
           ) : (
             <ul className="ip-roster">
-              {roster.map((p) => {
+              {/* When "my child" is already shown above, the expanded list holds only the rest of the squad. */}
+              {(collapse ? roster.filter((p) => !p.guardians.includes(me)) : roster).map((p) => {
                 const mine = p.guardians.includes(me);
                 return (
                   <li key={p.id} className={mine ? 'is-mine' : ''}>
-                    <span className="ip-roster-no">{p.shirt_number ?? '–'}</span>
-                    <InitialsAvatar name={`${p.first_name} ${p.last_name}`} size={40} tone={mine ? 'lime' : 'blue'} />
-                    <span className="ip-list-row-text">
-                      <span className="ip-list-row-title">
-                        {p.first_name} {p.last_name}
-                      </span>
-                      <span className="ip-list-row-sub">{[p.position, p.birth_year && `שנתון ${p.birth_year}`].filter(Boolean).join(' · ') || ' '}</span>
-                    </span>
+                    {mine ? (
+                      <MyChildOpen p={p} />
+                    ) : (
+                      <>
+                        <span className="ip-roster-no">{p.shirt_number ?? '–'}</span>
+                        <InitialsAvatar name={`${p.first_name} ${p.last_name}`} size={40} tone="blue" />
+                        <span className="ip-list-row-text">
+                          <span className="ip-list-row-title">
+                            {p.first_name} {p.last_name}
+                          </span>
+                          <span className="ip-list-row-sub">{[p.position, p.birth_year && `שנתון ${p.birth_year}`].filter(Boolean).join(' · ') || ' '}</span>
+                        </span>
+                      </>
+                    )}
                     {mine ? (
                       <Button variant="secondary" size="sm" icon="user" onClick={() => setDetails(p)}>
                         ציוד
@@ -425,6 +425,28 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
         }}
       />
     </div>
+  );
+}
+
+/** The parent's own child in the roster: the whole row (number, photo, name) opens the child's full card. */
+function MyChildOpen({ p }: { p: Player }) {
+  return (
+    <button
+      type="button"
+      className="ip-roster-open"
+      onClick={() => (window.location.hash = `career/${p.id}`)}
+      aria-label={`פתיחת הכרטיס של ${p.first_name} ${p.last_name}`}
+    >
+      <span className="ip-roster-no">{p.shirt_number ?? '–'}</span>
+      <InitialsAvatar name={`${p.first_name} ${p.last_name}`} size={40} tone="lime" />
+      <span className="ip-list-row-text">
+        <span className="ip-list-row-title">
+          {p.first_name} {p.last_name}
+        </span>
+        <span className="ip-list-row-sub">{[p.position, p.birth_year && `שנתון ${p.birth_year}`].filter(Boolean).join(' · ') || ' '}</span>
+      </span>
+      <Icon name="chevron" size={18} className="ip-roster-open-chev" />
+    </button>
   );
 }
 
