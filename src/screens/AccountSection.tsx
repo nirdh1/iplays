@@ -415,6 +415,18 @@ export function AccountSection() {
         </Card>
       </section>
       )}
+      <section>
+        <SectionHeader title="עזרה ומשוב" icon="chat" />
+        <Card padded={false}>
+          <ListRow
+            icon="chat"
+            iconTone="lime"
+            title="צור קשר · דיווח על תקלה · הצעת ייעול"
+            subtitle="כתבו לנו, והתשובה תגיע להתראות"
+            onClick={() => (window.location.hash = 'feedback')}
+          />
+        </Card>
+      </section>
     </>
   );
 }
