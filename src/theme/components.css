@@ -2883,3 +2883,37 @@ select.ip-input {
 /* schedule import: what changed in a game already in the schedule */
 .ip-game-changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .ip-game-changes s { opacity: 0.6; }
+
+/* Roster row of the parent's own child: tapping it opens the child's card. */
+.ip-roster-open {
+  display: flex;
+  align-items: center;
+  gap: var(--ip-s3);
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--ip-r-sm, 8px);
+}
+.ip-roster-open .ip-list-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.ip-roster-open:focus-visible {
+  outline: 2px solid var(--ip-blue, #3da5ff);
+  outline-offset: 2px;
+}
+.ip-roster-open:active {
+  opacity: 0.7;
+}
+.ip-roster-open-chev {
+  flex: none;
+  color: var(--ip-text-3);
+}
