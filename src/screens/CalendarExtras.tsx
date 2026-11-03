@@ -1,6 +1,7 @@
 /**
  * Calendar extras: add a training from the calendar (team / personal /
- * goalkeeper) and each child's attendance stats for the parent.
+ * goalkeeper), load a game schedule from a file, and each child's attendance
+ * stats for the parent.
  */
 import { useEffect, useState } from 'react';
 import { BottomSheet } from '../components/shell';
@@ -9,6 +10,9 @@ import { getRoster, isStaffRole, type MyTeam, type Player } from '../lib/api';
 import { addDays, supabaseCoach, todayYmd } from '../lib/coachApi';
 import { attended, playerAttendance, rateOf, type ChildCell } from '../lib/calendarApi';
 import { TrainingSheet, type RosterRef } from './TrainingSheet';
+import { ScheduleImportSheet } from './ScheduleImport';
+import { getMatches, type Match } from '../lib/matchApi';
+import { sportProfile } from '../lib/sports';
 
 type Kid = Player & { team: MyTeam };
 
@@ -137,5 +141,58 @@ export function KidsAttendance({ kids }: { kids: Kid[] }) {
       </div>
       <p className="ip-footnote">פעילויות שהתקיימו. בלי סימון של המאמן ובלי דיווח שלכם, הילד נספר כנוכח.</p>
     </section>
+  );
+}
+
+/** "טעינת לוח משחקים" from the calendar: pick the team, load the file; the games land in the calendar. */
+export function ImportScheduleButton({ teams, kids, onAdded }: { teams: MyTeam[]; kids: Kid[]; onAdded: () => void }) {
+  const withMatches = teams.filter((t) => sportProfile(t.sport).hasMatches);
+  const [pick, setPick] = useState(false);
+  const [team, setTeam] = useState<MyTeam | null>(null);
+  const [existing, setExisting] = useState<Match[]>([]);
+  useEffect(() => {
+    if (!team) return;
+    getMatches(team.id).then(setExisting).catch(() => setExisting([]));
+  }, [team]);
+  if (!withMatches.length) return null;
+  return (
+    <>
+      <div className="ip-btn-row">
+        <Button variant="secondary" icon="calendar" onClick={() => (withMatches.length === 1 ? setTeam(withMatches[0]) : setPick(true))}>
+          טעינת לוח משחקים מקובץ
+        </Button>
+      </div>
+      <BottomSheet open={pick} onClose={() => setPick(false)} title="לאיזו קבוצה?">
+        <div className="ip-stack ip-stack--tight">
+          {withMatches.map((t) => {
+            const names = kids.filter((k) => k.team.id === t.id).map((k) => k.first_name);
+            return (
+              <Button
+                key={t.id}
+                variant="secondary"
+                block
+                onClick={() => {
+                  setPick(false);
+                  setTeam(t);
+                }}
+              >
+                {t.name}
+                {names.length ? ` · ${names.join(', ')}` : ''}
+              </Button>
+            );
+          })}
+        </div>
+      </BottomSheet>
+      {team && (
+        <ScheduleImportSheet
+          open
+          teamId={team.id}
+          teamName={team.name}
+          existing={existing}
+          onClose={() => setTeam(null)}
+          onDone={(added) => added > 0 && onAdded()}
+        />
+      )}
+    </>
   );
 }
