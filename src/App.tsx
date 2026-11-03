@@ -22,6 +22,8 @@ import { FeedbackScreen } from './screens/FeedbackScreen';
 import { AdminFeedbackScreen } from './screens/AdminFeedbackScreen';
 import { AdminMetricsScreen } from './screens/AdminMetricsScreen';
 import { startPresence } from './lib/adminMetrics';
+import { MyDetailsScreen } from './screens/MyDetailsScreen';
+import { UserMenuSheet } from './components/UserMenuSheet';
 import { rememberPage } from './lib/feedbackApi';
 import { MatchesScreen } from './screens/MatchesScreen';
 import { TeamPageScreen } from './screens/TeamPageScreen';
@@ -37,10 +39,10 @@ import { clearPendingInvite, readFamilyInvite, readPendingInvite, saveFamilyInvi
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 
-type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'clubrequests' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'adminparents' | 'fund' | 'costs' | 'pay' | 'feedback' | 'adminfeedback' | 'adminmetrics';
-const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'clubrequests', 'find', 't', 'matches', 'ifa', 'admin', 'adminparents', 'fund', 'costs', 'pay', 'feedback', 'adminfeedback', 'adminmetrics'];
+type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'clubrequests' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'adminparents' | 'fund' | 'costs' | 'pay' | 'feedback' | 'adminfeedback' | 'me' | 'adminmetrics';
+const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'clubrequests', 'find', 't', 'matches', 'ifa', 'admin', 'adminparents', 'fund', 'costs', 'pay', 'feedback', 'adminfeedback', 'me', 'adminmetrics'];
 /** Routes a signed-in user can open before belonging to any team (search, shared team page). */
-const openRoutes: Route[] = ['find', 't', 'feedback'];
+const openRoutes: Route[] = ['find', 't', 'feedback', 'me'];
 
 function readHash(): { route: Route; child?: string; param?: string; sub?: string } {
   const [r, c, sub] = window.location.hash.replace('#', '').split('/');
@@ -170,6 +172,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const closeBell = useCallback(() => setBellOpen(false), []);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const [sample, setSampleState] = useState(readSample);
   const setSample = useCallback((on: boolean) => {
     writeSample(on);
@@ -245,6 +249,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         slot={!signedIn && auth.enabled ? <SignInPill onClick={() => auth.setDemo(false)} /> : !demoMode ? <RealChildPill /> : undefined}
         onOpenSwitcher={openSwitcher}
         onOpenBell={() => setBellOpen(true)}
+        onOpenMenu={() => setMenuOpen(true)}
       />
       <main className="ip-main">
         {joinError && (
@@ -272,6 +277,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'admin' && (signedIn ? <AdminPanelScreen onBack={() => back('home')} /> : <FamilyScreen />)}
         {route === 'adminparents' && (signedIn ? <AdminGuardiansScreen onBack={() => back('admin')} /> : <FamilyScreen />)}
         {route === 'feedback' && <FeedbackScreen onBack={() => back('family')} />}
+        {route === 'me' && <MyDetailsScreen onBack={() => back('family')} />}
         {route === 'adminfeedback' && (signedIn ? <AdminFeedbackScreen onBack={() => back('admin')} /> : <FamilyScreen />)}
         {route === 'adminmetrics' && (signedIn ? <AdminMetricsScreen onBack={() => back('admin')} /> : <FamilyScreen />)}
         {route === 'find' && (signedIn ? <FindScreen onBack={() => back('family')} /> : <FamilyScreen />)}
@@ -292,7 +298,8 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {demoMode && route === 'family' && <FamilyScreen />}
         {route === 'myteam' && !signedIn && <FamilyScreen />}
       </main>
-      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'clubrequests' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' || route === 'admin' || route === 'adminparents' || route === 'feedback' || route === 'adminfeedback' || route === 'adminmetrics' || route === 'fund' || route === 'costs' || route === 'pay' ? 'family' : route} onChange={go} />
+      <BottomNav active={route === 'match' ? 'team' : route === 'coach' ? (coachTeam ? 'family' : 'team') : route === 'myteam' || route === 'club' || route === 'clubrequests' || route === 'find' || route === 't' || route === 'matches' || route === 'ifa' || route === 'admin' || route === 'adminparents' || route === 'feedback' || route === 'me' || route === 'adminfeedback' || route === 'adminmetrics' || route === 'fund' || route === 'costs' || route === 'pay' ? 'family' : route} onChange={go} />
+      <UserMenuSheet open={menuOpen} onClose={closeMenu} name={parentName} />
       <NotificationsSheet open={bellOpen} onClose={closeBell} demo={demoMode ? child.notifications : undefined} onRead={refreshUnread} />
       <ChildSwitcherSheet open={demoMode && switcherOpen} onClose={closeSwitcher} items={children} selectedId={child.id} onSelect={selectChild} />
     </div>

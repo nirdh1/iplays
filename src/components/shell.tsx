@@ -37,7 +37,7 @@ export function BottomSheet({ open, onClose, title, children }: { open: boolean;
 }
 
 /* ---------- Header ---------- */
-export function AppHeader({ parentName, unread, child, slot, onOpenSwitcher, onOpenBell }: { parentName: string; unread: number; child?: Child; slot?: ReactNode; onOpenSwitcher: () => void; onOpenBell?: () => void }) {
+export function AppHeader({ parentName, unread, child, slot, onOpenSwitcher, onOpenBell, onOpenMenu }: { parentName: string; unread: number; child?: Child; slot?: ReactNode; onOpenSwitcher: () => void; onOpenBell?: () => void; onOpenMenu?: () => void }) {
   return (
     <header className="ip-header">
       <div className="ip-header-row">
@@ -45,7 +45,7 @@ export function AppHeader({ parentName, unread, child, slot, onOpenSwitcher, onO
         <div className="ip-header-actions">
           {slot ?? (child && <ChildSwitcherPill child={child} onClick={onOpenSwitcher} compact />)}
           <IconButton icon="bell" label="התראות" badge={unread} onClick={onOpenBell} />
-          <button type="button" className="ip-parent-btn" aria-label={`פרופיל הורה: ${parentName}`}>
+          <button type="button" className="ip-parent-btn" aria-haspopup="dialog" aria-label={`החשבון שלי: ${parentName}. פרטים אישיים, עזרה ויציאה`} onClick={onOpenMenu}>
             <InitialsAvatar name={parentName} size={40} />
           </button>
         </div>
