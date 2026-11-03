@@ -77,13 +77,15 @@ export async function readTableFile(file: File, onProgress?: (text: string) => v
   return { readings, warning: fromImage ? 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל שורה לפני השמירה.' : '' };
 }
 
-export async function readScheduleFile(file: File, teamName: string, onProgress?: (text: string) => void): Promise<ReadResult> {
+export async function readScheduleFile(file: File, teamName: string, onProgress?: (text: string) => void, aliases: string[] = []): Promise<ReadResult> {
   const { readings, fromImage } = await readFileRows(file, onProgress);
+  // the app name and other names of the same team (the IFA name), matched together
+  const names = [teamName, ...aliases].filter(Boolean).join('|');
   const warning = fromImage ? 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל משחק לפני השמירה.' : '';
   let games: DraftGame[] = [];
   for (const rows of readings) {
-    let g = parseByColumns(rows, teamName);
-    if (g.length === 0) g = parseLoose(rows, teamName);
+    let g = parseByColumns(rows, names);
+    if (g.length === 0) g = parseLoose(rows, names);
     if (g.length > games.length) games = g;
   }
   if (games.length === 0) {
@@ -428,15 +430,84 @@ const H = {
   round: /מחזור|round/i,
 };
 
-export function normName(s: string) {
-  return s.replace(/["'׳״.\-()]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+/**
+ * Common Hebrew abbreviations in club and city names, as the IFA site writes
+ * them (ר"ג, ת"א, פ"ת…). Both sides are expanded before comparing, so
+ * "הפועל ר״ג צפון" matches "הפועל רמת גן צפון".
+ */
+const ABBR: [string, string][] = [
+  ['רג', 'רמת גן'],
+  ['תא', 'תל אביב'],
+  ['פת', 'פתח תקווה'],
+  ['בש', 'באר שבע'],
+  ['רל', 'ראשון לציון'],
+  ['רה', 'רמת השרון'],
+  ['כס', 'כפר סבא'],
+  ['נצ', 'נס ציונה'],
+  ['קש', 'קרית שמונה'],
+  ['קג', 'קרית גת'],
+  ['קא', 'קרית אתא'],
+  ['קמ', 'קרית מלאכי'],
+  ['קב', 'קרית ביאליק'],
+  ['קח', 'קרית חיים'],
+  ['בי', 'בני יהודה'],
+  ['מס', 'מועדון ספורט'],
+  ['אס', 'אגודת ספורט'],
+];
+// geresh / gershayim and the ways OCR and keyboards write them: ״ " '' ” “ ׳ '
+const QUOTES = /["״”“׳'`]+/g;
+
+function expandAbbr(s: string): string {
+  // a letter, a quote mark, a letter (ר"ג / ר״ג / ר''ג), also with a stray space
+  return s.replace(/([\u0590-\u05FF])\s?["״”“'׳`]{1,2}\s?([\u0590-\u05FF])(?![\u0590-\u05FF])/g, (m, a: string, b: string) => {
+    const hit = ABBR.find(([k]) => k === a + b);
+    return hit ? ` ${hit[1]} ` : m;
+  }).replace(/(^|\s)([\u0590-\u05FF])\s([\u0590-\u05FF])(?=\s|$)/g, (m, pre: string, a: string, b: string) => {
+    // OCR dropped the mark: "ר ג" between spaces
+    const hit = ABBR.find(([k]) => k === a + b);
+    return hit ? `${pre}${hit[1]}` : m;
+  });
 }
-/** Share of the team name's words that appear in the cell. */
+
+export function normName(s: string) {
+  return expandAbbr(s)
+    .replace(QUOTES, ' ')
+    .replace(/[.\-()]/g, ' ')
+    .replace(/תקוה/g, 'תקווה')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/** Each word of the name, found in the cell as is or with one OCR slip (words of 4+ letters). */
+function wordIn(word: string, cellWords: string[], cell: string): boolean {
+  if (cell.includes(word)) return true;
+  if (word.length < 4) return false;
+  return cellWords.some((c) => Math.abs(c.length - word.length) <= 1 && oneEdit(c, word));
+}
+function oneEdit(a: string, b: string): boolean {
+  if (a === b) return true;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return a.slice(i + (a.length >= b.length ? 1 : 0)) === b.slice(i + (b.length >= a.length ? 1 : 0));
+}
+
+/**
+ * Share of the team name's words that appear in the cell. `team` may hold
+ * several names of the same team separated by "|" (the app name and the
+ * IFA name); the best one counts.
+ */
 export function nameScore(cell: string, team: string) {
-  const words = normName(team).split(' ').filter((w) => w.length > 1);
   const c = normName(cell);
-  if (!words.length || !c) return 0;
-  return words.filter((w) => c.includes(w)).length / words.length;
+  if (!c) return 0;
+  const cw = c.split(' ');
+  let best = 0;
+  for (const name of team.split('|')) {
+    const words = normName(name).split(' ').filter((w) => w.length > 1);
+    if (!words.length) continue;
+    best = Math.max(best, words.filter((w) => wordIn(w, cw, c)).length / words.length);
+  }
+  return best;
 }
 
 function parseDate(s: string): string | null {

@@ -3,7 +3,8 @@
  * team's schedule, review and fix every game, then save the chosen ones.
  * Staff and any member of the team (a parent too) can use it.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { getTeamLeagueTable, ourRow } from '../lib/leagueApi';
 import { BottomSheet } from '../components/shell';
 import { Button, Tag } from '../components/ui';
 import { Err } from '../components/form';
@@ -29,6 +30,18 @@ export function ScheduleImportSheet({
   onDone: (added: number) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  // the team's name on the IFA site (e.g. "הפועל ר״ג צפון"), matched as well as the app name
+  const [ifaName, setIfaName] = useState('');
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    void getTeamLeagueTable(teamId)
+      .then((t) => live && setIfaName((t && ourRow(t)?.name) || ''))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [open, teamId]);
   const [games, setGames] = useState<DraftGame[] | null>(null);
   const [warning, setWarning] = useState('');
   const [fileName, setFileName] = useState('');
@@ -58,7 +71,7 @@ export function ScheduleImportSheet({
     setFileName(file.name);
     setBusy('reading');
     try {
-      const r = await readScheduleFile(file, teamName, setProgress);
+      const r = await readScheduleFile(file, teamName, setProgress, ifaName ? [ifaName] : []);
       setGames(markDuplicates(r.games, existing));
       setWarning(r.warning);
       if (r.games.length === 0) setError(`לא מצאנו בקובץ משחקים של ${teamName}.`);
