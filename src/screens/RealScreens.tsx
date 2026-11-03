@@ -14,7 +14,7 @@ import { getRoster, isStaffRole, roleLabel, sportLabel, type MyTeam, type Player
 import { competitionLabel, getMatches, matchEndsAt, matchIsLive, matchTimeLabel, matchVenueLabel, matchVenueName, wazeUrl, type Match } from '../lib/matchApi';
 import { absenceCoversEvent, supabaseCoach, ymd, type Absence, type TrainingSession } from '../lib/coachApi';
 import { isGoalkeeperPosition, overlapping, trainingTypeLabel } from '../lib/calendarApi';
-import { AddTrainingButton, KidsAttendance } from './CalendarExtras';
+import { AddTrainingButton, ImportScheduleButton, KidsAttendance } from './CalendarExtras';
 import { AccountSection, RequestsSection, SelfClaimsSection } from './AccountSection';
 import { MyTeamScreen } from './MyTeamScreen';
 import { FamilyInviteCard, FamilyMembersSection, InviteFriendsSection } from './FamilySection';
@@ -554,6 +554,7 @@ function Agenda({ teams }: { teams: MyTeam[] }) {
   return (
     <>
       <AddTrainingButton teams={teams} kids={kids} onAdded={reload} />
+      <ImportScheduleButton teams={teams} kids={kids} onAdded={reload} />
       {uniqueKids.length > 1 && (
         <div className="ip-player-chips" role="group" aria-label="סינון לפי ילד">
           <button type="button" className={only === 'all' ? 'is-on' : ''} aria-pressed={only === 'all'} onClick={() => setOnly('all')}>

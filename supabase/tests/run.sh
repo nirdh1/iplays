@@ -122,6 +122,11 @@ psql -q -d $DB -tc "select 'after calendar rollback: ' || count(*) || ' training
 echo "== self-reported goals and assists (career)"
 run supabase/migrations/20261102800000_player_self_stats.sql
 run supabase/tests/test_self_stats.sql
+echo "== IFA numbers from a file"
+run supabase/migrations/20261103200000_player_ifa_stats.sql
+run supabase/tests/test_ifa_stats.sql
+run supabase/rollback/20261103200000_player_ifa_stats.down.sql
+run supabase/migrations/20261103200000_player_ifa_stats.sql
 run supabase/rollback/20261102800000_player_self_stats.down.sql
 run supabase/migrations/20261102800000_player_self_stats.sql
 run supabase/rollback/20261102800000_player_self_stats.down.sql

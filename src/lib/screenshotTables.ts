@@ -221,7 +221,7 @@ export function mergeLeagueReadings(lists: DraftLeagueRow[][]): DraftLeagueRow[]
 }
 
 export async function readLeagueTableFile(file: File, onProgress?: (t: string) => void): Promise<{ rows: DraftLeagueRow[]; warning: string }> {
-  const { readings, warning } = await readTableFile(file, onProgress, 'הטבלה');
+  const { readings, warning } = await readTableFile(file, onProgress);
   const best = mergeLeagueReadings(readings.map((rows) => parseLeagueRows(rows)));
   if (best.length < 2) throw new ScheduleReadError('לא מצאנו בקובץ טבלת ליגה. צלמו את הטבלה כולה, ישר וחד, עם שמות הקבוצות והמספרים.');
   return { rows: best, warning };
@@ -444,7 +444,7 @@ export function parseRosterRows(rows: string[][], teamName = ''): DraftRosterPla
 }
 
 export async function readRosterFile(file: File, teamName: string, onProgress?: (t: string) => void): Promise<{ players: DraftRosterPlayer[]; warning: string }> {
-  const { readings, warning } = await readTableFile(file, onProgress, 'הסגל');
+  const { readings, warning } = await readTableFile(file, onProgress);
   let best: DraftRosterPlayer[] = [];
   // prefer the reading with more rows that look like table rows (a year or a number),
   // and fewer names that mix Hebrew with stray Latin letters (an OCR slip)
