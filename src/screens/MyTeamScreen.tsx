@@ -33,6 +33,7 @@ import { sportProfile } from '../lib/sports';
 import { endAssignment } from '../lib/clubApi';
 import { RosterReviewSection } from './RosterReview';
 import { LeagueTableSection } from './LeagueTable';
+import { RosterFromFileSheet } from './ScreenshotUpdates';
 import { GallerySection } from './GallerySection';
 import { TeamDirectorySection } from './ContactsSection';
 
@@ -48,7 +49,7 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
   const [members, setMembers] = useState<Member[]>([]);
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<null | 'player' | 'child'>(null);
+  const [sheet, setSheet] = useState<null | 'player' | 'child' | 'rosterFile'>(null);
   const [requests, setRequests] = useState<PendingRequest[]>([]);
   const [details, setDetails] = useState<Player | null>(null);
   const [claim, setClaim] = useState<Player | null>(null);
@@ -204,7 +205,7 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
         </section>
       )}
 
-      <LeagueTableSection teamId={teamId} />
+      <LeagueTableSection teamId={teamId} ourName={team.name} allowUpload={team.sport === 'football' || team.sport === 'basketball'} />
 
       <section>
         {collapse && (
@@ -295,6 +296,11 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
               הוספת שחקן
             </Button>
           )}
+          {staff && (
+            <Button variant="secondary" icon="photo" onClick={() => setSheet('rosterFile')}>
+              עדכון מצילום מסך
+            </Button>
+          )}
           <Button variant={staff ? 'secondary' : 'primary'} icon="user" onClick={() => setSheet('child')}>
             {mineCount ? 'הוספת ילד נוסף' : 'הוספת הילד שלי'}
           </Button>
@@ -379,8 +385,19 @@ export function MyTeamScreen({ teamId, tab: initialTab, onBack }: { teamId: stri
         }}
       />
 
+      {staff && (
+        <RosterFromFileSheet
+          open={sheet === 'rosterFile'}
+          teamId={teamId}
+          teamName={team.name}
+          roster={roster ?? []}
+          onClose={() => setSheet(null)}
+          onDone={() => void load()}
+        />
+      )}
+
       <PlayerSheet
-        mode={sheet}
+        mode={sheet === 'rosterFile' ? null : sheet}
         onClose={() => setSheet(null)}
         onSave={async (p) => {
           if (sheet === 'player') await addPlayer(teamId, p);

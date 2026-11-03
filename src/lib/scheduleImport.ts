@@ -45,7 +45,18 @@ const CSV_EXT = /\.(csv|tsv|txt)$/i;
 
 export const ACCEPT = 'image/*,application/pdf,.pdf,.xlsx,.xlsm,.csv,.tsv';
 
-export async function readScheduleFile(file: File, teamName: string, onProgress?: (text: string) => void): Promise<ReadResult> {
+export interface TableReading {
+  /** one or more readings of the same file (images are read twice), each a list of rows of cells */
+  readings: string[][][];
+  /** shown above the review list (e.g. "read from an image, check every row") */
+  warning: string;
+}
+
+/**
+ * Reads any supported file into rows of cells, right to left. Shared by the
+ * schedule import and the league table / roster updates from a screenshot.
+ */
+export async function readTableFile(file: File, onProgress?: (text: string) => void, what = 'הלוח'): Promise<TableReading> {
   const name = file.name || '';
   if (/\.xls$/i.test(name)) throw new ScheduleReadError('קובץ אקסל ישן (xls). שמרו אותו כ-xlsx ונסו שוב.');
   let readings: string[][][];
@@ -55,23 +66,27 @@ export async function readScheduleFile(file: File, teamName: string, onProgress?
   } else if (file.type === 'application/pdf' || /\.pdf$/i.test(name)) {
     onProgress?.('קוראים את ה-PDF…');
     readings = [await readPdf(file)];
-    if (readings[0].length === 0) throw new ScheduleReadError('ב-PDF הזה אין טקסט (כנראה סריקה). צלמו מסך של הלוח והעלו כתמונה.');
+    if (readings[0].length === 0) throw new ScheduleReadError(`ב-PDF הזה אין טקסט (כנראה סריקה). צלמו מסך של ${what} והעלו כתמונה.`);
   } else if (file.type.startsWith('image/') || /\.(png|jpe?g|webp|heic)$/i.test(name)) {
     readings = await readImage(file, onProgress);
-    warning = 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל משחק לפני השמירה.';
+    warning = 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל שורה לפני השמירה.';
   } else {
     throw new ScheduleReadError('סוג קובץ לא נתמך. אפשר תמונה, PDF, אקסל (xlsx) או CSV.');
   }
+  readings = readings.map((rows) => rows.map((r) => r.map((c) => (c ?? '').replace(/\s+/g, ' ').trim())).filter((r) => r.some(Boolean)));
+  if (!readings.some((rows) => rows.length)) throw new ScheduleReadError('לא נמצא טקסט בקובץ.');
+  return { readings, warning };
+}
+
+export async function readScheduleFile(file: File, teamName: string, onProgress?: (text: string) => void): Promise<ReadResult> {
+  const { readings, warning: w } = await readTableFile(file, onProgress);
+  const warning = w ? 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל משחק לפני השמירה.' : '';
   let games: DraftGame[] = [];
-  let anyText = false;
-  for (const rows of readings) {
-    const clean = rows.map((r) => r.map((c) => (c ?? '').replace(/\s+/g, ' ').trim())).filter((r) => r.some(Boolean));
-    if (clean.length) anyText = true;
+  for (const clean of readings) {
     let g = parseByColumns(clean, teamName);
     if (g.length === 0) g = parseLoose(clean, teamName);
     if (g.length > games.length) games = g;
   }
-  if (!anyText) throw new ScheduleReadError('לא נמצא טקסט בקובץ.');
   if (games.length === 0) {
     throw new ScheduleReadError(`לא מצאנו בקובץ משחקים של ${teamName}. ודאו שהשם של הקבוצה מופיע בקובץ כמו באפליקציה, ושיש תאריכים.`);
   }
@@ -414,11 +429,11 @@ const H = {
   round: /מחזור|round/i,
 };
 
-function normName(s: string) {
+export function normName(s: string) {
   return s.replace(/["'׳״.\-()]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 /** Share of the team name's words that appear in the cell. */
-function nameScore(cell: string, team: string) {
+export function nameScore(cell: string, team: string) {
   const words = normName(team).split(' ').filter((w) => w.length > 1);
   const c = normName(cell);
   if (!words.length || !c) return 0;

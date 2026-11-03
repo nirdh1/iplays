@@ -164,10 +164,17 @@ export async function claimPlayer(playerId: string) {
   if (error) throw error;
 }
 
-export async function addPlayer(teamId: string, p: { first: string; last: string; number?: number | null; position?: string }) {
+export async function addPlayer(teamId: string, p: { first: string; last: string; number?: number | null; position?: string; birthYear?: number | null }) {
   const { error } = await db()
     .from('players')
-    .insert({ team_id: teamId, first_name: p.first.trim(), last_name: p.last.trim(), shirt_number: p.number ?? null, position: p.position ?? '' });
+    .insert({
+      team_id: teamId,
+      first_name: p.first.trim(),
+      last_name: p.last.trim(),
+      shirt_number: p.number ?? null,
+      position: p.position ?? '',
+      ...(p.birthYear && p.birthYear >= 2000 && p.birthYear <= 2030 ? { birth_year: p.birthYear } : {}),
+    });
   if (error) throw error;
 }
 

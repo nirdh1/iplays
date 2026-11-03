@@ -2778,3 +2778,36 @@ select.ip-input {
   overflow-wrap: anywhere;
   font-size: var(--ip-fs-sm);
 }
+
+/* League table / roster from a screenshot (ScreenshotUpdates.tsx) */
+.ip-snap-nums {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.ip-snap-num {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-muted, #5b6b82);
+  text-align: center;
+}
+.ip-snap-num .ip-input {
+  padding-inline: 4px;
+  text-align: center;
+  min-width: 0;
+}
+.ip-snap-pos {
+  flex: 0 0 56px;
+  width: 56px;
+  text-align: center;
+}
+.ip-table--league tr.is-differs td {
+  background: color-mix(in srgb, var(--ip-warning, #f5a524) 12%, transparent);
+}
+.ip-snap-diff {
+  display: block;
+  font-size: var(--ip-fs-xs);
+  color: var(--ip-warning-ink, #9a5b00);
+}
