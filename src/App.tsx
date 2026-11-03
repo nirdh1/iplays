@@ -263,7 +263,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
         {route === 'adminparents' && (signedIn ? <AdminGuardiansScreen onBack={() => back('admin')} /> : <FamilyScreen />)}
         {route === 'find' && (signedIn ? <FindScreen onBack={() => back('family')} /> : <FamilyScreen />)}
         {route === 't' && (signedIn && param ? <TeamPageScreen teamId={param} onBack={() => back('family')} /> : <FamilyScreen />)}
-        {route === 'myteam' && signedIn && param && <MyTeamScreen teamId={param} onBack={() => go('family')} />}
+        {route === 'myteam' && signedIn && param && <MyTeamScreen key={param} teamId={param} tab={sub} onBack={() => go('family')} />}
         {!demoMode && (route === 'home' || route === 'match') && <RealHomeScreen onShowSample={() => setSample(true)} />}
         {!demoMode && (route === 'team' || (route === 'coach' && !coachTeam)) && <RealTeamsScreen onShowSample={() => setSample(true)} />}
         {!demoMode && route === 'calendar' && <RealCalendarScreen onShowSample={() => setSample(true)} />}
