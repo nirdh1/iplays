@@ -8,6 +8,7 @@ import { Card, EmptyState } from '../components/ui';
 import { isPlatformAdmin } from '../lib/ifaApi';
 
 const tools: { icon: IconName; tone: string; title: string; sub: string; href: string }[] = [
+  { icon: 'bolt', tone: 'lime', title: 'מדדי צמיחה', sub: 'כניסות, מועדונים, שחקנים מול הורים, צמיחה יומית ושימור', href: 'adminmetrics' },
   { icon: 'shield', tone: 'lime', title: 'נתוני ההתאחדות', sub: 'ייבוא קבוצות, סגלים ומשחקים, ויומן סנכרונים', href: 'ifa' },
   { icon: 'team', tone: 'blue', title: 'מועדונים', sub: 'ניהול מועדונים, קבוצות ליגה ואקדמיה', href: 'club' },
   { icon: 'family', tone: 'blue', title: 'הורים וילדים', sub: 'מי מקושר לכל ילד, והסרת מי שאינו ההורה', href: 'adminparents' },
