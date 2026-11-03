@@ -11,6 +11,7 @@ const tools: { icon: IconName; tone: string; title: string; sub: string; href: s
   { icon: 'shield', tone: 'lime', title: 'נתוני ההתאחדות', sub: 'ייבוא קבוצות, סגלים ומשחקים, ויומן סנכרונים', href: 'ifa' },
   { icon: 'team', tone: 'blue', title: 'מועדונים', sub: 'ניהול מועדונים, קבוצות ליגה ואקדמיה', href: 'club' },
   { icon: 'family', tone: 'blue', title: 'הורים וילדים', sub: 'מי מקושר לכל ילד, והסרת מי שאינו ההורה', href: 'adminparents' },
+  { icon: 'chat', tone: 'lime', title: 'פניות משתמשים', sub: 'צור קשר, דיווחי תקלות והצעות ייעול, וסטטוס טיפול', href: 'adminfeedback' },
   { icon: 'grid', tone: 'lime', title: 'בקשות ומאגר מועדונים', sub: 'אישור מנהלי מועדון, מאגר מועדונים לפי עיר מנתוני ההתאחדות', href: 'clubrequests' },
 ];
 

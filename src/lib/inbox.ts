@@ -52,6 +52,8 @@ export function inboxIcon(kind: string): IconName {
     case 'training':
       return 'calendar';
     case 'announcement':
+    case 'feedback':
+    case 'feedback_reply':
       return 'chat';
     case 'absence':
       return 'clock';
