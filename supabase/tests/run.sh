@@ -28,6 +28,8 @@ run supabase/migrations/20261101990000_team_fund.sql
 run supabase/migrations/20261101996000_family_members.sql
 run supabase/migrations/20261101997000_ifa_roster_sync.sql
 run supabase/migrations/20261101998000_ifa_agent.sql
+# team contacts early, so every test below runs with profiles.phone / email closed to team mates
+run supabase/migrations/20261103500000_team_contacts.sql
 echo "== M1+M2 tests (with M3 installed)"
 run supabase/tests/test_m1_m2.sql
 echo "== M3 tests"
@@ -142,6 +144,10 @@ echo "== rollback IFA local agent"
 run supabase/rollback/20261101998000_ifa_agent.down.sql
 echo "== rollback IFA roster sync"
 run supabase/rollback/20261101997000_ifa_roster_sync.down.sql
+echo "== rollback team contacts (re-apply / roll back again: idempotent)"
+run supabase/rollback/20261103500000_team_contacts.down.sql
+run supabase/migrations/20261103500000_team_contacts.sql
+run supabase/rollback/20261103500000_team_contacts.down.sql
 echo "== rollback family members"
 run supabase/rollback/20261101996000_family_members.down.sql
 run supabase/rollback/20261101995000_inbox_notifications.down.sql
