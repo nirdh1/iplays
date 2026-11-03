@@ -194,7 +194,7 @@ function parentLabels(contacts: ContactPerson[]): Map<ContactPerson, string> {
 /* ================================================================ my card */
 
 /** The signed-in parent's own details + the four sharing switches (saved at once). */
-export function MyCardEditor({ onSaved }: { onSaved?: () => void }) {
+export function MyCardEditor({ onSaved, onDone }: { onSaved?: () => void; onDone?: () => void }) {
   const { refresh } = useAuth();
   const [card, setCard] = useState<MyCard | null | undefined>(undefined);
   const [form, setForm] = useState<MyCard | null>(null);
@@ -236,6 +236,8 @@ export function MyCardEditor({ onSaved }: { onSaved?: () => void }) {
       setSaved(true);
       void refresh();
       onSaved?.();
+      // in a sheet: close it once the details are saved
+      onDone?.();
     } catch (err) {
       setError(errText(err));
     } finally {
@@ -447,7 +449,7 @@ export function TeamDirectorySection({ teamId }: { teamId: string }) {
         )}
       </BottomSheet>
       <BottomSheet open={mine} onClose={() => setMine(false)} title="הפרטים שלי באלפון">
-        {mine && <MyCardEditor onSaved={() => void load()} />}
+        {mine && <MyCardEditor onSaved={() => void load()} onDone={() => setMine(false)} />}
       </BottomSheet>
     </div>
   );
@@ -632,7 +634,7 @@ export function PlayerContactsSection({ playerId, name }: { playerId: string; na
       </Card>
 
       <BottomSheet open={mine} onClose={() => setMine(false)} title="הפרטים שלי">
-        {mine && <MyCardEditor onSaved={() => void load()} />}
+        {mine && <MyCardEditor onSaved={() => void load()} onDone={() => setMine(false)} />}
       </BottomSheet>
       <BottomSheet open={!!extra} onClose={() => setExtra(null)} title={extra?.id ? 'עריכת איש קשר' : 'איש קשר נוסף'}>
         {extra && (
