@@ -68,6 +68,15 @@ export async function readFileRows(file: File, onProgress?: (text: string) => vo
   return { readings, fromImage };
 }
 
+/**
+ * Same as readFileRows, with the review warning ready to show. Used by the
+ * league table / roster updates from a screenshot (screenshotTables.ts).
+ */
+export async function readTableFile(file: File, onProgress?: (text: string) => void): Promise<{ readings: string[][][]; warning: string }> {
+  const { readings, fromImage } = await readFileRows(file, onProgress);
+  return { readings, warning: fromImage ? 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל שורה לפני השמירה.' : '' };
+}
+
 export async function readScheduleFile(file: File, teamName: string, onProgress?: (text: string) => void): Promise<ReadResult> {
   const { readings, fromImage } = await readFileRows(file, onProgress);
   const warning = fromImage ? 'הטקסט זוהה מתמונה וייתכנו טעויות. בדקו כל משחק לפני השמירה.' : '';
@@ -419,11 +428,11 @@ const H = {
   round: /מחזור|round/i,
 };
 
-function normName(s: string) {
+export function normName(s: string) {
   return s.replace(/["'׳״.\-()]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 /** Share of the team name's words that appear in the cell. */
-function nameScore(cell: string, team: string) {
+export function nameScore(cell: string, team: string) {
   const words = normName(team).split(' ').filter((w) => w.length > 1);
   const c = normName(cell);
   if (!words.length || !c) return 0;

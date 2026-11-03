@@ -223,7 +223,7 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
           {kids && kids.length === 1 && <ChildHero k={kids[0]} />}
           <NextUp teams={teams} />
           {teams.map((t) => (
-            <LeagueHomeCard key={`league-${t.id}`} teamId={t.id} teamName={teams.length > 1 ? t.name : undefined} />
+            <LeagueHomeCard key={`league-${t.id}`} teamId={t.id} teamName={teams.length > 1 ? t.name : undefined} ourName={t.name} />
           ))}
           {teams.map((t) => (
             <TeamShortcuts key={t.id} team={t} showName={teams.length > 1} />
