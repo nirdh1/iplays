@@ -2736,3 +2736,45 @@ select.ip-input {
   padding: var(--ip-s3) var(--ip-s4);
   font-size: var(--ip-fs-xs);
 }
+
+/* ---------- Feedback (צור קשר / תקלה / הצעה) ---------- */
+.ip-feedback-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ip-feedback-item {
+  padding: var(--ip-s3) var(--ip-s4);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ip-feedback-item + .ip-feedback-item {
+  border-top: 1px solid var(--ip-border);
+}
+.ip-feedback-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ip-feedback-head time {
+  margin-inline-start: auto;
+  font-size: var(--ip-fs-sm);
+}
+.ip-feedback-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.ip-feedback-reply {
+  padding: var(--ip-s3);
+  border-radius: 12px;
+  background: var(--ip-bg);
+  border-inline-start: 3px solid var(--ip-lime);
+}
+.ip-feedback-link {
+  overflow-wrap: anywhere;
+  font-size: var(--ip-fs-sm);
+}

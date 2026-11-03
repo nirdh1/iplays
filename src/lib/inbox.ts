@@ -52,6 +52,8 @@ export function inboxIcon(kind: string): IconName {
     case 'training':
       return 'calendar';
     case 'announcement':
+    case 'feedback':
+    case 'feedback_reply':
       return 'chat';
     case 'absence':
       return 'clock';
@@ -61,6 +63,10 @@ export function inboxIcon(kind: string): IconName {
     case 'team_claim':
     case 'team_claim_decision':
       return 'whistle';
+    case 'gallery_album':
+    case 'gallery_report':
+    case 'gallery_removed':
+      return 'photo';
     case 'player_left':
     case 'player_removed':
     case 'roster_review':

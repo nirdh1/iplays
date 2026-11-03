@@ -365,7 +365,7 @@ function useTeamEvents(teams: MyTeam[]): [TeamEvent[] | null, () => void] {
             place: x.location || null,
             navigateTo: x.location || '',
             team: t,
-            href: `coach/${t.id}`,
+            href: `coach/${t.id}/${x.id}`,
             canceled: x.canceled,
             tag: trainingTypeLabel(x.kind, x.audience) ?? undefined,
             training: x,

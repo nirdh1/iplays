@@ -41,7 +41,7 @@ import {
   uploadAbsenceDoc,
   type AbsenceDoc,
 } from '../lib/calendarApi';
-import { TrainingSheet, type RosterRef } from './TrainingSheet';
+import { TrainingEditSheet, TrainingSheet, type RosterRef } from './TrainingSheet';
 import { teams as demoTeams } from '../data/team';
 import { parent, type Child } from '../data/demo';
 import '../theme/coach.css';
@@ -115,7 +115,7 @@ export function DemoCoachScreen({ child, onBack }: { child: Child; onBack: () =>
 }
 
 /** Backend mode: a real team the signed-in user belongs to. */
-export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: () => void }) {
+export function TeamCoachScreen({ teamId, sessionId, onBack }: { teamId: string; sessionId?: string; onBack: () => void }) {
   const { session, teams } = useAuth();
   const me = session!.user.id;
   const team = teams.find((x) => x.id === teamId);
@@ -156,6 +156,7 @@ export function TeamCoachScreen({ teamId, onBack }: { teamId: string; onBack: ()
       onBack={onBack}
       withAttendance
       withDocs
+      focusSession={sessionId}
     />
   );
 }
@@ -182,19 +183,22 @@ interface BoardProps {
   me?: string;
   /** real teams: medical documents on absences */
   withDocs?: boolean;
+  /** open on the trainings tab at this training (from the calendar) */
+  focusSession?: string;
 }
 
 type ReportPreset = { sessionId?: string; mode: 'session' | 'dates'; kind?: AbsenceKind; playerId?: string; edit?: Absence };
 
-function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBack, demoSwitch, withAttendance, canSchedule = staff, roster = [], me, withDocs }: BoardProps) {
+function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBack, demoSwitch, withAttendance, canSchedule = staff, roster = [], me, withDocs, focusSession }: BoardProps) {
   const [attFor, setAttFor] = useState<TrainingSession | null>(null);
-  const [tab, setTab] = useState<Tab>('news');
+  const [tab, setTab] = useState<Tab>(focusSession ? 'trainings' : 'news');
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
   const [news, setNews] = useState<Announcement[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ReportPreset | null>(null);
   const [sheet, setSheet] = useState<null | 'session' | 'news'>(null);
+  const [editing, setEditing] = useState<TrainingSession | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [docs, setDocs] = useState<AbsenceDoc[]>([]);
 
@@ -348,6 +352,8 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
           onReport={(s, playerId) => setReport({ mode: 'session', sessionId: s.id, playerId })}
           onAttendance={withAttendance ? setAttFor : undefined}
           onCancel={(s) => run(() => backend.setCanceled(s.id, !s.canceled), s.canceled ? 'האימון חזר ללוח' : 'האימון סומן כמבוטל')}
+          onEdit={setEditing}
+          focusId={focusSession}
           onDelete={(s) => {
             if (s.series_id && upcoming.filter((x) => x.series_id === s.series_id && x.starts_at > s.starts_at).length > 0) {
               const all = confirm('למחוק גם את כל האימונים הבאים בסדרה? (ביטול = רק את האימון הזה)');
@@ -420,6 +426,18 @@ function CoachBoard({ backend, teamName, club, coachName, staff, myPlayers, onBa
           setTab('trainings');
           await load();
           setToast(input.repeatWeeks > 1 ? `נוספו ${input.repeatWeeks} אימונים` : 'האימון נוסף');
+        }}
+      />
+      <TrainingEditSheet
+        session={editing}
+        laterInSeries={editing?.series_id ? upcoming.filter((x) => x.series_id === editing.series_id && x.starts_at > editing.starts_at).length : 0}
+        onClose={() => setEditing(null)}
+        onSave={async ({ patch, following }) => {
+          if (!editing) return;
+          await backend.updateSession(editing, patch, following);
+          setEditing(null);
+          await load();
+          setToast(following ? 'ימי האימון עודכנו. כל הקבוצה קיבלה התראה' : 'האימון עודכן. כל הקבוצה קיבלה התראה');
         }}
       />
       <NewsSheet
@@ -553,9 +571,14 @@ function TrainingList({
   onReport,
   onCancel,
   onDelete,
+  onEdit,
+  focusId,
   onAttendance,
 }: {
   onAttendance?: (s: TrainingSession) => void;
+  onEdit?: (s: TrainingSession) => void;
+  /** scroll to this training (opened from the calendar) */
+  focusId?: string;
   sessions: TrainingSession[];
   absences: Absence[];
   staff: boolean;
@@ -568,6 +591,11 @@ function TrainingList({
   onCancel: (s: TrainingSession) => void;
   onDelete: (s: TrainingSession) => void;
 }) {
+  useEffect(() => {
+    if (!focusId) return;
+    const el = document.getElementById(`training-${focusId}`);
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [focusId, sessions.length]);
   if (!sessions.length) {
     return (
       <Card>
@@ -585,7 +613,7 @@ function TrainingList({
         const editable = canEdit(s);
         const who = s.audience === 'players' && names ? (s.participants ?? []).map((id) => names.get(id)).filter(Boolean).join(', ') : '';
         return (
-          <Card key={s.id} className={`ip-training-event ${s.canceled ? 'is-canceled' : ''}`}>
+          <Card key={s.id} id={`training-${s.id}`} className={`ip-training-event ${s.canceled ? 'is-canceled' : ''} ${focusId === s.id ? 'is-focus' : ''}`}>
             <div className="ip-carpool-head">
               <strong>{s.title}</strong>
               {s.canceled ? <Tag tone="warning">בוטל</Tag> : <Tag tone="blue">{fmtDay(sessionDate(s))}</Tag>}
@@ -624,6 +652,11 @@ function TrainingList({
                   )}
                   {editable && (
                     <>
+                      {onEdit && !s.canceled && (
+                        <Button variant="secondary" size="sm" icon="calendar" onClick={() => onEdit(s)}>
+                          עריכה
+                        </Button>
+                      )}
                       <Button variant="secondary" size="sm" icon={s.canceled ? 'undo' : 'close'} onClick={() => onCancel(s)}>
                         {s.canceled ? 'החזרת האימון' : 'ביטול האימון'}
                       </Button>
@@ -654,6 +687,11 @@ function TrainingList({
               })}
               {editable && (
                 <div className="ip-btn-row">
+                  {onEdit && !s.canceled && (
+                    <Button variant="secondary" size="sm" icon="calendar" onClick={() => onEdit(s)}>
+                      עריכה
+                    </Button>
+                  )}
                   <Button variant="secondary" size="sm" icon={s.canceled ? 'undo' : 'close'} onClick={() => onCancel(s)}>
                     {s.canceled ? 'החזרת האימון' : 'ביטול האימון'}
                   </Button>

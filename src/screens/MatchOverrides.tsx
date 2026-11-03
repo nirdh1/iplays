@@ -38,7 +38,16 @@ function fromLocalInput(v: string): string {
   return new Date(v).toISOString();
 }
 
-export function IfaMatchOverrides({ match, onChanged }: { match: Match; onChanged: () => Promise<void> }) {
+export function IfaMatchOverrides({
+  match,
+  onChanged,
+  limited = false,
+}: {
+  match: Match;
+  onChanged: () => Promise<void>;
+  /** parents: time and venue only (the score stays with the staff) */
+  limited?: boolean;
+}) {
   const [overrides, setOverrides] = useState<MatchOverride[]>([]);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +87,10 @@ export function IfaMatchOverrides({ match, onChanged }: { match: Match; onChange
       if (form.venue.trim() !== match.venue) {
         await setMatchOverride(match.id, 'venue', form.venue.trim());
       }
+      if (limited) {
+        setEditing(false);
+        return;
+      }
       const f = form.f === '' ? null : Number(form.f);
       const a = form.a === '' ? null : Number(form.a);
       if ((f == null) !== (a == null)) throw new Error('יש למלא את שתי התוצאות, או להשאיר את שתיהן ריקות.');
@@ -89,8 +102,9 @@ export function IfaMatchOverrides({ match, onChanged }: { match: Match; onChange
     });
   }
 
-  const conflicts = overrides.filter((o) => o.conflict_ifa_value != null);
-  const quiet = overrides.filter((o) => o.conflict_ifa_value == null);
+  const mine = (o: MatchOverride) => !limited || o.field === 'starts_at' || o.field === 'venue';
+  const conflicts = overrides.filter((o) => o.conflict_ifa_value != null && mine(o));
+  const quiet = overrides.filter((o) => o.conflict_ifa_value == null && mine(o));
 
   return (
     <div className="ip-stack ip-stack--tight">
@@ -138,10 +152,14 @@ export function IfaMatchOverrides({ match, onChanged }: { match: Match; onChange
 
       {!editing ? (
         <>
-          <p className="ip-muted">מועד, מגרש ותוצאה מתעדכנים מאתר ההתאחדות. שינוי שתעשה כאן גובר על ההתאחדות בשדה ששינית בלבד.</p>
+          <p className="ip-muted">
+            {limited
+              ? 'משחק ליגה של ההתאחדות. אפשר לעדכן מועד ומגרש; השינוי נשלח כהתראה לכל הקבוצה.'
+              : 'מועד, מגרש ותוצאה מתעדכנים מאתר ההתאחדות. שינוי שתעשה כאן גובר על ההתאחדות בשדה ששינית בלבד.'}
+          </p>
           <div className="ip-btn-row">
-            <Button variant="secondary" size="sm" icon="whistle" onClick={() => setEditing(true)}>
-              שינוי ידני
+            <Button variant="secondary" size="sm" icon={limited ? 'calendar' : 'whistle'} onClick={() => setEditing(true)}>
+              {limited ? 'עדכון מועד או מגרש' : 'שינוי ידני'}
             </Button>
           </div>
         </>
@@ -153,6 +171,7 @@ export function IfaMatchOverrides({ match, onChanged }: { match: Match; onChange
           <Field label="מגרש">
             <input className="ip-input" maxLength={80} value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
           </Field>
+          {!limited && (
           <div className="ip-match-score-form">
             <Field label="אנחנו">
               <input className="ip-input" inputMode="numeric" dir="ltr" value={form.f} onChange={(e) => setForm({ ...form, f: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
@@ -161,6 +180,7 @@ export function IfaMatchOverrides({ match, onChanged }: { match: Match; onChange
               <input className="ip-input" inputMode="numeric" dir="ltr" value={form.a} onChange={(e) => setForm({ ...form, a: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
             </Field>
           </div>
+          )}
           <div className="ip-btn-row">
             <Button type="submit" variant="primary" size="sm" disabled={busy}>
               שמירה

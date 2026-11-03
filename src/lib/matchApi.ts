@@ -243,9 +243,14 @@ export async function getClubMatches(teamIds: string[], from: string, to: string
   );
 }
 
-export async function updateMatch(id: string, patch: Partial<Pick<Match, 'status' | 'score_for' | 'score_against' | 'venue' | 'starts_at' | 'note'>>) {
-  const { error } = await db().from('team_matches').update(patch).eq('id', id);
+export async function updateMatch(
+  id: string,
+  patch: Partial<Pick<Match, 'status' | 'score_for' | 'score_against' | 'venue' | 'starts_at' | 'note' | 'opponent' | 'home' | 'competition' | 'lineup_size'>>,
+) {
+  const { data, error } = await db().from('team_matches').update(patch).eq('id', id).select('id');
   if (error) throw error;
+  // row-level security skips a row silently: nothing changed = not allowed
+  if (!data || data.length === 0) throw new Error('not allowed');
 }
 
 export async function getLineups(matchId: string): Promise<Lineup[]> {
