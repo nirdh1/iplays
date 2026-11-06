@@ -22,10 +22,10 @@ export interface OsModule {
 export const modules: OsModule[] = [
   { id: 'teams', label: 'קבוצות וסגל', icon: 'team', status: 'live', day: 1, summary: 'הקבוצות שלך והסגל הפעיל, מהמסד. לחיצה על שחקן פותחת את הכרטיס.' },
   { id: 'home', label: 'בית המאמן', icon: 'home', status: 'live', day: 2, summary: 'האימון הבא, אימונים השבוע, נעדרים מדווחים, אימונים בלי נוכחות.' },
-  { id: 'calendar', label: 'יומן ונוכחות', icon: 'calendar', status: 'live', day: 2, summary: 'יומן הקבוצה (14 ימים אחורה, 28 קדימה), יצירה, עריכה וביטול של אימון, סימון נוכחות.', missing: ['שיוך מערך (יום 4)'] },
+  { id: 'calendar', label: 'יומן ונוכחות', icon: 'calendar', status: 'live', day: 2, summary: 'יומן הקבוצה (14 ימים אחורה, 28 קדימה), יצירה, עריכה וביטול של אימון, סימון נוכחות, המערך המשויך.' },
   { id: 'player', label: 'כרטיס שחקן', icon: 'career', status: 'partial', day: 2, summary: 'נוכחות, הופעות, שערים, הערכת מאמן אחרונה, תוקף אישור רפואי. קריאה בלבד, נפתח מהסגל.', missing: ['הערכה עצמית', 'יעדים', 'משובי משחק'] },
   { id: 'library', label: 'ספריית תרגילים', icon: 'grid', status: 'partial', day: 3, summary: 'ספריית iPlays (10 תרגילי בסיס, טיוטה עד אישור מקצועי), ספריית המועדון והתרגילים שלי. חיפוש וסינון, כרטיס תרגיל, העתקה, עורך מגרש בסיסי.', missing: ['15 תרגילי בסיס נוספים (מתוך 25)', 'אישור קטגוריות ותרגילים על ידי המנהל המקצועי', 'סיבוב שחקנים וקווים מעוקלים'] },
-  { id: 'plans', label: 'מערכי אימון', icon: 'card', status: 'planned', day: 4, summary: 'בונה מערכים, תחנות מקבילות, שיוך לאימון ביומן.' },
+  { id: 'plans', label: 'מערכי אימון', icon: 'card', status: 'partial', day: 4, summary: 'בונה מערכים מתרגילי הספרייה, בלוק תחנות מקבילות (סבבים, משך תחנה, מעבר, אחראי) עם חישוב משך, שיוך לאימון ביומן עם עותק קפוא.', missing: ['תבניות ושכפול מערך', 'שיבוץ שמי של שחקנים לקבוצות עבודה', 'מתודולוגיית מועדון ותוכנית מול ביצוע'] },
   { id: 'day', label: 'יום האימון', icon: 'whistle', status: 'planned', day: 5, summary: 'המערך של היום, טיימר שלבים ותחנות, דוח בדקה.' },
   { id: 'dashboard', label: 'דשבורד מנהל', icon: 'shield', status: 'planned', day: 5, summary: 'מדדים אמיתיים בלבד: אימונים שהתקיימו, נוכחות, דוחות חסרים.' },
   { id: 'status', label: 'מה עובד', icon: 'check', status: 'live', day: 1, summary: 'מצב כל מסך ב-MVP.' },

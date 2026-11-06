@@ -11,6 +11,7 @@ import { HomeScreen } from './HomeScreen';
 import { CalendarScreen } from './CalendarScreen';
 import { PlayerScreen } from './PlayerScreen';
 import { LibraryScreen } from './LibraryScreen';
+import { PlansScreen } from './PlansScreen';
 import './obsidian.css';
 
 function readOsHash() {
@@ -119,18 +120,25 @@ export function OsApp() {
               param ? <PlayerScreen playerId={param} /> : <NoData>בחר שחקן מהסגל (קבוצות וסגל)</NoData>
             ) : active.id === 'library' ? (
               <LibraryScreen key={`${param ?? ''}/${sub ?? ''}`} param={param} sub={sub} />
+            ) : active.id === 'plans' ? (
+              <PlansScreen key={`${team!.id}/${param ?? ''}`} team={team!} param={param} />
             ) : active.id === 'status' ? (
               <StatusScreen />
             ) : (
               <NotBuilt module={active} />
             )}
           </main>
+          {active.id !== 'status' && (
+            <a className="os-phone-only os-back" href="#os/status">
+              מה עובד ומה עוד לא
+            </a>
+          )}
         </div>
       </div>
 
       <nav className="os-bottom" aria-label="ניווט Club OS">
         {modules
-          .filter((m) => ['teams', 'home', 'calendar', 'library', 'status'].includes(m.id))
+          .filter((m) => ['teams', 'home', 'calendar', 'plans', 'library'].includes(m.id))
           .map((m) => (
             <NavItem key={m.id} m={m} active={m.id === active.id} onClick={() => go(m.id)} compact />
           ))}

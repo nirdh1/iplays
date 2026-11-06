@@ -3,6 +3,7 @@ import { friendlyError, type MyTeam } from '../lib/api';
 import { addDays, localIso, sessionDate, supabaseCoach, todayYmd, type TrainingSession } from '../lib/coachApi';
 import { eventAttendance, markAttendance, markLabel, type AttendanceRow, type MarkStatus } from '../lib/matchApi';
 import { reasonLabel, type AbsenceReason } from '../lib/coachApi';
+import { SessionPlanCard } from './SessionPlanCard';
 import { dayLabel, sessionsBetween, timeLabel } from './data';
 import { ErrorNote, Loading, NoData, SourceTag } from './StateView';
 
@@ -181,7 +182,6 @@ function SessionPage({ team, session: s, onChanged }: { team: MyTeam; session: T
           {s.duration_min} דק׳{s.location ? ` · ${s.location}` : ''}
           {s.note ? ` · ${s.note}` : ''}
         </p>
-        <p className="os-muted os-small">מערך אימון: עוד לא מומש (יום 4)</p>
         <div className="os-row">
           <button type="button" className="os-btn os-btn--ghost" onClick={() => setEditing((v) => !v)} disabled={busy}>
             {editing ? 'סגירת עריכה' : 'עריכה'}
@@ -202,6 +202,7 @@ function SessionPage({ team, session: s, onChanged }: { team: MyTeam; session: T
           />
         )}
       </section>
+      {!s.canceled && <SessionPlanCard sessionId={s.id} />}
       {!s.canceled && (started ? <AttendanceCard session={s} /> : <NoData>סימון נוכחות נפתח שעה לפני האימון</NoData>)}
     </div>
   );
