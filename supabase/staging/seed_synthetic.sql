@@ -1,19 +1,35 @@
 -- iPlays 2.0 STAGING seed: synthetic data only. NEVER run on Production.
 -- Every name here is invented. Nothing is copied from Production.
--- Run once in the Staging project's SQL Editor, after all migrations.
--- Then sign up in the Staging app with your email and run:
---   select staging_make_me_staff('your@email');
+-- Run once in the Staging project's SQL Editor, after all migration parts.
+-- Afterwards: sign up in the Staging app, then register ONE operator email and
+-- promote it (see supabase/staging/README steps):
+--   insert into staging.operator (email) values ('<your email>');
+--   select public.staging_make_me_staff();
+-- and remove the helper when done:
+--   drop function public.staging_make_me_staff(); drop table staging.operator;
 
 do $$
 begin
-  if exists (select 1 from public.ifa_players limit 1) then
-    raise exception 'ABORT: this database has IFA player data. The synthetic seed runs only on an empty Staging project.';
+  if to_regclass('staging.bundle_progress') is null or not exists (select 1 from staging.bundle_progress where part = (select max(part) from staging.bundle_progress)) then
+    raise exception 'ABORT: not a Staging project built from the staging-part files.';
+  end if;
+  if exists (select 1 from public.ifa_players limit 1) or exists (select 1 from public.players limit 1) or (select count(*) from auth.users) > 1 then
+    raise exception 'ABORT: this database already has players or users. The synthetic seed runs only on a new, empty Staging project.';
+  end if;
+  if to_regclass('staging.marker') is not null then
+    raise exception 'ABORT: the seed already ran here.';
   end if;
 end $$;
 
-create schema if not exists staging;
-create table if not exists staging.marker (note text, created_at timestamptz default now());
+create table staging.marker (note text, created_at timestamptz default now());
 insert into staging.marker (note) values ('iplays staging: synthetic data only');
+-- exactly one operator may be promoted by staging_make_me_staff()
+create table staging.operator (
+  only_one boolean primary key default true check (only_one),
+  email text not null check (email ~ '^[^@\s]+@[^@\s]+$'),
+  used_at timestamptz
+);
+revoke all on schema staging from public, anon, authenticated;
 
 -- a non-login owner for seeded rows (no password, .invalid address)
 insert into auth.users (id, email, created_at)
@@ -78,18 +94,23 @@ where s.starts_at < now() - interval '1 day'
   and s.team_id in (select id from teams where club_id = '5ea00000-0000-4000-8000-000000000001')
   and (hashtext(s.id::text) % 5) <> 0;   -- ~1 in 5 past trainings has no attendance yet (shows "missing")
 
--- make the signed-up operator club admin + coach of every demo team (Staging only)
-create or replace function public.staging_make_me_staff(p_email text)
-returns text language plpgsql security definer set search_path = public, auth as $$
-declare v uuid;
+-- Promote the single registered operator (staging.operator) to club owner +
+-- coach of the demo teams. Runs once; callable only from the SQL Editor.
+create or replace function public.staging_make_me_staff()
+returns text language plpgsql security definer set search_path = public, auth, staging as $$
+declare v_email text; v_used timestamptz; v uuid;
 begin
-  if not exists (select 1 from staging.marker) then raise exception 'not a staging database'; end if;
-  select id into v from auth.users where lower(email) = lower(p_email);
-  if v is null then raise exception 'sign up in the Staging app first: %', p_email; end if;
+  if to_regclass('staging.marker') is null then raise exception 'not a staging database'; end if;
+  select email, used_at into v_email, v_used from staging.operator;
+  if v_email is null then raise exception 'register the operator first: insert into staging.operator (email) values (''<your email>'');'; end if;
+  if v_used is not null then raise exception 'already used at %; remove this helper now', v_used; end if;
+  select id into v from auth.users where lower(email) = lower(v_email);
+  if v is null then raise exception 'sign up in the Staging app first with %', v_email; end if;
   insert into club_staff (club_id, user_id, role) values ('5ea00000-0000-4000-8000-000000000001', v, 'owner') on conflict do nothing;
   insert into team_members (team_id, user_id, role)
   select id, v, 'coach' from teams where club_id = '5ea00000-0000-4000-8000-000000000001'
   on conflict do nothing;
-  return 'ok: ' || p_email || ' is club owner + coach of 3 demo teams';
+  update staging.operator set used_at = now();
+  return 'ok: ' || v_email || ' is club owner + coach of 3 demo teams. Now run: drop function public.staging_make_me_staff(); drop table staging.operator;';
 end $$;
-revoke all on function public.staging_make_me_staff(text) from public, anon, authenticated;
+revoke all on function public.staging_make_me_staff() from public, anon, authenticated;
