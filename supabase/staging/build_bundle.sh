@@ -4,11 +4,18 @@
 #   part 1 aborts if the database already has the iPlays schema (e.g. Production);
 #   part k aborts unless part k-1 finished and part k did not run yet.
 # Usage: supabase/staging/build_bundle.sh <out-dir> [parts]
+# UNTIL=<timestamp> limits the base parts to migrations up to that file prefix,
+# so files already handed out stay identical; later migrations ship as add-on
+# parts (build_addon.sh).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 out=${1:?out dir}; parts=${2:-3}
 mkdir -p "$out"
-files=(supabase/migrations/*.sql)
+files=()
+for f in supabase/migrations/*.sql; do
+  if [ -n "${UNTIL:-}" ] && [[ "$(basename "$f")" > "${UNTIL}~" ]]; then continue; fi
+  files+=("$f")
+done
 total=0; for f in "${files[@]}"; do total=$((total + $(wc -c < "$f"))); done
 target=$(( (total + parts - 1) / parts ))
 part=1; size=0

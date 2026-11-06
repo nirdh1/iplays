@@ -16,13 +16,20 @@ open when the Supabase URL is the Production project, even with the flag on.
 ## One-time Staging setup
 1. Create a new, empty Supabase project (not Production).
 2. SQL Editor of that project: run `staging-part-1-of-3.sql`, then part 2,
-   then part 3 (made by `supabase/staging/build_bundle.sh <dir> 3`; every
-   migration in file order). Part 1 aborts on any database that already has
+   then part 3 (made by `UNTIL=20261106100000 supabase/staging/build_bundle.sh <dir> 3`;
+   every migration up to that one, in file order; the cutoff keeps the files
+   already handed out byte-identical). Part 1 aborts on any database that already has
    the iPlays schema, so it cannot run on Production; each later part aborts
    unless the previous part finished and it did not run yet.
 3. SQL Editor: run `supabase/staging/seed_synthetic.sql` (invented club, 3
    teams, 45 players, trainings and attendance). It aborts unless the parts
    ran, and if the database has players or more than one user.
+3a. Add-on parts for later migrations, in order (each aborts unless the part
+   it needs ran, and if it already ran):
+   `staging-part-5-day3-exercises.sql` = exercise library + 10 draft base
+   exercises (`supabase/staging/build_addon.sh <file> 5 3 day3-exercises
+   supabase/migrations/20261106200000_exercise_library.sql
+   supabase/migrations/20261106200100_iplays_base_exercises.sql`).
 4. Vercel → Settings → Environment Variables, scope **Preview**, only the V2
    branch: the four variables above. Then redeploy that branch.
 5. Open the Preview URL, sign up with your email, then in the SQL Editor:

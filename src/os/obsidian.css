@@ -186,3 +186,73 @@
   .os-attn .os-seg { grid-column: 1 / -1; width: 100%; }
   .os-seg button { flex: 1; }
 }
+
+/* day 3: pitch, library, editor */
+.os-pitch { display: block; width: 100%; height: auto; border-radius: 0.5rem; touch-action: none; user-select: none; }
+.os-pitch__grass { fill: #12321f; }
+.os-pitch__lines { fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 0.18; }
+.os-pitch__spot { fill: rgba(255, 255, 255, 0.55); }
+.os-pitch__pending { fill: var(--os-tertiary); stroke: #2a1700; stroke-width: 0.1; }
+.os-pitch--thumb { aspect-ratio: auto; max-height: 150px; border-radius: 0.5rem 0.5rem 0 0; pointer-events: none; }
+.os-pitch--page, .os-pitch--edit { max-width: min(100%, calc(70vh * var(--ar, 1.5))); margin: 8px auto; }
+.os-pitch.is-editable { cursor: crosshair; }
+.os-ln path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.os-ln--pass path:not(.os-ln__hit) { stroke: #ffffff; stroke-dasharray: 0.9 0.6; }
+.os-ln--run path:not(.os-ln__hit) { stroke: var(--os-secondary); stroke-dasharray: 0.3 0.5; }
+.os-ln--dribble path:not(.os-ln__hit) { stroke: var(--os-tertiary); }
+.os-ln--shot path:not(.os-ln__hit) { stroke: #ff6b6b; }
+.os-ln__hit { stroke: transparent; }
+.os-ln.is-selected path:not(.os-ln__hit) { stroke: var(--os-primary); }
+.os-it { stroke: #0a0e16; stroke-width: 0.12; }
+.os-it text { fill: #0a0e16; stroke: none; font-weight: 700; font-family: system-ui, sans-serif; }
+.os-it--player.os-it--a circle { fill: var(--os-primary); }
+.os-it--player.os-it--b circle { fill: var(--os-secondary); }
+.os-it--player.os-it--b text, .os-it--player.os-it--a text { fill: #0a0e16; }
+.os-it--gk circle { fill: var(--os-tertiary); }
+.os-it--ball { fill: #ffffff; }
+.os-it--cone { fill: #ff9f1c; }
+.os-it--mannequin { fill: #c9c9c9; }
+.os-it--goal, .os-it--minigoal { fill: rgba(255, 255, 255, 0.85); }
+.os-it.is-selected { stroke: #ffffff; stroke-width: 0.35; }
+.os-it.is-selected circle { stroke: #ffffff; stroke-width: 0.35; }
+.os-pitch.is-editable .os-it, .os-pitch.is-editable .os-ln { cursor: grab; }
+
+.os-ex-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.os-ex-card { display: flex; flex-direction: column; height: 100%; text-decoration: none; background: var(--os-surface-low); border: 1px solid var(--os-outline-2); border-radius: var(--os-radius); overflow: hidden; }
+.os-ex-card:hover { border-color: var(--os-outline); }
+.os-ex-card__body { display: grid; gap: 4px; padding: 10px 12px 12px; }
+.os-ex-card__tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.os-seg--wrap { flex-wrap: wrap; }
+.os-row--start { justify-content: flex-start; }
+.os-pre { white-space: pre-line; margin: 4px 0 12px; }
+.os-form textarea {
+  padding: 8px 10px; border-radius: 0.5rem; border: 1px solid var(--os-outline-2);
+  background: var(--os-surface); color: var(--os-text); font: inherit; resize: vertical;
+}
+.os-form__wide { grid-column: span 2; }
+.os-form__full { grid-column: 1 / -1; }
+@media (max-width: 599px) { .os-form__wide { grid-column: 1 / -1; } }
+.os-inline-field { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--os-text-2); margin-top: 8px; }
+.os-inline-field input { width: 56px; min-height: 40px; padding: 4px 8px; border-radius: 0.5rem; border: 1px solid var(--os-outline-2); background: var(--os-surface); color: var(--os-text); font: inherit; }
+
+.os-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.os-tool {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 10px;
+  border: 1px solid var(--os-outline-2); border-radius: 0.5rem; background: var(--os-surface); color: var(--os-text); font: inherit; font-size: 13px; cursor: pointer;
+}
+.os-tool.is-on { border-color: var(--os-primary); box-shadow: inset 0 0 0 1px var(--os-primary); color: var(--os-primary); }
+.os-tool i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--os-outline); }
+.os-tool--pa i { background: var(--os-primary); }
+.os-tool--pb i { background: var(--os-secondary); }
+.os-tool--gk i { background: var(--os-tertiary); }
+.os-tool--ball i { background: #fff; width: 10px; height: 10px; }
+.os-tool--cone i { background: #ff9f1c; border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.os-tool--minigoal i, .os-tool--goal i { background: #fff; border-radius: 2px; height: 6px; width: 16px; }
+.os-tool--mannequin i { background: #c9c9c9; border-radius: 3px; width: 6px; }
+.os-tool--select i { background: none; border: 2px solid var(--os-text); border-radius: 3px; }
+.os-tool--pass i, .os-tool--run i, .os-tool--dribble i, .os-tool--shot i { border-radius: 0; height: 2px; width: 18px; }
+.os-tool--pass i { background: repeating-linear-gradient(90deg, #fff 0 4px, transparent 4px 7px); }
+.os-tool--run i { background: repeating-linear-gradient(90deg, var(--os-secondary) 0 2px, transparent 2px 5px); }
+.os-tool--dribble i { background: var(--os-tertiary); }
+.os-tool--shot i { background: #ff6b6b; height: 3px; }
+@media (max-width: 599px) { .os-tool { flex: 1 1 30%; justify-content: center; } }

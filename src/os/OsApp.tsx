@@ -10,11 +10,12 @@ import { StatusScreen } from './StatusScreen';
 import { HomeScreen } from './HomeScreen';
 import { CalendarScreen } from './CalendarScreen';
 import { PlayerScreen } from './PlayerScreen';
+import { LibraryScreen } from './LibraryScreen';
 import './obsidian.css';
 
 function readOsHash() {
-  const [, section, param] = window.location.hash.replace('#', '').split('/');
-  return { section: section || 'teams', param };
+  const [, section, param, sub] = window.location.hash.replace('#', '').split('/');
+  return { section: section || 'teams', param, sub };
 }
 
 const TEAM_KEY = 'iplays.os.team';
@@ -38,7 +39,7 @@ const staffRoles = new Set(['admin', 'coach', 'assistant_coach', 'instructor', '
 
 export function OsApp() {
   const auth = useAuth();
-  const [{ section, param }, setLoc] = useState(readOsHash);
+  const [{ section, param, sub }, setLoc] = useState(readOsHash);
   useEffect(() => {
     const on = () => setLoc(readOsHash());
     window.addEventListener('hashchange', on);
@@ -116,6 +117,8 @@ export function OsApp() {
               <CalendarScreen key={team!.id} team={team!} sessionId={param} />
             ) : active.id === 'player' ? (
               param ? <PlayerScreen playerId={param} /> : <NoData>בחר שחקן מהסגל (קבוצות וסגל)</NoData>
+            ) : active.id === 'library' ? (
+              <LibraryScreen key={`${param ?? ''}/${sub ?? ''}`} param={param} sub={sub} />
             ) : active.id === 'status' ? (
               <StatusScreen />
             ) : (
