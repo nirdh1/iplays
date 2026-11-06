@@ -279,7 +279,7 @@ const marks: { v: MarkStatus; label: string }[] = [
 ];
 
 /** Fast attendance: one tap per player, saved immediately through mark_attendance. */
-function AttendanceCard({ session }: { session: TrainingSession }) {
+export function AttendanceCard({ session }: { session: TrainingSession }) {
   const [rows, setRows] = useState<AttendanceRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<Set<string>>(new Set());

@@ -33,6 +33,9 @@ open when the Supabase URL is the Production project, even with the flag on.
    `staging-part-6-day4-session-plans.sql` = session plans, stations and
    assignment to trainings (`build_addon.sh <file> 6 5 day4-session-plans
    supabase/migrations/20261106300000_session_plans.sql`).
+   `staging-part-7-day5-reports-dashboard.sql` = one-minute training report and
+   club dashboard (`build_addon.sh <file> 7 6 day5-reports-dashboard
+   supabase/migrations/20261106400000_training_reports_dashboard.sql`).
 4. Vercel → Settings → Environment Variables, scope **Preview**, only the V2
    branch: the four variables above. Then redeploy that branch.
 5. Open the Preview URL, sign up with your email, then in the SQL Editor:

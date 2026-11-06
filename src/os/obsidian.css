@@ -299,3 +299,18 @@
 button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .os-phone-only { display: block; margin-top: 24px; }
 @media (min-width: 900px) { .os-phone-only { display: none; } }
+
+/* day 5: training day, report, dashboard */
+.os-run__clock { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin: 8px 0; padding: 16px; border-radius: 0.75rem; background: var(--os-surface); }
+.os-run__clock strong { font-size: 56px; line-height: 60px; font-weight: 800; color: var(--os-primary); font-variant-numeric: tabular-nums; direction: ltr; }
+.os-run__clock.is-transition strong { color: var(--os-secondary); }
+.os-run__clock.is-over strong { color: var(--os-tertiary); }
+.os-run__clock span { color: var(--os-text-2); font-size: 16px; }
+.os-run__steps { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.os-run__steps button { width: 100%; min-height: 44px; text-align: start; padding: 8px 12px; border-radius: 0.5rem; border: 1px solid var(--os-outline-2); background: transparent; color: var(--os-text); font: inherit; cursor: pointer; }
+.os-run__steps li.is-now button { border-color: var(--os-primary); background: rgba(0, 255, 135, 0.08); }
+.os-run__steps li.is-past button { opacity: 0.6; }
+.os-kpi--warn strong { color: var(--os-tertiary); }
+.os-actions { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.os-actions li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-radius: 0.5rem; background: var(--os-surface); border-inline-start: 4px solid var(--os-tertiary); }
+.os-actions li.is-critical { border-inline-start-color: var(--os-error); }

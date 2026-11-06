@@ -12,6 +12,8 @@ import { CalendarScreen } from './CalendarScreen';
 import { PlayerScreen } from './PlayerScreen';
 import { LibraryScreen } from './LibraryScreen';
 import { PlansScreen } from './PlansScreen';
+import { TrainingDayScreen } from './TrainingDayScreen';
+import { DashboardScreen } from './DashboardScreen';
 import './obsidian.css';
 
 function readOsHash() {
@@ -122,6 +124,10 @@ export function OsApp() {
               <LibraryScreen key={`${param ?? ''}/${sub ?? ''}`} param={param} sub={sub} />
             ) : active.id === 'plans' ? (
               <PlansScreen key={`${team!.id}/${param ?? ''}`} team={team!} param={param} />
+            ) : active.id === 'day' ? (
+              <TrainingDayScreen key={`${team!.id}/${param ?? ''}`} team={team!} sessionId={param} />
+            ) : active.id === 'dashboard' ? (
+              <DashboardScreen />
             ) : active.id === 'status' ? (
               <StatusScreen />
             ) : (

@@ -85,3 +85,24 @@ export async function unassignPlan(sessionId: string): Promise<void> {
   const { error } = await db().rpc('unassign_session_plan', { p_session: sessionId });
   if (error) throw error;
 }
+
+export type BlockStatus = 'done' | 'skipped' | 'changed';
+export interface TrainingReport {
+  session_id: string;
+  blocks: { ord: number; status: BlockStatus; note?: string }[];
+  rating: number | null;
+  note: string;
+  submitted_at: string;
+  updated_at: string;
+}
+
+export async function getReport(sessionId: string): Promise<TrainingReport | null> {
+  const { data, error } = await db().from('training_reports').select('session_id,blocks,rating,note,submitted_at,updated_at').eq('session_id', sessionId).maybeSingle();
+  if (error) throw error;
+  return (data as TrainingReport) ?? null;
+}
+
+export async function submitReport(sessionId: string, r: { blocks: TrainingReport['blocks']; rating: number | null; note: string }): Promise<void> {
+  const { error } = await db().rpc('submit_training_report', { p_session: sessionId, p: r });
+  if (error) throw error;
+}
