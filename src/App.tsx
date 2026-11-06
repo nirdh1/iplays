@@ -38,6 +38,8 @@ import { Icon } from './components/Icon';
 import { clearPendingInvite, readFamilyInvite, readPendingInvite, saveFamilyInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
+import { OsApp } from './os/OsApp';
+import { isOsHash, onProductionBackend, v2Flag } from './os/env';
 
 type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'clubrequests' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'adminparents' | 'fund' | 'costs' | 'pay' | 'feedback' | 'adminfeedback' | 'me' | 'adminmetrics';
 const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'clubrequests', 'find', 't', 'matches', 'ifa', 'admin', 'adminparents', 'fund', 'costs', 'pay', 'feedback', 'adminfeedback', 'me', 'adminmetrics'];
@@ -97,8 +99,12 @@ export function App() {
   const auth = useAuth();
   const [onboarding, setOnboarding] = useState(false);
   const [hashRoute, setHashRoute] = useState(readHash().route);
+  const [osRoute, setOsRoute] = useState(isOsHash());
   useEffect(() => {
-    const onHash = () => setHashRoute(readHash().route);
+    const onHash = () => {
+      setHashRoute(readHash().route);
+      setOsRoute(isOsHash());
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -151,6 +157,8 @@ export function App() {
       );
     }
     if (!auth.session) return <AuthScreen />;
+    // iPlays 2.0 Club OS: only when the build turns it on, and never against Production.
+    if (osRoute && v2Flag && !onProductionBackend) return <OsApp />;
     if (needsOnboarding || onboarding) {
       return (
         <div className="ip-app">
