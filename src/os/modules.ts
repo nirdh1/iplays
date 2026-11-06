@@ -20,10 +20,10 @@ export interface OsModule {
 }
 
 export const modules: OsModule[] = [
-  { id: 'teams', label: 'קבוצות וסגל', icon: 'team', status: 'live', day: 1, summary: 'הקבוצות שלך והסגל הפעיל, מהמסד.', missing: ['כרטיס שחקן מלא (יום 2)'] },
-  { id: 'home', label: 'בית המאמן', icon: 'home', status: 'planned', day: 2, summary: 'האימון הבא, אימונים השבוע, נעדרים מדווחים, אימונים בלי נוכחות.' },
-  { id: 'calendar', label: 'יומן ונוכחות', icon: 'calendar', status: 'planned', day: 2, summary: 'יומן הקבוצה, יצירה ועריכה של אימון, סימון נוכחות.' },
-  { id: 'player', label: 'כרטיס שחקן', icon: 'career', status: 'planned', day: 2, summary: 'קריירה, נוכחות, הערכות ומבדקים, לקריאה בלבד.' },
+  { id: 'teams', label: 'קבוצות וסגל', icon: 'team', status: 'live', day: 1, summary: 'הקבוצות שלך והסגל הפעיל, מהמסד. לחיצה על שחקן פותחת את הכרטיס.' },
+  { id: 'home', label: 'בית המאמן', icon: 'home', status: 'live', day: 2, summary: 'האימון הבא, אימונים השבוע, נעדרים מדווחים, אימונים בלי נוכחות.' },
+  { id: 'calendar', label: 'יומן ונוכחות', icon: 'calendar', status: 'live', day: 2, summary: 'יומן הקבוצה (14 ימים אחורה, 28 קדימה), יצירה, עריכה וביטול של אימון, סימון נוכחות.', missing: ['שיוך מערך (יום 4)'] },
+  { id: 'player', label: 'כרטיס שחקן', icon: 'career', status: 'partial', day: 2, summary: 'נוכחות, הופעות, שערים, הערכת מאמן אחרונה, תוקף אישור רפואי. קריאה בלבד, נפתח מהסגל.', missing: ['הערכה עצמית', 'יעדים', 'משובי משחק'] },
   { id: 'library', label: 'ספריית תרגילים', icon: 'grid', status: 'planned', day: 3, summary: 'חיפוש וסינון, כרטיס תרגיל, עורך מגרש בסיסי.' },
   { id: 'plans', label: 'מערכי אימון', icon: 'card', status: 'planned', day: 4, summary: 'בונה מערכים, תחנות מקבילות, שיוך לאימון ביומן.' },
   { id: 'day', label: 'יום האימון', icon: 'whistle', status: 'planned', day: 5, summary: 'המערך של היום, טיימר שלבים ותחנות, דוח בדקה.' },

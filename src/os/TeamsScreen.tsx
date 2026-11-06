@@ -55,7 +55,7 @@ export function TeamsScreen({ team }: { team: MyTeam; playerId?: string }) {
       <section className="os-card">
         <div className="os-card__head">
           <h2>סגל</h2>
-          <span className="os-muted">כרטיס שחקן: יום 2</span>
+          <span className="os-muted">לחיצה פותחת כרטיס</span>
         </div>
         {error && <ErrorNote message={error} />}
         {!roster && !error && <Loading />}
@@ -64,12 +64,14 @@ export function TeamsScreen({ team }: { team: MyTeam; playerId?: string }) {
           <ul className="os-roster">
             {roster.map((p) => (
               <li key={p.id}>
+                <a className="os-roster__link" href={`#os/player/${p.id}`}>
                 <span className="os-shirt">{p.shirt_number ?? '–'}</span>
                 <span className="os-roster__name">
                   {p.first_name} {p.last_name}
                 </span>
                 <span className="os-muted">{p.position || 'ללא עמדה'}</span>
                 <span className="os-muted">{p.birth_year ?? ''}</span>
+                </a>
               </li>
             ))}
           </ul>

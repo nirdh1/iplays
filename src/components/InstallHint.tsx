@@ -84,7 +84,8 @@ export function InstallHint() {
   const [, force] = useState(0);
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    if (isStandalone() || isSnoozed()) return;
+    // not inside the iPlays 2.0 Club OS preview (#os/...)
+    if (isStandalone() || isSnoozed() || window.location.hash.startsWith('#os')) return;
     const l = () => force((n) => n + 1);
     listeners.add(l);
     const t = window.setTimeout(() => setOpen(true), SHOW_DELAY_MS);

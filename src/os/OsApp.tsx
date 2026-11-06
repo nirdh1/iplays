@@ -4,9 +4,12 @@ import { Icon } from '../components/Icon';
 import { roleLabel, type MyTeam } from '../lib/api';
 import { envLabel } from './env';
 import { findModule, modules, type OsModule } from './modules';
-import { NotBuilt, StatusBadge } from './StateView';
+import { NoData, NotBuilt, StatusBadge } from './StateView';
 import { TeamsScreen } from './TeamsScreen';
 import { StatusScreen } from './StatusScreen';
+import { HomeScreen } from './HomeScreen';
+import { CalendarScreen } from './CalendarScreen';
+import { PlayerScreen } from './PlayerScreen';
 import './obsidian.css';
 
 function readOsHash() {
@@ -107,6 +110,12 @@ export function OsApp() {
               </section>
             ) : active.id === 'teams' ? (
               <TeamsScreen team={team!} playerId={param} />
+            ) : active.id === 'home' ? (
+              <HomeScreen key={team!.id} team={team!} />
+            ) : active.id === 'calendar' ? (
+              <CalendarScreen key={team!.id} team={team!} sessionId={param} />
+            ) : active.id === 'player' ? (
+              param ? <PlayerScreen playerId={param} /> : <NoData>בחר שחקן מהסגל (קבוצות וסגל)</NoData>
             ) : active.id === 'status' ? (
               <StatusScreen />
             ) : (
