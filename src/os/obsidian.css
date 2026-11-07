@@ -143,6 +143,8 @@
 .os-btn--ghost { background: transparent; color: var(--os-text); border: 1px solid var(--os-outline-2); font-weight: 500; }
 .os-btn:focus-visible, .os a:focus-visible, .os input:focus-visible, .os select:focus-visible { outline: 2px solid var(--os-secondary); outline-offset: 2px; }
 .os a { color: inherit; }
+.os a.os-btn { color: var(--os-on-primary); }
+.os a.os-btn--ghost { color: var(--os-text); }
 .os-back { display: inline-block; color: var(--os-secondary); text-decoration: none; }
 .os-list { list-style: none; margin: 0; padding: 0; }
 .os-list li { border-bottom: 1px solid var(--os-outline-2); }
@@ -198,17 +200,17 @@
 .os-pitch.is-editable { cursor: crosshair; }
 .os-ln path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .os-ln--pass path:not(.os-ln__hit) { stroke: #ffffff; stroke-dasharray: 0.9 0.6; }
-.os-ln--run path:not(.os-ln__hit) { stroke: var(--os-secondary); stroke-dasharray: 0.3 0.5; }
-.os-ln--dribble path:not(.os-ln__hit) { stroke: var(--os-tertiary); }
+.os-ln--run path:not(.os-ln__hit) { stroke: #7bd0ff; stroke-dasharray: 0.3 0.5; }
+.os-ln--dribble path:not(.os-ln__hit) { stroke: #ffb95f; }
 .os-ln--shot path:not(.os-ln__hit) { stroke: #ff6b6b; }
 .os-ln__hit { stroke: transparent; }
-.os-ln.is-selected path:not(.os-ln__hit) { stroke: var(--os-primary); }
+.os-ln.is-selected path:not(.os-ln__hit) { stroke: #00ff87; }
 .os-it { stroke: #0a0e16; stroke-width: 0.12; }
 .os-it text { fill: #0a0e16; stroke: none; font-weight: 700; font-family: system-ui, sans-serif; }
-.os-it--player.os-it--a circle { fill: var(--os-primary); }
-.os-it--player.os-it--b circle { fill: var(--os-secondary); }
+.os-it--player.os-it--a circle { fill: #00ff87; }
+.os-it--player.os-it--b circle { fill: #7bd0ff; }
 .os-it--player.os-it--b text, .os-it--player.os-it--a text { fill: #0a0e16; }
-.os-it--gk circle { fill: var(--os-tertiary); }
+.os-it--gk circle { fill: #ffb95f; }
 .os-it--ball { fill: #ffffff; }
 .os-it--cone { fill: #ff9f1c; }
 .os-it--mannequin { fill: #c9c9c9; }
@@ -242,9 +244,9 @@
 }
 .os-tool.is-on { border-color: var(--os-primary); box-shadow: inset 0 0 0 1px var(--os-primary); color: var(--os-primary); }
 .os-tool i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--os-outline); }
-.os-tool--pa i { background: var(--os-primary); }
-.os-tool--pb i { background: var(--os-secondary); }
-.os-tool--gk i { background: var(--os-tertiary); }
+.os-tool--pa i { background: #00ff87; box-shadow: 0 0 0 1px #0a0e16; }
+.os-tool--pb i { background: #7bd0ff; box-shadow: 0 0 0 1px #0a0e16; }
+.os-tool--gk i { background: #ffb95f; box-shadow: 0 0 0 1px #0a0e16; }
 .os-tool--ball i { background: #fff; width: 10px; height: 10px; }
 .os-tool--cone i { background: #ff9f1c; border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .os-tool--minigoal i, .os-tool--goal i { background: #fff; border-radius: 2px; height: 6px; width: 16px; }
@@ -314,3 +316,32 @@ button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text
 .os-actions { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .os-actions li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-radius: 0.5rem; background: var(--os-surface); border-inline-start: 4px solid var(--os-tertiary); }
 .os-actions li.is-critical { border-inline-start-color: var(--os-error); }
+
+/* Light theme ("תצוגה בהירה"): same layout, light tokens. The pitch keeps its own colours. */
+.os[data-theme='light'] {
+  --os-bg: #f4f6f9;
+  --os-surface-lowest: #ffffff;
+  --os-surface-low: #ffffff;
+  --os-surface: #eef1f5;
+  --os-surface-high: #e2e7ee;
+  --os-surface-highest: #d6dce5;
+  --os-text: #111827;
+  --os-text-2: #4b5563;
+  --os-outline: #6b7280;
+  --os-outline-2: #d5dbe3;
+  --os-primary: #00804a;
+  --os-primary-dim: #006b3e;
+  --os-on-primary: #ffffff;
+  --os-secondary: #0b66a3;
+  --os-tertiary: #a85a00;
+  --os-error: #b3261e;
+  color-scheme: light;
+}
+.os[data-theme='light'] .os-seg button.is-on.is-late,
+.os[data-theme='light'] .os-seg button.is-on.is-absent { color: #ffffff; }
+.os[data-theme='light'] .os-envbar { background: #ffb95f; }
+.os[data-theme='light'] .os-form input, .os[data-theme='light'] .os-form select { color-scheme: light; }
+.os[data-theme='light'] .os-tool--ball i, .os[data-theme='light'] .os-tool--minigoal i, .os[data-theme='light'] .os-tool--goal i { background: #9aa3af; }
+.os[data-theme='light'] .os-tool--pass i { background: repeating-linear-gradient(90deg, #4b5563 0 4px, transparent 4px 7px); }
+.os[data-theme='light'] .os-card, .os[data-theme='light'] .os-ex-card { box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06); }
+.os-theme-btn { min-height: 40px; padding: 4px 12px; border-radius: 9999px; border: 1px solid var(--os-outline-2); background: var(--os-surface); color: var(--os-text); font: inherit; font-size: 13px; cursor: pointer; }

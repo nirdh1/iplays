@@ -37,6 +37,18 @@ function saveTeamChoice(id: string) {
   }
 }
 
+const THEME_KEY = 'iplays.os.theme';
+type Theme = 'dark' | 'light';
+function readTheme(): Theme {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    if (t === 'light' || t === 'dark') return t;
+  } catch {
+    /* storage unavailable */
+  }
+  return 'dark';
+}
+
 /** Staff roles see the Club OS; a parent-only account gets a clear note instead. */
 const staffRoles = new Set(['admin', 'coach', 'assistant_coach', 'instructor', 'team_manager']);
 
@@ -57,6 +69,17 @@ export function OsApp() {
     saveTeamChoice(id);
   };
 
+  const [theme, setTheme] = useState<Theme>(readTheme);
+  const toggleTheme = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try {
+      localStorage.setItem(THEME_KEY, next);
+    } catch {
+      /* the choice lasts for this visit only */
+    }
+  };
+
   const active = findModule(section) ?? modules[0];
   const go = (id: string) => {
     window.location.hash = `os/${id}`;
@@ -64,7 +87,7 @@ export function OsApp() {
   };
 
   return (
-    <div className="os" dir="rtl">
+    <div className="os" dir="rtl" data-theme={theme}>
       {envLabel && (
         <div className="os-envbar" role="note">
           סביבת {envLabel} · נתונים בדויים בלבד
@@ -89,6 +112,9 @@ export function OsApp() {
               <h1>{active.label}</h1>
               <StatusBadge status={active.status} />
             </div>
+            <button type="button" className="os-theme-btn" onClick={toggleTheme} aria-pressed={theme === 'light'}>
+              {theme === 'dark' ? 'תצוגה בהירה' : 'תצוגה כהה'}
+            </button>
             {staffTeams.length > 0 && (
               <label className="os-teampick">
                 <span className="os-muted">קבוצה</span>
