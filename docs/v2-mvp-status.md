@@ -18,7 +18,7 @@ dashboard shows one missing report fewer.
 | בית המאמן | live | next training, this week, reported absences, trainings with no marks | |
 | יומן ונוכחות | live | 14 days back / 28 ahead, create, edit, cancel, attendance, assigned plan | |
 | כרטיס שחקן | partial | attendance, appearances, goals, last coach assessment, medical "valid until" only | self assessment, goals, match feedback |
-| ספריית תרגילים | partial | iPlays / club / personal libraries, 25 base exercises (drafts), "what are we working on today" topic filter (also in the plan builder's picker), search and filters, exercise page, copy, basic pitch editor (phone: basic tools) | more base exercises in reviewed batches per topic group, professional approval of categories and exercises, rotate players, curved lines |
+| ספריית תרגילים | partial | iPlays / club / personal libraries, 25 base exercises (drafts), "what are we working on today" topic filter (also in the plan builder's picker), search and filters, exercise page with animated diagram (arrows play in drawn order, also on training day), copy, basic pitch editor (phone: basic tools) | more base exercises in reviewed batches per topic group, professional approval of categories and exercises, rotate players, curved lines |
 | מערכי אימון | partial | builder (library exercises, stations, breaks, reorder), stations maths, assign to a training with a frozen copy | templates, duplicate plan, naming players into work groups, club methodology, plan vs actual |
 | יום האימון | live | today's training and plan, step timer, stations rotation per group, attendance, one-minute report | |
 | דשבורד מנהל | partial | 5 real KPIs + up to 3 priority actions, 7 / 30 days, per team | methodology, fitness and limits, tasks and delegation |
@@ -36,7 +36,7 @@ In Staging all data is invented and the app shows a STAGING banner.
 
 ## Tests
 - SQL: `supabase/tests/test_exercise_library.sql` (18), `test_session_plans.sql` (17), `test_training_reports_dashboard.sql` (13), all pass on a fresh database built from the Staging parts.
-- Unit: `node scripts/run-os-tests.mjs` (plan minutes + validation 13, timer 11, topic filter 5).
+- Unit: `node scripts/run-os-tests.mjs` (plan minutes + validation 13, timer 11, topic filter 5, diagram animation 18).
 
 ## Staging files (in order)
 Parts 1-3 and the seed (unchanged since first handed out), then add-on parts

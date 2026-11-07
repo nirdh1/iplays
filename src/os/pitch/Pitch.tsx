@@ -19,11 +19,13 @@ export interface PitchProps {
   onPointerMove?: (x: number, y: number) => void;
   onPointerUp?: () => void;
   overlay?: ReactNode;
+  /** extra class per arrow, by index (used by the animation to dim arrows not played yet) */
+  lineClass?: (index: number) => string;
 }
 
 const PAD = 2; // metres of grass around the lines
 
-export function Pitch({ preset, areaW, areaL, diagram, selectedId, className, onPointerDownPitch, onPointerDownItem, onPointerMove, onPointerUp, overlay }: PitchProps) {
+export function Pitch({ preset, areaW, areaL, diagram, selectedId, className, onPointerDownPitch, onPointerDownItem, onPointerMove, onPointerUp, overlay, lineClass }: PitchProps) {
   const { l, w } = areaOf(preset, areaW, areaL);
   const svg = useRef<SVGSVGElement>(null);
   const editable = !!(onPointerDownPitch || onPointerDownItem);
@@ -69,8 +71,8 @@ export function Pitch({ preset, areaW, areaL, diagram, selectedId, className, on
       </defs>
       <rect x={-PAD} y={-PAD} width={l + PAD * 2} height={w + PAD * 2} className="os-pitch__grass" />
       <Markings preset={preset} l={l} w={w} />
-      {diagram.lines.map((ln) => (
-        <Line key={ln.id} line={ln} unit={unit} selected={ln.id === selectedId} onDown={onPointerDownItem ? (e) => onPointerDownItem(ln.id, ...toMetres(e)) : undefined} />
+      {diagram.lines.map((ln, i) => (
+        <Line key={ln.id} line={ln} unit={unit} extra={lineClass?.(i)} selected={ln.id === selectedId} onDown={onPointerDownItem ? (e) => onPointerDownItem(ln.id, ...toMetres(e)) : undefined} />
       ))}
       {diagram.elements.map((el) => (
         <Item key={el.id} el={el} unit={unit} selected={el.id === selectedId} onDown={onPointerDownItem ? (e) => { (svg.current as SVGSVGElement).setPointerCapture(e.pointerId); onPointerDownItem(el.id, ...toMetres(e)); } : undefined} />
@@ -132,10 +134,10 @@ function wavy(pts: [number, number][], amp: number): string {
   return d;
 }
 
-function Line({ line, unit, selected, onDown }: { line: DiagramLine; unit: number; selected: boolean; onDown?: (e: RPointerEvent) => void }) {
+function Line({ line, unit, selected, onDown, extra }: { line: DiagramLine; unit: number; selected: boolean; onDown?: (e: RPointerEvent) => void; extra?: string }) {
   const d = line.type === 'dribble' ? wavy(line.pts, 0.35 * unit) : `M${line.pts.map((p) => p.join(',')).join(' L')}`;
   return (
-    <g data-item className={`os-ln os-ln--${line.type}${selected ? ' is-selected' : ''}`} onPointerDown={onDown}>
+    <g data-item className={`os-ln os-ln--${line.type}${selected ? ' is-selected' : ''}${extra ? ` ${extra}` : ''}`} onPointerDown={onDown}>
       <path d={`M${line.pts.map((p) => p.join(',')).join(' L')}`} className="os-ln__hit" strokeWidth={unit * 1.6} />
       <path d={d} strokeWidth={(line.type === 'shot' ? 0.32 : 0.2) * unit} markerEnd="url(#os-arrow)" />
     </g>

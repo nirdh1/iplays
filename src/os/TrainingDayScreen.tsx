@@ -3,7 +3,8 @@ import { friendlyError, type MyTeam } from '../lib/api';
 import { addDays, sessionDate, todayYmd, type TrainingSession } from '../lib/coachApi';
 import { AttendanceCard } from './CalendarScreen';
 import { dayLabel, sessionsBetween, timeLabel } from './data';
-import { Pitch } from './pitch/Pitch';
+import { AnimatedPitch } from './pitch/AnimatedPitch';
+import { parseDiagram } from './pitch/model';
 import { getAssignment, getReport, submitReport, type Assignment, type BlockStatus, type TrainingReport } from './plans/api';
 import { clock, stationFor, stationPhase } from './plans/timer';
 import { ErrorNote, Loading, NoData, SourceTag } from './StateView';
@@ -181,7 +182,7 @@ function Runner({ sessionId, blocks }: { sessionId: string; blocks: SnapBlock[] 
       {b.goal && <p>מטרה: {b.goal}</p>}
       {ex && (
         <div className="os-block__ex">
-          <Pitch preset={ex.pitch_preset} areaW={ex.area_w_m} areaL={ex.area_l_m} diagram={ex.diagram} className="os-pitch--thumb" />
+          <AnimatedPitch preset={ex.pitch_preset} areaW={ex.area_w_m} areaL={ex.area_l_m} diagram={parseDiagram(ex.diagram)} className="os-pitch--day" />
           <div>
             {ex.coaching_points && <p className="os-pre">{ex.coaching_points}</p>}
             {ex.equipment && ex.equipment.length > 0 && <p className="os-muted os-small">ציוד: {ex.equipment.join(' · ')}</p>}

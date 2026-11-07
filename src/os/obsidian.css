@@ -275,7 +275,7 @@
 .os-block[draggable] .os-card__head { cursor: grab; }
 .os-block__num { display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: 50%; background: var(--os-surface-highest); font-size: 13px; font-weight: 700; margin-inline-end: 6px; }
 .os-block__ex { display: grid; gap: 12px; grid-template-columns: 1fr; align-items: start; }
-@media (min-width: 700px) { .os-block__ex { grid-template-columns: 200px 1fr; } }
+@media (min-width: 700px) { .os-block__ex { grid-template-columns: minmax(260px, 420px) 1fr; } }
 .os-block__thumb { display: block; border-radius: 0.5rem; overflow: hidden; }
 .os-block__thumb .os-pitch--thumb { border-radius: 0.5rem; }
 .os-icon-btn { min-width: 40px; min-height: 40px; border: 1px solid var(--os-outline-2); border-radius: 0.5rem; background: var(--os-surface); color: var(--os-text); font: inherit; cursor: pointer; }
@@ -355,3 +355,12 @@ button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text
 .os-topic:disabled { opacity: 0.4; cursor: default; }
 .os-topic--clear { border-style: dashed; }
 .os-topic:focus-visible { outline: 2px solid var(--os-primary); outline-offset: 2px; }
+
+/* Animated exercise diagram */
+.os-anim { display: flex; flex-direction: column; gap: 6px; }
+.os-anim__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: center; }
+.os-ln.is-future { opacity: 0.18; }
+.os-ln.is-done { opacity: 0.45; }
+.os-ln.is-active path:not(.os-ln__hit) { filter: drop-shadow(0 0 0.4px #fff); }
+.os-pitch .os-it { transition: none; }
+.os-pitch--day { max-height: 320px; max-width: min(100%, calc(320px * var(--ar, 1.5))); margin: 0 auto; border-radius: 0.5rem; }

@@ -17,6 +17,7 @@ import {
   type ExerciseScope,
 } from './exercisesApi';
 import { ExerciseEditor } from './ExerciseEditor';
+import { AnimatedPitch } from './pitch/AnimatedPitch';
 import { Pitch } from './pitch/Pitch';
 import { presetLabel } from './pitch/model';
 import { ErrorNote, Loading, NoData } from './StateView';
@@ -236,7 +237,7 @@ function ExercisePage({ id, cats, clubs }: { id: string; cats: Category[]; clubs
           {catLabel(cats, ex.category)} · {ex.duration_min} דקות · {ex.players_min}–{ex.players_max} שחקנים · גילאי {ex.age_from}–{ex.age_to} · רמה: {difficultyLabel[ex.difficulty]}
         </p>
         <TopicTags topics={topics} codes={ex.topics} />
-        <Pitch preset={ex.pitch_preset} areaW={ex.area_w_m} areaL={ex.area_l_m} diagram={ex.diagram} className="os-pitch--page" />
+        <AnimatedPitch preset={ex.pitch_preset} areaW={ex.area_w_m} areaL={ex.area_l_m} diagram={ex.diagram} className="os-pitch--page" />
         <p className="os-muted os-small">
           {ex.pitch_preset === 'custom' ? `שטח ${ex.area_l_m}×${ex.area_w_m} מ׳` : presetLabel[ex.pitch_preset]}
         </p>
