@@ -35,13 +35,13 @@ Personal trainings are left out. A value with nothing behind it shows "—".
 In Staging all data is invented and the app shows a STAGING banner.
 
 ## Tests
-- SQL: `supabase/tests/test_exercise_library.sql` (18), `test_session_plans.sql` (17), `test_training_reports_dashboard.sql` (13), all pass on a fresh database built from the Staging parts.
-- Unit: `node scripts/run-os-tests.mjs` (plan minutes + validation 13, timer 11, topic filter 5, diagram animation 18).
+- SQL: `supabase/tests/test_exercise_library.sql` (22), `test_session_plans.sql` (17), `test_training_reports_dashboard.sql` (13), all pass on a fresh database built from the Staging parts.
+- Unit: `node scripts/run-os-tests.mjs` (plan minutes + validation 13, timer 11, topic filter 5, diagram animation 18, video links 10).
 
 ## Staging files (in order)
 Parts 1-3 and the seed (unchanged since first handed out), then add-on parts
 5 (exercise library), 6 (session plans), 7 (reports and dashboard), 8 (training
-topics + 15 more base exercises, 25 in total). Each part
+topics + 15 more base exercises, 25 in total), 9 (video link per exercise). Each part
 aborts if run out of order, twice, or on a database that is not a Staging
 project in progress. See `docs/v2-staging.md`.
 
