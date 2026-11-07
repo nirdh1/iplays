@@ -36,6 +36,11 @@ open when the Supabase URL is the Production project, even with the flag on.
    `staging-part-7-day5-reports-dashboard.sql` = one-minute training report and
    club dashboard (`build_addon.sh <file> 7 6 day5-reports-dashboard
    supabase/migrations/20261106400000_training_reports_dashboard.sql`).
+   `staging-part-8-topics-base-25.sql` = training topics ("what are we working
+   on today" filter) + 15 more draft base exercises, 25 in total
+   (`build_addon.sh <file> 8 7 topics-base-25
+   supabase/migrations/20261106500000_exercise_topics_base_25.sql`).
+   The app works before part 8 too: the topic filter just stays hidden.
 4. Vercel → Settings → Environment Variables, scope **Preview**, only the V2
    branch: the four variables above. Then redeploy that branch.
 5. Open the Preview URL, sign up with your email, then in the SQL Editor:

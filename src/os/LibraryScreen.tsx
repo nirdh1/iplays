@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { friendlyError } from '../lib/api';
 import {
   archiveExercise,
+  byTopics,
   copyExercise,
   difficultyLabel,
   getExercise,
@@ -19,6 +20,7 @@ import { ExerciseEditor } from './ExerciseEditor';
 import { Pitch } from './pitch/Pitch';
 import { presetLabel } from './pitch/model';
 import { ErrorNote, Loading, NoData } from './StateView';
+import { TopicChips, TopicTags, useTopics } from './TopicChips';
 
 /** #os/library, #os/library/<id>, #os/library/new, #os/library/<id>/edit */
 export function LibraryScreen({ param, sub }: { param?: string; sub?: string }) {
@@ -57,6 +59,8 @@ function LibraryList({ cats }: { cats: Category[] }) {
   const [players, setPlayers] = useState('');
   const [maxMin, setMaxMin] = useState('');
   const [source, setSource] = useState<SourceFilter>('all');
+  const [today, setToday] = useState<string[]>([]);
+  const topics = useTopics();
 
   useEffect(() => {
     listExercises().then(setRows).catch((e) => setError(friendlyError(e)));
@@ -68,7 +72,7 @@ function LibraryList({ cats }: { cats: Category[] }) {
     const a = Number(age);
     const p = Number(players);
     const m = Number(maxMin);
-    return rows.filter(
+    const filtered = rows.filter(
       (r) =>
         (!term || r.title.toLowerCase().includes(term) || r.description.toLowerCase().includes(term)) &&
         (!cat || r.category === cat) &&
@@ -77,7 +81,8 @@ function LibraryList({ cats }: { cats: Category[] }) {
         (!maxMin || r.duration_min <= m) &&
         (source === 'all' || r.scope === source),
     );
-  }, [rows, q, cat, age, players, maxMin, source]);
+    return byTopics(filtered, today);
+  }, [rows, q, cat, age, players, maxMin, source, today]);
 
   if (error) return <ErrorNote message={error} />;
   if (!rows) return <Loading />;
@@ -99,6 +104,7 @@ function LibraryList({ cats }: { cats: Category[] }) {
             + תרגיל חדש
           </a>
         </div>
+        <TopicChips topics={topics} value={today} onChange={setToday} label="מה מאמנים היום?" />
         <div className="os-form os-form--inline">
           <label>
             חיפוש
@@ -147,6 +153,7 @@ function LibraryList({ cats }: { cats: Category[] }) {
                   <span className="os-muted os-small">
                     {catLabel(cats, r.category)} · {r.duration_min} דק׳ · {r.players_min}–{r.players_max} שחקנים · גילאי {r.age_from}–{r.age_to}
                   </span>
+                  <TopicTags topics={topics} codes={r.topics} highlight={today} />
                   <span className="os-ex-card__tags">
                     <span className="os-source">{scopeLabel[r.scope]}</span>
                     <ReviewBadge ex={r} />
@@ -174,6 +181,7 @@ function ExercisePage({ id, cats, clubs }: { id: string; cats: Category[]; clubs
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const topics = useTopics();
 
   useEffect(() => {
     setEx(undefined);
@@ -227,6 +235,7 @@ function ExercisePage({ id, cats, clubs }: { id: string; cats: Category[]; clubs
         <p className="os-muted">
           {catLabel(cats, ex.category)} · {ex.duration_min} דקות · {ex.players_min}–{ex.players_max} שחקנים · גילאי {ex.age_from}–{ex.age_to} · רמה: {difficultyLabel[ex.difficulty]}
         </p>
+        <TopicTags topics={topics} codes={ex.topics} />
         <Pitch preset={ex.pitch_preset} areaW={ex.area_w_m} areaL={ex.area_l_m} diagram={ex.diagram} className="os-pitch--page" />
         <p className="os-muted os-small">
           {ex.pitch_preset === 'custom' ? `שטח ${ex.area_l_m}×${ex.area_w_m} מ׳` : presetLabel[ex.pitch_preset]}

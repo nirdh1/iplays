@@ -345,3 +345,13 @@ button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text
 .os[data-theme='light'] .os-tool--pass i { background: repeating-linear-gradient(90deg, #4b5563 0 4px, transparent 4px 7px); }
 .os[data-theme='light'] .os-card, .os[data-theme='light'] .os-ex-card { box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06); }
 .os-theme-btn { min-height: 40px; padding: 4px 12px; border-radius: 9999px; border: 1px solid var(--os-outline-2); background: var(--os-surface); color: var(--os-text); font: inherit; font-size: 13px; cursor: pointer; }
+
+/* Training topics: "what are we working on today" */
+.os-topics { display: flex; flex-direction: column; gap: 6px; }
+.os-topics__label { font-size: 13px; font-weight: 600; color: var(--os-text); }
+.os-topics__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.os-topic { min-height: 36px; padding: 0 12px; border-radius: 9999px; border: 1px solid var(--os-outline-2); background: transparent; color: var(--os-text-2); font: inherit; font-size: 13px; cursor: pointer; }
+.os-topic.is-on { background: var(--os-primary); border-color: var(--os-primary); color: var(--os-on-primary); font-weight: 600; }
+.os-topic:disabled { opacity: 0.4; cursor: default; }
+.os-topic--clear { border-style: dashed; }
+.os-topic:focus-visible { outline: 2px solid var(--os-primary); outline-offset: 2px; }

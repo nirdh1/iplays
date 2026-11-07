@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError } from '../lib/api';
-import { blankExercise, getExercise, saveExercise, scopeLabel, type Category, type Exercise, type ExerciseClub, type ExerciseInput } from './exercisesApi';
+import { blankExercise, getExercise, saveExercise, scopeLabel, setExerciseTopics, type Category, type Exercise, type ExerciseClub, type ExerciseInput } from './exercisesApi';
+import { TopicChips, useTopics } from './TopicChips';
 import { Pitch } from './pitch/Pitch';
 import { areaOf, MAX_ITEMS, presetLabel, type Diagram, type DiagramElement, type ElementType, type LineType, type PitchPreset, type Team } from './pitch/model';
 import { ErrorNote, Loading, NoData } from './StateView';
@@ -105,6 +106,7 @@ function EditorBody({
   const [past, setPast] = useState<Diagram[]>([]);
   const [future, setFuture] = useState<Diagram[]>([]);
   const [saving, setSaving] = useState(false);
+  const topics = useTopics();
   const [error, setError] = useState<string | null>(null);
   const drag = useRef<{ id: string; dx: number; dy: number; moved: boolean } | null>(null);
 
@@ -206,6 +208,7 @@ function EditorBody({
       const scope = loaded ? (loaded.scope as 'club' | 'personal') : target === 'personal' ? 'personal' : 'club';
       const club = loaded ? loaded.club_id : target === 'personal' ? null : target;
       const nid = await saveExercise(id, scope, club, { ...form, title, equipment: form.equipment.map((x) => x.trim()).filter(Boolean) });
+      if (topics.length > 0 && (form.topics.length > 0 || (loaded?.topics.length ?? 0) > 0)) await setExerciseTopics(nid, form.topics);
       window.location.hash = `os/library/${nid}`;
     } catch (e) {
       setError(friendlyError(e));
@@ -379,6 +382,9 @@ function EditorBody({
               }
             />
           </label>
+          <div className="os-form__full">
+            <TopicChips topics={topics} value={form.topics} onChange={(v) => set('topics', v)} max={6} label="נושאי אימון (עד 6)" />
+          </div>
           <label className="os-form__full">
             מהלך התרגיל
             <textarea rows={4} maxLength={1000} value={form.description} onChange={(e) => set('description', e.target.value)} />

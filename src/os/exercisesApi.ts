@@ -37,9 +37,18 @@ export interface Exercise {
   area_w_m: number | null;
   area_l_m: number | null;
   equipment: string[];
+  /** Training topic codes (exercise_topics). Empty when Staging part 8 has not run yet. */
+  topics: string[];
   diagram: Diagram;
   copied_from: string | null;
   updated_at: string;
+}
+
+export interface Topic {
+  code: string;
+  label: string;
+  sort: number;
+  approved: boolean;
 }
 
 export interface ExerciseClub {
@@ -50,23 +59,45 @@ export interface ExerciseClub {
 
 export type ExerciseInput = Omit<Exercise, 'id' | 'scope' | 'owner_id' | 'club_id' | 'review_status' | 'copied_from' | 'updated_at'>;
 
-const cols =
+const baseCols =
   'id,scope,owner_id,club_id,status,review_status,title,description,coaching_points,category,difficulty,age_from,age_to,players_min,players_max,duration_min,pitch_preset,area_w_m,area_l_m,equipment,diagram,copied_from,updated_at';
+const cols = `${baseCols},topics`;
 
-const fix = (r: Exercise): Exercise => ({ ...r, diagram: parseDiagram(r.diagram), equipment: r.equipment ?? [] });
+const fix = (r: Exercise): Exercise => ({ ...r, diagram: parseDiagram(r.diagram), equipment: r.equipment ?? [], topics: r.topics ?? [] });
+
+/** The topics column arrives with Staging part 8; until then read without it. */
+const missingColumn = (e: { code?: string; message?: string }) => e.code === '42703' || /topics/.test(e.message ?? '');
 
 /** Every exercise this account may read (RLS decides): base library, my clubs, mine. */
 export async function listExercises(): Promise<Exercise[]> {
-  const { data, error } = await db().from('exercises').select(cols).neq('status', 'archived').order('title').limit(500);
+  const run = (c: string) => db().from('exercises').select(c).neq('status', 'archived').order('title').limit(1000);
+  let { data, error } = await run(cols);
+  if (error && missingColumn(error)) ({ data, error } = await run(baseCols));
   if (error) throw error;
-  return ((data ?? []) as Exercise[]).map(fix);
+  return ((data ?? []) as unknown as Exercise[]).map(fix);
 }
 
 export async function getExercise(id: string): Promise<Exercise | null> {
-  const { data, error } = await db().from('exercises').select(cols).eq('id', id).maybeSingle();
+  const run = (c: string) => db().from('exercises').select(c).eq('id', id).maybeSingle();
+  let { data, error } = await run(cols);
+  if (error && missingColumn(error)) ({ data, error } = await run(baseCols));
   if (error) throw error;
-  return data ? fix(data as Exercise) : null;
+  return data ? fix(data as unknown as Exercise) : null;
 }
+
+/** Training topics ("what are we working on today"). Empty if the list does not exist yet. */
+export async function listTopics(): Promise<Topic[]> {
+  const { data, error } = await db().from('exercise_topics').select('code,label,sort,approved').order('sort');
+  if (error) return [];
+  return (data ?? []) as Topic[];
+}
+
+export async function setExerciseTopics(id: string, topics: string[]): Promise<void> {
+  const { error } = await db().rpc('set_exercise_topics', { p_id: id, p_topics: topics });
+  if (error) throw error;
+}
+
+export { byTopics } from './topics';
 
 export async function listCategories(): Promise<Category[]> {
   const { data, error } = await db().from('exercise_categories').select('code,label,sort,approved').order('sort');
@@ -116,5 +147,6 @@ export const blankExercise = (category: string): ExerciseInput => ({
   area_w_m: 20,
   area_l_m: 25,
   equipment: [],
+  topics: [],
   diagram: { v: 1, elements: [], lines: [] },
 });

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { friendlyError, type MyTeam } from '../lib/api';
 import { addDays, todayYmd, type TrainingSession } from '../lib/coachApi';
 import { sessionsBetween, dayLabel, timeLabel } from './data';
-import { listCategories, listExercises, type Category, type Exercise } from './exercisesApi';
+import { byTopics, listCategories, listExercises, type Category, type Exercise } from './exercisesApi';
+import { TopicChips, TopicTags, useTopics } from './TopicChips';
 import { catLabel } from './LibraryScreen';
 import { Pitch } from './pitch/Pitch';
 import { assignPlan, assignedSessions, deletePlan, getPlan, listPlans, savePlan, type PlanRow } from './plans/api';
@@ -448,6 +449,8 @@ function ExercisePicker({ cats, onPick, onClose }: { cats: Category[]; onPick: (
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('');
+  const [today, setToday] = useState<string[]>([]);
+  const topics = useTopics();
   useEffect(() => {
     listExercises().then(setRows).catch((e) => setError(friendlyError(e)));
   }, []);
@@ -457,8 +460,8 @@ function ExercisePicker({ cats, onPick, onClose }: { cats: Category[]; onPick: (
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   const shown = useMemo(
-    () => (rows ?? []).filter((r) => (!cat || r.category === cat) && (!q.trim() || r.title.includes(q.trim()))),
-    [rows, q, cat],
+    () => byTopics((rows ?? []).filter((r) => (!cat || r.category === cat) && (!q.trim() || r.title.includes(q.trim()))), today),
+    [rows, q, cat, today],
   );
   return (
     <div className="os-sheet" role="dialog" aria-modal="true" aria-label="בחירת תרגיל">
@@ -486,6 +489,7 @@ function ExercisePicker({ cats, onPick, onClose }: { cats: Category[]; onPick: (
             </select>
           </label>
         </div>
+        <TopicChips topics={topics} value={today} onChange={setToday} label="מה מאמנים היום?" />
         {error && <ErrorNote message={error} />}
         {!rows && !error && <Loading />}
         {rows && shown.length === 0 && <NoData>אין תרגיל שמתאים</NoData>}
@@ -499,6 +503,7 @@ function ExercisePicker({ cats, onPick, onClose }: { cats: Category[]; onPick: (
                   <span className="os-muted os-small">
                     {catLabel(cats, r.category)} · {r.duration_min} דק׳
                   </span>
+                  <TopicTags topics={topics} codes={r.topics} highlight={today} />
                 </span>
               </button>
             </li>
