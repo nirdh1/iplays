@@ -517,7 +517,11 @@ function AssignCard({ team, planId }: { team: MyTeam; planId: string }) {
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = async () => {
-    const list = (await sessionsBetween(team.id, todayYmd(), addDays(todayYmd(), 28))).filter((s) => !s.canceled);
+    // last 7 days too: a coach can attach the plan to a training that already happened
+    const all = (await sessionsBetween(team.id, addDays(todayYmd(), -7), addDays(todayYmd(), 28))).filter((s) => !s.canceled);
+    const now = Date.now();
+    // upcoming first (soonest on top), then last week's (latest on top)
+    const list = [...all.filter((s) => new Date(s.starts_at).getTime() >= now), ...all.filter((s) => new Date(s.starts_at).getTime() < now).reverse()];
     setSessions(list);
     setWithPlan(await assignedSessions(list.map((s) => s.id)));
   };
@@ -550,7 +554,7 @@ function AssignCard({ team, planId }: { team: MyTeam; planId: string }) {
       {!sessions ? (
         <Loading />
       ) : sessions.length === 0 ? (
-        <NoData>אין אימונים ב-4 השבועות הקרובים</NoData>
+        <NoData>אין אימונים בשבוע שעבר או ב-4 השבועות הקרובים</NoData>
       ) : (
         <ul className="os-list">
           {sessions.map((s) => (
@@ -560,6 +564,7 @@ function AssignCard({ team, planId }: { team: MyTeam; planId: string }) {
                   {dayLabel(s.starts_at)} · {timeLabel(s.starts_at)}
                 </a>
                 <span className="os-muted os-small"> · {s.title} · {s.duration_min} דק׳</span>
+                {new Date(s.starts_at).getTime() < Date.now() && <span className="os-chip"> עבר</span>}
                 {withPlan.has(s.id) && <span className="os-chip os-chip--done"> {done === s.id ? 'שויך עכשיו' : 'יש מערך'}</span>}
               </span>
               <button type="button" className="os-btn os-btn--ghost os-btn--sm" disabled={busy !== null} onClick={() => assign(s)}>
