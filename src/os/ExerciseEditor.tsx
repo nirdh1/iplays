@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError } from '../lib/api';
-import { blankExercise, getExercise, saveExercise, scopeLabel, setExerciseTopics, type Category, type Exercise, type ExerciseClub, type ExerciseInput } from './exercisesApi';
+import { blankExercise, getExercise, saveExercise, scopeLabel, setExerciseTopics, setExerciseVideo, type Category, type Exercise, type ExerciseClub, type ExerciseInput } from './exercisesApi';
 import { TopicChips, useTopics } from './TopicChips';
+import { isVideoUrl } from './pitch/video';
 import { Pitch } from './pitch/Pitch';
 import { areaOf, MAX_ITEMS, presetLabel, type Diagram, type DiagramElement, type ElementType, type LineType, type PitchPreset, type Team } from './pitch/model';
 import { ErrorNote, Loading, NoData } from './StateView';
@@ -203,12 +204,15 @@ function EditorBody({
     if (title.length < 2) return setError('צריך שם לתרגיל (לפחות 2 תווים)');
     if (form.age_from > form.age_to) return setError('גיל "מ" גדול מגיל "עד"');
     if (form.players_min > form.players_max) return setError('מינימום שחקנים גדול מהמקסימום');
+    if (!isVideoUrl(form.video_url ?? '')) return setError('קישור הסרטון צריך להתחיל ב־https:// ולהיות מ־YouTube, Vimeo או Google Drive');
     setSaving(true);
     try {
       const scope = loaded ? (loaded.scope as 'club' | 'personal') : target === 'personal' ? 'personal' : 'club';
       const club = loaded ? loaded.club_id : target === 'personal' ? null : target;
       const nid = await saveExercise(id, scope, club, { ...form, title, equipment: form.equipment.map((x) => x.trim()).filter(Boolean) });
       if (topics.length > 0 && (form.topics.length > 0 || (loaded?.topics.length ?? 0) > 0)) await setExerciseTopics(nid, form.topics);
+      const video = (form.video_url ?? '').trim();
+      if (video !== (loaded?.video_url ?? '')) await setExerciseVideo(nid, video || null);
       window.location.hash = `os/library/${nid}`;
     } catch (e) {
       setError(friendlyError(e));
@@ -385,6 +389,10 @@ function EditorBody({
           <div className="os-form__full">
             <TopicChips topics={topics} value={form.topics} onChange={(v) => set('topics', v)} max={6} label="נושאי אימון (עד 6)" />
           </div>
+          <label className="os-form__full">
+            קישור לסרטון (לא חובה: YouTube, Vimeo או Google Drive)
+            <input type="url" inputMode="url" dir="ltr" maxLength={300} value={form.video_url ?? ''} onChange={(e) => set('video_url', e.target.value)} placeholder="https://youtu.be/..." />
+          </label>
           <label className="os-form__full">
             מהלך התרגיל
             <textarea rows={4} maxLength={1000} value={form.description} onChange={(e) => set('description', e.target.value)} />

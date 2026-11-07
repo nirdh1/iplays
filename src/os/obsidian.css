@@ -364,3 +364,6 @@ button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text
 .os-ln.is-active path:not(.os-ln__hit) { filter: drop-shadow(0 0 0.4px #fff); }
 .os-pitch .os-it { transition: none; }
 .os-pitch--day { max-height: 320px; max-width: min(100%, calc(320px * var(--ar, 1.5))); margin: 0 auto; border-radius: 0.5rem; }
+.os-video { display: flex; flex-direction: column; gap: 4px; align-items: center; width: 100%; }
+.os-video iframe { width: 100%; max-width: 720px; aspect-ratio: 16 / 9; border: 0; border-radius: 0.5rem; background: #000; }
+.os-video-row { display: flex; justify-content: center; margin-top: 6px; }

@@ -1,5 +1,6 @@
 -- RLS and RPC tests for 20261106200000_exercise_library.sql (+ base exercises)
--- and 20261106500000_exercise_topics_base_25.sql (topics, 25 base exercises).
+-- and 20261106500000_exercise_topics_base_25.sql (topics, 25 base exercises)
+-- and 20261106600000_exercise_video_link.sql (video link).
 -- Runs on the local test database after the migrations and the synthetic seed.
 \set ON_ERROR_STOP on
 begin;
@@ -40,6 +41,14 @@ insert into r select 'c1_set_topics', array_to_string(topics, ',') from exercise
 do $$ begin perform set_exercise_topics((select id from exercises where scope = 'iplays' limit 1), array['gk']); insert into r values ('c1_topics_base', 'ALLOWED'); exception when others then insert into r values ('c1_topics_base', 'denied'); end $$;
 insert into r select 'base_all_topics', (count(*) filter (where cardinality(topics) between 1 and 6))::text from exercises where scope = 'iplays';
 insert into r select 'topics_listed', (count(*) >= 15)::text from exercise_topics;
+-- video link: own exercise yes, bad host no, base library no, a copy keeps it
+select set_exercise_video((select v::uuid from r where k = 'c1_personal'), ' https://youtu.be/abc123 ');
+insert into r select 'c1_video', video_url from exercises where id = (select v::uuid from r where k = 'c1_personal');
+do $$ begin perform set_exercise_video((select v::uuid from r where k = 'c1_personal'), 'https://evil.example/x'); insert into r values ('c1_video_bad', 'ALLOWED'); exception when others then insert into r values ('c1_video_bad', 'denied'); end $$;
+do $$ begin perform set_exercise_video((select id from exercises where scope = 'iplays' limit 1), 'https://youtu.be/x'); insert into r values ('c1_video_base', 'ALLOWED'); exception when others then insert into r values ('c1_video_base', 'denied'); end $$;
+insert into r select 'c1_video_copy', video_url from exercises where id = copy_exercise((select v::uuid from r where k = 'c1_personal'), 'personal');
+select set_exercise_video((select v::uuid from r where k = 'c1_personal'), '');
+insert into r select 'c1_video_cleared', coalesce(video_url, 'null') from exercises where id = (select v::uuid from r where k = 'c1_personal');
 
 -- owner of the demo club: writes club library
 select pg_temp.as_user('e0000000-0000-4000-8000-0000000000d1');
@@ -62,14 +71,15 @@ reset role;
 
 select k, v,
   case k when 'c1_sees_base' then v = '25' when 'c1_club_write' then v = 'denied' when 'c1_edit_base' then v = 'denied'
-         when 'c1_direct_update' then v = 'denied' when 'c1_sees_own' then v = '2' when 'owner_club_write' then v = 'true'
+         when 'c1_direct_update' then v = 'denied' when 'c1_sees_own' then v = '2' when 'c1_video' then v = 'https://youtu.be/abc123' when 'c1_video_bad' then v = 'denied'
+         when 'c1_video_base' then v = 'denied' when 'c1_video_copy' then v = 'https://youtu.be/abc123' when 'c1_video_cleared' then v = 'null' when 'owner_club_write' then v = 'true'
          when 'owner_sees_c1_personal' then v = '0' when 'c1_sees_club' then v = '1' when 'c2_sees_club' then v = '0'
          when 'c2_sees_c1_personal' then v = '0' when 'c2_sees_base' then v = '25' when 'parent_sees' then v = '0'
          when 'parent_write' then v = 'denied' when 'c1_copy_topics' then v = 'true' when 'c1_set_topics' then v = 'depth_pass,scanning'
          when 'c1_topics_base' then v = 'denied' when 'base_all_topics' then v = '25' when 'topics_listed' then v = 'true' else true end as ok
 from r where k not in ('c1_personal', 'c1_copy') order by k;
 do $$ begin
-  if exists (select 1 from r where (k, v) in (('c1_club_write','ALLOWED'),('c1_edit_base','ALLOWED'),('c1_direct_update','ALLOWED'),('parent_write','ALLOWED'),('c1_topics_base','ALLOWED')))
+  if exists (select 1 from r where (k, v) in (('c1_club_write','ALLOWED'),('c1_edit_base','ALLOWED'),('c1_direct_update','ALLOWED'),('parent_write','ALLOWED'),('c1_topics_base','ALLOWED'),('c1_video_bad','ALLOWED'),('c1_video_base','ALLOWED')))
      or exists (select 1 from r where k = 'parent_sees' and v <> '0') then
     raise exception 'exercise library permission test FAILED';
   end if;

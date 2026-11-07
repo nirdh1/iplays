@@ -18,6 +18,7 @@ import {
 } from './exercisesApi';
 import { ExerciseEditor } from './ExerciseEditor';
 import { AnimatedPitch } from './pitch/AnimatedPitch';
+import { ExerciseVideo } from './ExerciseVideo';
 import { Pitch } from './pitch/Pitch';
 import { presetLabel } from './pitch/model';
 import { ErrorNote, Loading, NoData } from './StateView';
@@ -238,6 +239,11 @@ function ExercisePage({ id, cats, clubs }: { id: string; cats: Category[]; clubs
         </p>
         <TopicTags topics={topics} codes={ex.topics} />
         <AnimatedPitch preset={ex.pitch_preset} areaW={ex.area_w_m} areaL={ex.area_l_m} diagram={ex.diagram} className="os-pitch--page" />
+        {ex.video_url && (
+          <div className="os-video-row">
+            <ExerciseVideo url={ex.video_url} title={ex.title} />
+          </div>
+        )}
         <p className="os-muted os-small">
           {ex.pitch_preset === 'custom' ? `שטח ${ex.area_l_m}×${ex.area_w_m} מ׳` : presetLabel[ex.pitch_preset]}
         </p>

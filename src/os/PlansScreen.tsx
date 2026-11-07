@@ -162,6 +162,19 @@ function PlanBuilder({ team, initial, cats }: { team: MyTeam; initial: Plan; cat
       setSaving(false);
     }
   };
+  const duplicate = async () => {
+    if (!plan.id || dirty) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const id = await savePlan({ ...plan, id: null, status: 'draft', title: `${plan.title.trim()} (עותק)`.slice(0, 80) });
+      window.location.hash = `os/plans/${id}`;
+    } catch (e) {
+      setError(friendlyError(e));
+    } finally {
+      setSaving(false);
+    }
+  };
   const remove = async () => {
     if (!plan.id || !window.confirm('למחוק את המערך? אימונים שכבר שויכו שומרים את העותק שלהם.')) return;
     try {
@@ -262,6 +275,11 @@ function PlanBuilder({ team, initial, cats }: { team: MyTeam; initial: Plan; cat
           <button type="button" className="os-btn" onClick={save} disabled={saving}>
             {saving ? 'שומר…' : plan.id ? 'שמירת שינויים' : 'שמירת המערך'}
           </button>
+          {plan.id && !dirty && (
+            <button type="button" className="os-btn os-btn--ghost" onClick={duplicate} disabled={saving}>
+              שכפול המערך
+            </button>
+          )}
           {plan.id && (
             <button type="button" className="os-btn os-btn--ghost" onClick={remove}>
               מחיקת המערך

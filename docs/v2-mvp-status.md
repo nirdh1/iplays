@@ -18,8 +18,8 @@ dashboard shows one missing report fewer.
 | בית המאמן | live | next training, this week, reported absences, trainings with no marks | |
 | יומן ונוכחות | live | 14 days back / 28 ahead, create, edit, cancel, attendance, assigned plan | |
 | כרטיס שחקן | partial | attendance, appearances, goals, last coach assessment, medical "valid until" only | self assessment, goals, match feedback |
-| ספריית תרגילים | partial | iPlays / club / personal libraries, 25 base exercises (drafts), "what are we working on today" topic filter (also in the plan builder's picker), search and filters, exercise page with animated diagram (arrows play in drawn order, also on training day), copy, basic pitch editor (phone: basic tools) | more base exercises in reviewed batches per topic group, professional approval of categories and exercises, rotate players, curved lines |
-| מערכי אימון | partial | builder (library exercises, stations, breaks, reorder), stations maths, assign to a training with a frozen copy | templates, duplicate plan, naming players into work groups, club methodology, plan vs actual |
+| ספריית תרגילים | partial | iPlays / club / personal libraries, 25 base exercises (drafts), "what are we working on today" topic filter (also in the plan builder's picker), search and filters, exercise page with animated diagram and optional video link (YouTube embedded on tap, privacy-enhanced) (arrows play in drawn order, also on training day), copy, basic pitch editor (phone: basic tools) | more base exercises in reviewed batches per topic group, professional approval of categories and exercises, rotate players, curved lines |
+| מערכי אימון | partial | builder (library exercises with topic filter, stations, breaks, reorder), duplicate plan, stations maths, assign to a training with a frozen copy | templates, naming players into work groups, club methodology, plan vs actual |
 | יום האימון | live | today's training and plan, step timer, stations rotation per group, attendance, one-minute report | |
 | דשבורד מנהל | partial | 5 real KPIs + up to 3 priority actions, 7 / 30 days, per team | methodology, fitness and limits, tasks and delegation |
 

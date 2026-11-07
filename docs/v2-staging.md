@@ -41,6 +41,10 @@ open when the Supabase URL is the Production project, even with the flag on.
    (`build_addon.sh <file> 8 7 topics-base-25
    supabase/migrations/20261106500000_exercise_topics_base_25.sql`).
    The app works before part 8 too: the topic filter just stays hidden.
+   `staging-part-9-exercise-video.sql` = optional video link per exercise
+   (YouTube, Vimeo, Google Drive; link only, nothing hosted)
+   (`build_addon.sh <file> 9 8 exercise-video
+   supabase/migrations/20261106600000_exercise_video_link.sql`).
 4. Vercel → Settings → Environment Variables, scope **Preview**, only the V2
    branch: the four variables above. Then redeploy that branch.
 5. Open the Preview URL, sign up with your email, then in the SQL Editor:
