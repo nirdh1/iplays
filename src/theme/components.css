@@ -2917,3 +2917,9 @@ select.ip-input {
   flex: none;
   color: var(--ip-text-3);
 }
+/* iPlays 2.0 entry (Staging builds with VITE_V2_OS=1 only) */
+.ip-os-entry {
+  position: fixed; z-index: 60; inset-inline-start: 12px; bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 16px; border-radius: 9999px; background: #0f131c; color: #00ff87;
+  font-weight: 800; text-decoration: none; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}

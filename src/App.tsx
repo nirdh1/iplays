@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppHeader, BottomNav, ChildSwitcherSheet, type TabId } from './components/shell';
 import { NotificationsSheet, useUnread } from './components/NotificationsSheet';
 import { children, parent } from './data/demo';
@@ -39,7 +39,7 @@ import { clearPendingInvite, readFamilyInvite, readPendingInvite, saveFamilyInvi
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 import { OsApp } from './os/OsApp';
-import { isOsHash, onProductionBackend, v2Flag } from './os/env';
+import { backendHost, isOsHash, v2Enabled, v2OffReason } from './os/env';
 
 type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'clubrequests' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'adminparents' | 'fund' | 'costs' | 'pay' | 'feedback' | 'adminfeedback' | 'me' | 'adminmetrics';
 const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'clubrequests', 'find', 't', 'matches', 'ifa', 'admin', 'adminparents', 'fund', 'costs', 'pay', 'feedback', 'adminfeedback', 'me', 'adminmetrics'];
@@ -124,6 +124,17 @@ export function App() {
     if (needsOnboarding) setOnboarding(true);
   }, [needsOnboarding]);
 
+  // Staging builds with Club OS on: a signed-in user who lands on the bare
+  // address (e.g. right after the email login link) opens Club OS. Once per load,
+  // so "חזרה ל-iPlays הרגיל" still works. Production builds never get here.
+  const osLanded = useRef(false);
+  useEffect(() => {
+    if (!v2Enabled || !ready || osLanded.current) return;
+    osLanded.current = true;
+    const h = window.location.hash;
+    if (h === '' || h === '#') window.location.replace('#os/home');
+  }, [ready]);
+
   // Signed-in users who open another team's invite link join it directly.
   const [joinError, setJoinError] = useState<string | null>(null);
   useEffect(() => {
@@ -158,7 +169,8 @@ export function App() {
     }
     if (!auth.session) return <AuthScreen />;
     // iPlays 2.0 Club OS: only when the build turns it on, and never against Production.
-    if (osRoute && v2Flag && !onProductionBackend) return <OsApp />;
+    if (osRoute && v2Enabled) return <OsApp />;
+    if (osRoute) return <OsOffNotice />;
     if (needsOnboarding || onboarding) {
       return (
         <div className="ip-app">
@@ -167,7 +179,28 @@ export function App() {
       );
     }
   }
-  return <MainApp joinError={joinError} />;
+  return (
+    <>
+      {v2Enabled && auth.session && (
+        <a className="ip-os-entry" href="#os/home">
+          Club OS
+        </a>
+      )}
+      <MainApp joinError={joinError} />
+    </>
+  );
+}
+
+/** #os in a build where Club OS is off: say why instead of silently showing V1. */
+function OsOffNotice() {
+  return (
+    <div className="ip-app" dir="rtl" style={{ padding: 24 }}>
+      <h1 style={{ fontSize: 20 }}>Club OS לא פעיל בבנייה הזאת</h1>
+      <p>{v2OffReason()}</p>
+      {backendHost && <p style={{ opacity: 0.7, fontSize: 13 }}>שרת: {backendHost}</p>}
+      <a href="#home">חזרה ל-iPlays</a>
+    </div>
+  );
 }
 
 function MainApp({ joinError }: { joinError: string | null }) {
