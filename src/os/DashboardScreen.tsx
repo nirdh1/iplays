@@ -161,6 +161,14 @@ export function DashboardScreen() {
             ))}
           </tbody>
         </table>
+        {dash.teams.length === 0 && (
+          <p className="os-muted">
+            עדיין אין קבוצות משויכות למועדון.{' '}
+            <a className="os-back" href="#club/search">
+              חיפוש ושיוך קבוצות
+            </a>
+          </p>
+        )}
         <p className="os-muted os-small">עודכן {new Date(dash.generated_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</p>
       </section>
     </div>

@@ -45,7 +45,7 @@ import '../theme/club.css';
 
 const errText = (e: unknown) => clubError(e) ?? friendlyError(e);
 
-type Tab = 'overview' | 'teams' | 'players' | 'transfers' | 'staff' | 'roles' | 'finance' | 'activities';
+type Tab = 'overview' | 'search' | 'teams' | 'players' | 'transfers' | 'staff' | 'roles' | 'finance' | 'activities';
 
 interface ClubPlayer {
   id: string;
@@ -54,7 +54,7 @@ interface ClubPlayer {
   assignments: Assignment[];
 }
 
-export function ClubScreen({ clubId, onBack }: { clubId?: string; onBack: () => void }) {
+export function ClubScreen({ clubId, initialTab, onBack }: { clubId?: string; initialTab?: 'search'; onBack: () => void }) {
   const { session } = useAuth();
   const me = session!.user.id;
   const [clubs, setClubs] = useState<Club[] | null>(null);
@@ -97,7 +97,7 @@ export function ClubScreen({ clubId, onBack }: { clubId?: string; onBack: () => 
               ))}
             </div>
           )}
-          <ClubPanel key={club.id} club={club} onChanged={loadClubs} />
+          <ClubPanel key={club.id} club={club} initialTab={initialTab} onChanged={loadClubs} />
           {joining ? (
             <ClubSignup onCreated={opened} />
           ) : (
@@ -115,16 +115,16 @@ export function ClubScreen({ clubId, onBack }: { clubId?: string; onBack: () => 
 
 /* ---------------------------------------------------------------- panel */
 
-function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
+function ClubPanel({ club, initialTab, onChanged }: { club: Club; initialTab?: 'search'; onChanged: () => void }) {
   const auth = useAuth();
   const [data, setData] = useState<ClubData | null>(null);
-  const [tab, setTab] = useState<Tab>('overview');
+  const manage = club.role === 'owner' || club.role === 'admin';
+  const [tab, setTab] = useState<Tab>(initialTab === 'search' && manage ? 'search' : 'overview');
   const [error, setError] = useState<string | null>(null);
   const [transferFor, setTransferFor] = useState<ClubPlayer | null>(null);
   const [notesFor, setNotesFor] = useState<ClubPlayer | null>(null);
   const [access, setAccess] = useState<ClubAccess | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
-  const manage = club.role === 'owner' || club.role === 'admin';
 
   useEffect(() => {
     myClubAccess(club.id).then(setAccess).catch(() => setAccess(null));
@@ -227,6 +227,7 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
         onChange={setTab}
         items={[
           { id: 'overview', label: 'סקירה' },
+          ...(manage ? [{ id: 'search' as const, label: 'חיפוש' }] : []),
           { id: 'teams', label: 'קבוצות' },
           { id: 'players', label: 'שחקנים' },
           { id: 'transfers', label: 'מעברים' },
@@ -255,6 +256,10 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
           <SectionHeader title="מעברים אחרונים" icon="arrow" action={data.transfers.length ? 'הכול' : undefined} onAction={() => setTab('transfers')} />
           <TransferList transfers={data.transfers.slice(0, 5)} teamName={(id) => teamById.get(id ?? '')?.name} />
         </section>
+      ) : tab === 'search' && manage ? (
+        <section className="ip-stack">
+          <AdoptSection clubId={club.id} programs={data.programs} onAdopted={load} />
+        </section>
       ) : tab === 'teams' ? (
         <section className="ip-stack">
           {data.programs.map((p) => {
@@ -281,7 +286,11 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
               </div>
             );
           })}
-          {manage && <AdoptSection clubId={club.id} programs={data.programs} onAdopted={load} />}
+          {manage && (
+            <Button variant="secondary" icon="plus" onClick={() => setTab('search')}>
+              חיפוש ושיוך קבוצות למועדון
+            </Button>
+          )}
           {manage && myAdminTeams.length > 0 && (
             <div>
               <SectionHeader title="הקבוצות שלי מחוץ למועדון" icon="plus" />
@@ -381,7 +390,7 @@ function ClubPanel({ club, onChanged }: { club: Club; onChanged: () => void }) {
   );
 }
 
-/** Teams that parents opened with no coach or club yet: the club can take them in. */
+/** Teams with no coach and no club yet (parent-opened or IFA catalog): the club can take them in. */
 function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; programs: Program[]; onAdopted: () => Promise<void> }) {
   const [q, setQ] = useState('');
   const [year, setYear] = useState('');
@@ -413,10 +422,10 @@ function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; program
 
   return (
     <div>
-      <SectionHeader title="קבוצות שהורים פתחו" icon="plus" />
+      <SectionHeader title="חיפוש ושיוך קבוצות למועדון" icon="plus" />
       <Card>
         <form className="ip-form" onSubmit={search}>
-          <p className="ip-muted">קבוצות שנפתחו על ידי הורים, בלי מאמן ובלי מועדון. אחרי הצירוף המועדון מנהל אותן ומאשר הצטרפות.</p>
+          <p className="ip-muted">חפשו קבוצה לפי שם או שנתון ולחצו "לליגה" או "לאקדמיה". מופיעות רק קבוצות שעדיין אין להן מאמן או מועדון באפליקציה. אחרי השיוך המועדון מנהל אותן, מאשר הצטרפות, והן נספרות בדשבורד.</p>
           <div className="ip-field-row">
             <Field label="שם קבוצה או מועדון">
               <input id="adopt-q" className="ip-input" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -431,7 +440,7 @@ function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; program
           <Err error={error} />
         </form>
         {hits && (hits.length === 0 ? (
-          <p className="ip-muted">לא נמצאו קבוצות פתוחות בלי מאמן.</p>
+          <p className="ip-muted">לא נמצאו קבוצות פנויות לשיוך. קבוצה שכבר יש לה מאמן או מועדון לא מופיעה כאן.</p>
         ) : (
           hits.map((t) => (
             <div key={t.team_id} className="ip-club-row">
