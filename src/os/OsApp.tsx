@@ -18,8 +18,11 @@ import './obsidian.css';
 
 function readOsHash() {
   const [, section, param, sub] = window.location.hash.replace('#', '').split('/');
-  return { section: section || 'teams', param, sub };
+  return { section: section || '', param, sub };
 }
+
+/** Screens that work without a staff team (club owner / manager / any staff). */
+const teamFreeScreens = new Set(['library', 'dashboard', 'status']);
 
 const TEAM_KEY = 'iplays.os.team';
 function readTeamChoice(): string | null {
@@ -80,7 +83,9 @@ export function OsApp() {
     }
   };
 
-  const active = findModule(section) ?? modules[0];
+  const noTeam = staffTeams.length === 0;
+  // No staff team (e.g. a club owner): open on the director dashboard instead of an empty roster.
+  const active = findModule(section) ?? (noTeam ? findModule('dashboard') ?? modules[0] : modules[0]);
   const go = (id: string) => {
     window.location.hash = `os/${id}`;
     window.scrollTo({ top: 0 });
@@ -130,13 +135,18 @@ export function OsApp() {
           </header>
 
           <main className="os-main">
-            {staffTeams.length === 0 ? (
+            {noTeam && !teamFreeScreens.has(active.id) ? (
               <section className="os-state">
-                <h2>אין לך קבוצה כאיש צוות</h2>
+                <h2>המסך הזה שייך לקבוצה</h2>
                 <p className="os-muted">
-                  Club OS מיועד למאמנים ולצוות. החשבון הזה לא רשום כמאמן, עוזר או מנהל באף קבוצה.
+                  החשבון הזה לא רשום כמאמן, עוזר או מנהל באף קבוצה, ולכן אין כאן סגל, יומן או מערכי אימון.
+                  {' '}ספריית התרגילים ודשבורד המנהל פתוחים גם בלי קבוצה.
                   {envLabel && ' ב-Staging: הרץ את staging_make_me_staff עם האימייל שלך.'}
                 </p>
+                <div className="os-state__actions">
+                  <a className="os-btn" href="#os/dashboard">דשבורד מנהל</a>
+                  <a className="os-btn" href="#os/library">ספריית תרגילים</a>
+                </div>
               </section>
             ) : active.id === 'teams' ? (
               <TeamsScreen team={team!} playerId={param} />
@@ -170,7 +180,7 @@ export function OsApp() {
 
       <nav className="os-bottom" aria-label="ניווט Club OS">
         {modules
-          .filter((m) => ['teams', 'home', 'calendar', 'plans', 'library'].includes(m.id))
+          .filter((m) => (noTeam ? ['dashboard', 'library', 'status'] : ['teams', 'home', 'calendar', 'plans', 'library']).includes(m.id))
           .map((m) => (
             <NavItem key={m.id} m={m} active={m.id === active.id} onClick={() => go(m.id)} compact />
           ))}

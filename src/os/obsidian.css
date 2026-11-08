@@ -367,3 +367,4 @@ button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text
 .os-video { display: flex; flex-direction: column; gap: 4px; align-items: center; width: 100%; }
 .os-video iframe { width: 100%; max-width: 720px; aspect-ratio: 16 / 9; border: 0; border-radius: 0.5rem; background: #000; }
 .os-video-row { display: flex; justify-content: center; margin-top: 6px; }
+.os-state__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
