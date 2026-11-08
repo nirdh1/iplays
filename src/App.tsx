@@ -40,6 +40,7 @@ import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
 import { OsApp } from './os/OsApp';
 import { backendHost, isOsHash, v2Enabled, v2OffReason } from './os/env';
+import { useOsAccess } from './os/useOsAccess';
 
 type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'clubrequests' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'adminparents' | 'fund' | 'costs' | 'pay' | 'feedback' | 'adminfeedback' | 'me' | 'adminmetrics';
 const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'clubrequests', 'find', 't', 'matches', 'ifa', 'admin', 'adminparents', 'fund', 'costs', 'pay', 'feedback', 'adminfeedback', 'me', 'adminmetrics'];
@@ -127,6 +128,7 @@ export function App() {
   // Staging builds with Club OS on: a signed-in user who lands on the bare
   // address (e.g. right after the email login link) opens Club OS. Once per load,
   // so "חזרה ל-iPlays הרגיל" still works. Production builds never get here.
+  const osAccess = useOsAccess(auth.session?.user.id);
   const osLanded = useRef(false);
   useEffect(() => {
     if (!v2Enabled || !ready || osLanded.current) return;
@@ -168,8 +170,15 @@ export function App() {
       );
     }
     if (!auth.session) return <AuthScreen />;
-    // iPlays 2.0 Club OS: only when the build turns it on, and never against Production.
-    if (osRoute && v2Enabled) return <OsApp />;
+    // iPlays 2.0 Club OS: Staging builds with the flag on, or Production pilot accounts.
+    if (osRoute && osAccess === 'yes') return <OsApp />;
+    if (osRoute && osAccess === 'checking') {
+      return (
+        <div className="ip-splash" aria-busy="true">
+          <Logo height={48} />
+        </div>
+      );
+    }
     if (osRoute) return <OsOffNotice />;
     if (needsOnboarding || onboarding) {
       return (
@@ -181,7 +190,7 @@ export function App() {
   }
   return (
     <>
-      {v2Enabled && auth.session && (
+      {osAccess === 'yes' && auth.session && (
         <a className="ip-os-entry" href="#os/home">
           Club OS
         </a>
