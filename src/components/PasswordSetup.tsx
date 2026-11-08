@@ -118,7 +118,8 @@ export function PasswordNudge() {
       return;
     }
     const t = window.setInterval(() => {
-      if (!document.querySelector('.ip-a2hs')) {
+      // not over the iPlays 2.0 Club OS preview (#os/...)
+      if (!document.querySelector('.ip-a2hs') && !window.location.hash.startsWith('#os')) {
         setOpen(true);
         window.clearInterval(t);
       }
@@ -136,7 +137,7 @@ export function PasswordNudge() {
   };
   const form = usePasswordForm(close);
 
-  if (!open || !eligible || !session?.user.email) return null;
+  if (!open || !eligible || !session?.user.email || window.location.hash.startsWith('#os')) return null;
   return (
     <div className="ip-a2hs ip-a2hs--none" role="dialog" aria-labelledby="ip-pw-title">
       <form className="ip-a2hs-card ip-form" onSubmit={form.submit} noValidate>
