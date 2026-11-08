@@ -14,12 +14,6 @@ cp "$HERE/restore_order.sql" .
 (shasum -a 256 -c SHA256SUMS 2>/dev/null || sha256sum -c SHA256SUMS) > sha_check.txt || { cat sha_check.txt; die "checksum mismatch"; }
 ok "checksums"
 "$PY" -I check_dump.py fingerprint_before.txt data_public.sql data_auth.sql data_storage.sql > /dev/null || die "backup files incomplete"
-# v6: a new Supabase project lets postgres set default privileges only for itself.
-# Lines "ALTER DEFAULT PRIVILEGES FOR ROLE <other role>" (e.g. supabase_admin) are
-# platform settings, not data, so they are left out of the copy that is loaded.
-awk '!(/^ALTER DEFAULT PRIVILEGES FOR ROLE / && $6 != "postgres")' schema_public.sql > schema_public.restore.sql
-skipped=$(( $(wc -l < schema_public.sql) - $(wc -l < schema_public.restore.sql) ))
-ok "schema copy for loading: $skipped platform default-privilege line(s) left out (not data)"
 empty=$(psql -X -At -v ON_ERROR_STOP=1 "$RESTORE_URL" -c "select (select count(*) from auth.users)=0 and (select count(*) from pg_tables where schemaname='public')=0")
 [ "$empty" = t ] || die "target project is not empty"
 ok "target is empty"
