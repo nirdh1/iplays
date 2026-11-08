@@ -1,0 +1,127 @@
+== setup: python Python 3.13.18, psql (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+PASS  py_compile check_dump.py                                       (exit 0) 
+PASS  py_compile compare_fingerprints.py                             (exit 0) 
+PASS  bash -n common.sh                                              (exit 0) 
+PASS  bash -n preflight.sh                                           (exit 0) 
+PASS  bash -n backup.sh                                              (exit 0) 
+PASS  bash -n restore.sh                                             (exit 0) 
+PASS  bash -n make_restore_marker.sh                                 (exit 0) 
+== 0. connection identity and tool versions (added v4)
+PASS  URL check: local prod_sim URL                                  (exit 0) 
+PASS  URL check: real Supabase pooler form                           (exit 0) 
+PASS  URL check: wrong ref                                           (exit 1) STOP: URL user is not postgres.zzzzzzzzzzzzzzzz
+PASS  URL check: password inside URL                                 (exit 1) STOP: the URL contains a password: use PGPASSWORD or the prompt instead
+PASS  URL check: transaction pooler port 6543                        (exit 1) STOP: URL is not the Session pooler on port 5432
+PASS  URL check: other project's ref appears                         (exit 1) STOP: URL contains the other project's ref (prod)
+PASS  versions: client >= server                                     (exit 0) 
+PASS  versions: old pg_dump is stopped                               (exit 1) STOP: pg_dump major 12 is older than server major 16
+PASS  identity: prod_sim looks like production                       (exit 0) 
+PASS  identity: empty project is NOT production                      (exit 1) STOP: this database does not look like iplays production (got: false 0)
+PASS  preflight.sh with the wrong PROD_REF                           (exit 1) STOP: local test URL does not name database restore_sim
+PASS  preflight.sh pointed at a non-production db                    (exit 1) STOP: this database does not look like iplays production (got: false 0)
+== 1. read-only guards
+PASS  static check: real SQL files are clean                         (exit 0) 
+PASS  static check: file with DELETE is stopped                      (exit 1) STOP: write command found in SQL files (lines above)
+PASS  static check: missing file is stopped (grep exit 2)            (exit 1) STOP: static check could not read the files (grep exit 2)
+PASS  probe: read-only session refuses the write                     (exit 0) 
+PASS  probe: still read-only when PGOPTIONS is dropped (pooler)      (exit 0) 
+PASS  probe: session WITHOUT the read-only SET is stopped            (exit 1) STOP: session CAN write: read-only settings were not applied
+PASS  psql_ro: default_transaction_read_only is on without PGOPTIONS (exit 0) 
+PASS  psql_ro: statement_timeout 30s without PGOPTIONS               (exit 0) 
+PASS  psql_ro: an INSERT is refused                                  (exit 1) ERROR:  cannot execute INSERT in a read-only transaction
+PASS    ... and nothing was written [0 = 0]                          (exit 0) 
+PASS  probe: wrong database (other error) is stopped                 (exit 1) STOP: probe failed for another reason (connection/password?): psql: error: connection to s
+PASS  fingerprint.sql aborts if session is not read-only             (exit 1) 
+== 2. preflight (action 1)
+PASS  preflight.sh, PGOPTIONS dropped like the pooler                (exit 0) 
+PASS  managed_tables.txt lists auth.sessions                         (exit 0) 
+PASS  managed_tables.txt lists storage.objects with 0 rows           (exit 0) 
+PASS  preflight.sh without read-only probe passing (wrong db)        (exit 1) STOP: probe failed for another reason (connection/password?): psql: error: connection to s
+== 3. backup (action 3)
+PASS  backup.sh, PGOPTIONS dropped like the pooler                   (exit 0) check_dump: RESULT: PASS  (11 tables OK, 0 FAIL)
+pg_dump: error: could not fsync file "/dev/null": Invalid argument
+PASS  pg_dump itself runs in a READ ONLY transaction (server log)    (exit 0) 
+PASS  content of bk/data_auth.sql: rows of auth.users [2 = 2]        (exit 0) 
+PASS  content of bk/data_auth.sql: rows of auth.identities [2 = 2]   (exit 0) 
+PASS  content of bk/data_storage.sql: rows of storage.buckets [1 = 1] (exit 0) 
+PASS  content of bk/data_storage.sql: rows of storage.objects [0 = 0] (exit 0) 
+PASS  report.txt written                                             (exit 0) 
+PASS  report.txt has no email address or password                    (exit 0) 
+PASS  report.txt shows check_dump PASS                               (exit 0) 
+PASS  report.txt lists file sizes                                    (exit 0) 
+PASS  storage_policies.sql has 3 CREATE POLICY [3 = 3]               (exit 0) 
+PASS  check_dump output shows quoted table public.Weird Name OK      (exit 0) 
+PASS  check_dump output shows empty table OK                         (exit 0) 
+PASS  check_dump lists not-restored managed tables (INFO)            (exit 0) 
+PASS  duplicate ifa rows counted (45496)                             (exit 0) 
+PASS  backup.sh detects a write during pg_dump                       (exit 1) STOP: database changed during the backup: run again
+PASS  backup.sh stops when pg_dump fails                             (exit 1) 
+PASS    ... and never prints BACKUP PASSED                           (exit 1) 
+== 4. check_dump.py failure cases
+PASS  complete files                                                 (exit 0) RESULT: PASS
+PASS  truncated data file                                            (exit 2) ERROR: t_trunc.sql: last line has no newline inside COPY block for public.ifa_players (tru
+PASS  one row missing in ifa_players                                 (exit 1) RESULT: FAIL (1)
+PASS  COPY block of EMPTY table missing                              (exit 1) RESULT: FAIL (1)
+PASS  auth file not given                                            (exit 1) RESULT: FAIL (2)
+PASS  same file given twice (duplicate blocks)                       (exit 2) ERROR: COPY block for public.Weird Name appears twice (data_public.sql:25)
+PASS  unexpected table block (auth.sessions)                         (exit 1) RESULT: FAIL (1)
+PASS  malformed COPY header                                          (exit 2) ERROR: t_bad.sql:44 bad COPY header (unterminated quoted identifier): 'COPY public."broken
+PASS  empty fingerprint                                              (exit 2) ERROR: fingerprint has no row count section: t_empty_fp.txt
+PASS  file without final newline after the last block is fine        (exit 0) RESULT: PASS
+== 5. compare_fingerprints.py cases
+PASS  identical (same-db)                                            (exit 0) RESULT: PASS
+PASS  duplicated line                                                (exit 1) RESULT: FAIL (2 sections)
+PASS  changed row count                                              (exit 1) RESULT: FAIL (1 sections)
+PASS  same lines, different order                                    (exit 1) 
+PASS    ... reported as 'different order'                            (exit 0) 
+PASS  partial (interrupted) fingerprint                              (exit 1) ERROR: t_part.txt has no section starting with '== policies' (incomplete run?)
+PASS  fingerprint not taken read-only                                (exit 1) ERROR: t_rw.txt was not produced in a read-only session
+== 6a. positive identification of the restore project (added v4)
+PASS  no restore_target.id yet: refused                              (exit 1) STOP: no /tmp/tmp.LmV6VBGV2J/restore_target.id: run make_restore_marker.sh first
+PASS  make_restore_marker refuses the production ref                 (exit 1) STOP: this is the production ref
+PASS  marker id file is private (mode 600)                           (exit 0) 
+PASS  marker not yet in the target db: refused                       (exit 1) STOP: no restore-target marker in this database: it is NOT the restore project
+PASS  RESTORE_URL = production: refused                              (exit 1) STOP: URL contains the other project's ref (prod_sim)
+PASS  RESTORE_REF = PROD_REF: refused                                (exit 1) STOP: RESTORE_REF equals PROD_REF
+PASS  other db, id file of restore_sim: refused                      (exit 1) STOP: /tmp/tmp.LmV6VBGV2J/restore_target.id was made for another project
+PASS  other db with its own but 3-day-old marker: refused            (exit 1) STOP: restore-target marker does not match (wrong project, or older than 48h)
+PASS  nonce does not match the marker: refused                       (exit 1) STOP: restore-target marker does not match (wrong project, or older than 48h)
+PASS  operator types the wrong ref: refused                          (exit 1) Type the RESTORE project ref to continue: STOP: confirmation does not match
+PASS    ... nothing was loaded by the refused runs [0 = 0]           (exit 0) 
+PASS  isolation script on production (no marker): refused            (exit 3) LINE 1: select 'STOP: not the restore project'::int;
+PASS    ... production dummy untouched [1+0 = 1+0]                   (exit 0) 
+== 6. restore (action 7) into a simulated new project
+PASS  checksum mismatch is stopped                                   (exit 1) STOP: checksum mismatch
+PASS  bad value in data: restore fails                               (exit 1) 
+PASS    ... and the target is still empty (rolled back) [0+0 = 0+0]  (exit 0) 
+PASS  restore.sh into the empty target                               (exit 0) RESULT: PASS
+PASS  v6: dump has a supabase_admin default-privilege line           (exit 0) 
+PASS  v6: loaded copy leaves it out                                  (exit 0) 
+PASS  v6: loaded copy keeps postgres default privileges              (exit 0) 
+PASS    ... compare shows managed tables as INFO, not hidden         (exit 0) 
+PASS  auth user ids identical [11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222 = 11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222] (exit 0) 
+PASS  guardian permissions identical [53180b3fa97b7ce40a19b97b0efdc8c5 = 53180b3fa97b7ce40a19b97b0efdc8c5] (exit 0) 
+PASS  no trigger fired during load (outbox rows) [0 = 0]             (exit 0) 
+PASS  second restore refused: target not empty                       (exit 1) STOP: target project is not empty
+== 7. login after isolation (GoTrue password-grant lookup, same SQL rules)
+PASS  operator login before isolation [1 = 1]                        (exit 0) 
+PASS  post_restore_isolation.sql                                     (exit 0) 
+PASS  operator login after isolation (email kept) [1 = 1]            (exit 0) 
+PASS  parent's real address no longer exists [0 = 0]                 (exit 0) 
+PASS  .invalid address still finds the user (no domain check) [1 = 1] (exit 0) 
+PASS  no real address left except operator [0 = 0]                   (exit 0) 
+PASS  push subscriptions removed in the copy [0 = 0]                 (exit 0) 
+PASS  production dummy untouched (push subscriptions) [1 = 1]        (exit 0) 
+PASS  isolation without operator_email variable stops                (exit 3) psql:post_restore_isolation.sql:15: ERROR:  syntax error at or near ":"
+== 8. pipelines and tee
+PASS  demo: without pipefail, 'false | tee' looks like success       (exit 0) 
+PASS  with set -euo pipefail the script stops at 'false | tee'       (exit 1) 
+PASS  psql_to stops on an SQL error                                  (exit 1) STOP: psql failed on div0.sql
+PASS  no script uses tee                                             (exit 0) 
+== 8. v6 repair of a v5-style restore (new project defaults + managed trigger)
+PASS  v5 restore order into a project with API default grants: compare fails (exit 1) STOP: restored data differs
+PASS  repair refuses production                                      (exit 1) STOP: RESTORE_REF equals PROD_REF
+PASS  repair_restore.sh: grants + trigger fixed, compare passes      (exit 0) RESULT: PASS
+PASS    ... managed trigger present after repair [1 = 1]             (exit 0) 
+
+TOTAL: 112 passed, 0 failed (python: Python 3.13.18)
