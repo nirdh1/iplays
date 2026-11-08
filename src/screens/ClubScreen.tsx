@@ -11,7 +11,7 @@ import { Icon } from '../components/Icon';
 import { Err, Field } from '../components/form';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError } from '../lib/api';
-import { birthYearsLabel, searchTeams, type TeamHit } from '../lib/joinApi';
+import { findTeams, teamYearLabel, type FoundTeam } from '../lib/joinApi';
 import {
   adoptTeam,
   clubError,
@@ -394,7 +394,8 @@ function ClubPanel({ club, initialTab, onChanged }: { club: Club; initialTab?: '
 function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; programs: Program[]; onAdopted: () => Promise<void> }) {
   const [q, setQ] = useState('');
   const [year, setYear] = useState('');
-  const [hits, setHits] = useState<TeamHit[] | null>(null);
+  const [hits, setHits] = useState<FoundTeam[] | null>(null);
+  const [hidden, setHidden] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const by = year.length === 4 ? Number(year) : null;
 
@@ -402,14 +403,16 @@ function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; program
     e.preventDefault();
     setError(null);
     try {
-      const all = await searchTeams(q.trim().length >= 2 ? q : '', by);
-      setHits(all.filter((t) => !t.club_id && !t.has_staff));
+      const all = await findTeams(q.trim().length >= 2 ? q : '', by);
+      const free = all.filter((t) => !t.club_id && !t.has_staff);
+      setHidden(all.length - free.length);
+      setHits(free);
     } catch (err) {
       setError(errText(err));
     }
   }
 
-  async function adopt(t: TeamHit, programId: string) {
+  async function adopt(t: FoundTeam, programId: string) {
     setError(null);
     try {
       await adoptTeam(t.team_id, clubId, programId);
@@ -440,13 +443,17 @@ function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; program
           <Err error={error} />
         </form>
         {hits && (hits.length === 0 ? (
-          <p className="ip-muted">לא נמצאו קבוצות פנויות לשיוך. קבוצה שכבר יש לה מאמן או מועדון לא מופיעה כאן.</p>
+          <p className="ip-muted">
+            {hidden > 0
+              ? `נמצאו ${hidden} קבוצות, אבל לכולן כבר יש מאמן או מועדון באפליקציה, ולכן אי אפשר לשייך אותן מכאן.`
+              : 'לא נמצאו קבוצות. נסו מילה אחת מהשם (למשל "רמת גן") או בלי שנתון.'}
+          </p>
         ) : (
           hits.map((t) => (
             <div key={t.team_id} className="ip-club-row">
               <span className="ip-list-row-text">
                 <span className="ip-list-row-title">{t.name}</span>
-                <span className="ip-list-row-sub">{[t.club_name, birthYearsLabel(t.birth_year_from, t.birth_year_to), `${t.players} שחקנים`].filter(Boolean).join(' · ')}</span>
+                <span className="ip-list-row-sub">{[t.club_name, teamYearLabel(t), `${t.players} שחקנים`].filter(Boolean).join(' · ')}</span>
               </span>
               {programs.map((p) => (
                 <Button key={p.id} variant="secondary" size="sm" onClick={() => void adopt(t, p.id)}>
