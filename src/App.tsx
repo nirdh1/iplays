@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AppHeader, BottomNav, ChildSwitcherSheet, type TabId } from './components/shell';
 import { NotificationsSheet, useUnread } from './components/NotificationsSheet';
 import { children, parent } from './data/demo';
@@ -38,9 +38,11 @@ import { Icon } from './components/Icon';
 import { clearPendingInvite, readFamilyInvite, readPendingInvite, saveFamilyInvite, savePendingInvite, saveStaffInvite, takeStaffInvite, useAuth } from './auth/AuthContext';
 import { acceptClubInvite, clubError } from './lib/clubApi';
 import { friendlyError, joinTeam } from './lib/api';
-import { OsApp } from './os/OsApp';
 import { backendHost, isOsHash, v2Enabled, v2OffReason } from './os/env';
 import { useOsAccess } from './os/useOsAccess';
+
+// Club OS is a separate chunk: V1 users (everyone outside the pilot) never download it.
+const OsApp = lazy(() => import('./os/OsApp').then((m) => ({ default: m.OsApp })));
 
 type Route = TabId | 'brand' | 'match' | 'myteam' | 'coach' | 'club' | 'clubrequests' | 'find' | 't' | 'matches' | 'ifa' | 'admin' | 'adminparents' | 'fund' | 'costs' | 'pay' | 'feedback' | 'adminfeedback' | 'me' | 'adminmetrics';
 const routes: Route[] = ['home', 'team', 'calendar', 'career', 'family', 'brand', 'match', 'myteam', 'coach', 'club', 'clubrequests', 'find', 't', 'matches', 'ifa', 'admin', 'adminparents', 'fund', 'costs', 'pay', 'feedback', 'adminfeedback', 'me', 'adminmetrics'];
@@ -171,7 +173,13 @@ export function App() {
     }
     if (!auth.session) return <AuthScreen />;
     // iPlays 2.0 Club OS: Staging builds with the flag on, or Production pilot accounts.
-    if (osRoute && osAccess === 'yes') return <OsApp />;
+    if (osRoute && osAccess === 'yes') {
+      return (
+        <Suspense fallback={<div className="ip-splash" aria-busy="true"><Logo height={48} /></div>}>
+          <OsApp />
+        </Suspense>
+      );
+    }
     if (osRoute && osAccess === 'checking') {
       return (
         <div className="ip-splash" aria-busy="true">
