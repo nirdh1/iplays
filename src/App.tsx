@@ -324,7 +324,7 @@ function MainApp({ joinError }: { joinError: string | null }) {
             <Icon name="close" size={16} />
           </button>
         )}
-        {route === 'club' && signedIn && <ClubScreen clubId={param} onBack={() => back('family')} />}
+        {route === 'club' && signedIn && <ClubScreen clubId={param === 'search' ? undefined : param} initialTab={param === 'search' ? 'search' : undefined} onBack={() => back('family')} />}
         {route === 'club' && !signedIn && <FamilyScreen />}
         {route === 'clubrequests' && (signedIn ? <ClubRequestsScreen onBack={() => back('club')} /> : <FamilyScreen />)}
         {route === 'matches' && (signedIn && param ? <MatchesScreen key={param} teamId={param} matchId={sub} onBack={() => back('family')} /> : <FamilyScreen />)}
