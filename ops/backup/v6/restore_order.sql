@@ -20,4 +20,6 @@ set session_replication_role = origin;
 -- v6: our own triggers on managed auth/storage tables (e.g. on_auth_user_created) are not in schema_public.sql
 \! pg_restore -l iplays.dump | grep -E ' TRIGGER (auth|storage) ' > managed_triggers.list || true
 \! pg_restore -L managed_triggers.list -f managed_triggers.sql iplays.dump
-\i managed_triggers.sql
+-- only OUR triggers (they call public.* functions); Supabase's own storage/auth triggers already exist
+\! grep -E '^CREATE TRIGGER .* EXECUTE FUNCTION public\.' managed_triggers.sql > our_triggers.sql || true
+\i our_triggers.sql

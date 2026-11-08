@@ -12,7 +12,9 @@ cd "$DIR"
 grep -E '^(GRANT|REVOKE) ' schema_public.sql > repair_grants.sql
 pg_restore -l iplays.dump | grep -E ' TRIGGER (auth|storage) ' > managed_triggers.list || true
 pg_restore -L managed_triggers.list -f managed_triggers.sql iplays.dump || die "could not extract managed triggers"
-ok "$(wc -l < repair_grants.sql | tr -d ' ') grant lines, $(grep -c '^CREATE TRIGGER' managed_triggers.sql || true) trigger(s) to apply"
+# only OUR triggers (they call public.* functions); Supabase's own storage/auth triggers already exist
+grep -E '^CREATE TRIGGER .* EXECUTE FUNCTION public\.' managed_triggers.sql > our_triggers.sql || true
+ok "$(wc -l < repair_grants.sql | tr -d ' ') grant lines, $(wc -l < our_triggers.sql | tr -d ' ') of our trigger(s) to apply"
 cat > repair.sql <<'SQL'
 \set ON_ERROR_STOP on
 select 1 / (select count(*)::int from iplays_restore_target.marker);   -- aborts anywhere without the marker
@@ -20,7 +22,7 @@ revoke all on all tables in schema public from anon, authenticated, service_role
 revoke all on all sequences in schema public from anon, authenticated, service_role;
 revoke all on all functions in schema public from anon, authenticated, service_role;
 \i repair_grants.sql
-\i managed_triggers.sql
+\i our_triggers.sql
 SQL
 psql -X -q --single-transaction -v ON_ERROR_STOP=1 -f repair.sql "$RESTORE_URL" > repair.log 2>&1 || { tail -20 repair.log; die "repair failed (rolled back)"; }
 ok "grants and triggers repaired"

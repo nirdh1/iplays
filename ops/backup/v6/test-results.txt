@@ -77,13 +77,13 @@ PASS    ... reported as 'different order'                            (exit 0)
 PASS  partial (interrupted) fingerprint                              (exit 1) ERROR: t_part.txt has no section starting with '== policies' (incomplete run?)
 PASS  fingerprint not taken read-only                                (exit 1) ERROR: t_rw.txt was not produced in a read-only session
 == 6a. positive identification of the restore project (added v4)
-PASS  no restore_target.id yet: refused                              (exit 1) STOP: no /tmp/tmp.eMXRbNvxHi/restore_target.id: run make_restore_marker.sh first
+PASS  no restore_target.id yet: refused                              (exit 1) STOP: no /tmp/tmp.LmV6VBGV2J/restore_target.id: run make_restore_marker.sh first
 PASS  make_restore_marker refuses the production ref                 (exit 1) STOP: this is the production ref
 PASS  marker id file is private (mode 600)                           (exit 0) 
 PASS  marker not yet in the target db: refused                       (exit 1) STOP: no restore-target marker in this database: it is NOT the restore project
 PASS  RESTORE_URL = production: refused                              (exit 1) STOP: URL contains the other project's ref (prod_sim)
 PASS  RESTORE_REF = PROD_REF: refused                                (exit 1) STOP: RESTORE_REF equals PROD_REF
-PASS  other db, id file of restore_sim: refused                      (exit 1) STOP: /tmp/tmp.eMXRbNvxHi/restore_target.id was made for another project
+PASS  other db, id file of restore_sim: refused                      (exit 1) STOP: /tmp/tmp.LmV6VBGV2J/restore_target.id was made for another project
 PASS  other db with its own but 3-day-old marker: refused            (exit 1) STOP: restore-target marker does not match (wrong project, or older than 48h)
 PASS  nonce does not match the marker: refused                       (exit 1) STOP: restore-target marker does not match (wrong project, or older than 48h)
 PASS  operator types the wrong ref: refused                          (exit 1) Type the RESTORE project ref to continue: STOP: confirmation does not match
@@ -119,7 +119,6 @@ PASS  with set -euo pipefail the script stops at 'false | tee'       (exit 1)
 PASS  psql_to stops on an SQL error                                  (exit 1) STOP: psql failed on div0.sql
 PASS  no script uses tee                                             (exit 0) 
 == 8. v6 repair of a v5-style restore (new project defaults + managed trigger)
-NOTICE:  database "restore_sim2" does not exist, skipping
 PASS  v5 restore order into a project with API default grants: compare fails (exit 1) STOP: restored data differs
 PASS  repair refuses production                                      (exit 1) STOP: RESTORE_REF equals PROD_REF
 PASS  repair_restore.sh: grants + trigger fixed, compare passes      (exit 0) RESULT: PASS
