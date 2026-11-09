@@ -2923,3 +2923,26 @@ select.ip-input {
   padding: 10px 16px; border-radius: 9999px; background: #0f131c; color: #00ff87;
   font-weight: 800; text-decoration: none; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
+
+/* Home: live games of my teams */
+.ip-live-now {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: inherit;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.ip-live-now-last {
+  margin: 10px 0 0;
+  text-align: center;
+  font-weight: 600;
+}
+.ip-live-now-foot {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
