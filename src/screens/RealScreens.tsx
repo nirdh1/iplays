@@ -25,6 +25,7 @@ import { RidesSheet, type RideEvent } from './RidesSheet';
 import { RosterReviewHomeCard } from './RosterReview';
 import { MatchConflictsHomeCard } from './MatchOverrides';
 import { LeagueHomeCard } from './LeagueTable';
+import { LiveNowSection } from './LiveNow';
 
 const goFind = () => (window.location.hash = 'find');
 const goTeam = (id: string) => (window.location.hash = `myteam/${id}`);
@@ -220,6 +221,7 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
         isParent ? <NoTeam onShowSample={onShowSample} /> : null
       ) : (
         <>
+          <LiveNowSection teams={teams} />
           {kids && kids.length === 1 && <ChildHero k={kids[0]} />}
           <NextUp teams={teams} />
           {teams.map((t) => (
