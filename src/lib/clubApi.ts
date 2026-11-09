@@ -135,6 +135,16 @@ export async function adoptTeam(teamId: string, clubId: string, programId: strin
   if (error) throw error;
 }
 
+/** League, season and the roster's main birth year for teams still free to adopt.
+ *  adopt_candidates_info(): supabase/migrations/20261109100000_adopt_candidates_info.sql */
+export interface AdoptInfo { team_id: string; league: string; season: string; roster_year: number | null; roster_players: number }
+export async function adoptCandidatesInfo(teamIds: string[]): Promise<AdoptInfo[]> {
+  if (!teamIds.length) return [];
+  const { data, error } = await db().rpc('adopt_candidates_info', { p_teams: teamIds.slice(0, 100) });
+  if (error) throw error;
+  return (data ?? []) as AdoptInfo[];
+}
+
 export async function setTeamProgram(teamId: string, programId: string | null) {
   const { error } = await db().rpc('set_team_program', { p_team: teamId, p_program: programId });
   if (error) throw error;
