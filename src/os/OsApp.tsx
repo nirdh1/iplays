@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { Icon } from '../components/Icon';
 import { roleLabel, type MyTeam } from '../lib/api';
+import { getMyClubs } from '../lib/clubApi';
+import { supabase } from '../lib/supabase';
 import { envLabel } from './env';
 import { findModule, modules, type OsModule } from './modules';
 import { NoData, NotBuilt, StatusBadge } from './StateView';
@@ -55,6 +57,20 @@ function readTheme(): Theme {
 /** Staff roles see the Club OS; a parent-only account gets a clear note instead. */
 const staffRoles = new Set(['admin', 'coach', 'assistant_coach', 'instructor', 'team_manager']);
 
+/** Teams of the clubs where this account is owner or admin. */
+async function loadClubTeams(): Promise<MyTeam[]> {
+  const clubs = (await getMyClubs()).filter((c) => c.role === 'owner' || c.role === 'admin');
+  if (!clubs.length || !supabase) return [];
+  const { data, error } = await supabase
+    .from('teams')
+    .select('id, name, club, season, sport, league')
+    .in('club_id', clubs.map((c) => c.id))
+    .is('archived_at', null)
+    .order('name');
+  if (error) throw error;
+  return ((data ?? []) as Omit<MyTeam, 'role'>[]).map((t) => ({ ...t, role: 'admin' as MyTeam['role'] }));
+}
+
 export function OsApp() {
   const auth = useAuth();
   const [{ section, param, sub }, setLoc] = useState(readOsHash);
@@ -64,7 +80,20 @@ export function OsApp() {
     return () => window.removeEventListener('hashchange', on);
   }, []);
 
-  const staffTeams = auth.teams.filter((t) => staffRoles.has(t.role));
+  const ownTeams = auth.teams.filter((t) => staffRoles.has(t.role));
+  // Club owner/admin: every team of the club (the database already gives them full access).
+  const [clubTeams, setClubTeams] = useState<MyTeam[]>([]);
+  useEffect(() => {
+    let live = true;
+    loadClubTeams()
+      .then((t) => live && setClubTeams(t))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [auth.session?.user.id]);
+  const clubOnly = new Set(clubTeams.filter((t) => !ownTeams.some((o) => o.id === t.id)).map((t) => t.id));
+  const staffTeams = [...ownTeams, ...clubTeams.filter((t) => clubOnly.has(t.id))];
   const [teamId, setTeamId] = useState<string | null>(readTeamChoice);
   const team: MyTeam | undefined = staffTeams.find((t) => t.id === teamId) ?? staffTeams[0];
   const pickTeam = (id: string) => {
@@ -126,7 +155,7 @@ export function OsApp() {
                 <select value={team?.id} onChange={(e) => pickTeam(e.target.value)}>
                   {staffTeams.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} · {roleLabel[t.role]}
+                      {t.name} · {clubOnly.has(t.id) ? 'הנהלת מועדון' : roleLabel[t.role]}
                     </option>
                   ))}
                 </select>

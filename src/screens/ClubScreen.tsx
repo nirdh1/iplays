@@ -14,6 +14,8 @@ import { friendlyError } from '../lib/api';
 import { findTeams, teamYearLabel, type FoundTeam } from '../lib/joinApi';
 import {
   adoptTeam,
+  adoptCandidatesInfo,
+  type AdoptInfo,
   clubError,
   clubRoleLabel,
   clubStatusLabel,
@@ -396,6 +398,7 @@ function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; program
   const [year, setYear] = useState('');
   const [hits, setHits] = useState<FoundTeam[] | null>(null);
   const [hidden, setHidden] = useState(0);
+  const [info, setInfo] = useState<Map<string, AdoptInfo>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const by = year.length === 4 ? Number(year) : null;
 
@@ -407,12 +410,18 @@ function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; program
       const free = all.filter((t) => !t.club_id && !t.has_staff);
       setHidden(all.length - free.length);
       setHits(free);
+      setInfo(new Map());
+      // Extra detail to tell look-alike teams apart; optional (older databases lack it).
+      adoptCandidatesInfo(free.map((t) => t.team_id))
+        .then((rows) => setInfo(new Map(rows.map((r) => [r.team_id, r]))))
+        .catch(() => undefined);
     } catch (err) {
       setError(errText(err));
     }
   }
 
-  async function adopt(t: FoundTeam, programId: string) {
+  async function adopt(t: FoundTeam, programId: string, programName: string) {
+    if (!window.confirm(`לשייך את "${t.name}" ל${programName} של המועדון? אחרי השיוך המועדון מנהל את הקבוצה.`)) return;
     setError(null);
     try {
       await adoptTeam(t.team_id, clubId, programId);
@@ -454,9 +463,18 @@ function AdoptSection({ clubId, programs, onAdopted }: { clubId: string; program
               <span className="ip-list-row-text">
                 <span className="ip-list-row-title">{t.name}</span>
                 <span className="ip-list-row-sub">{[t.club_name, teamYearLabel(t), `${t.players} שחקנים`].filter(Boolean).join(' · ')}</span>
+                {info.get(t.team_id) && (
+                  <span className="ip-list-row-sub">
+                    {[
+                      info.get(t.team_id)!.league,
+                      info.get(t.team_id)!.season && `עונה ${info.get(t.team_id)!.season}`,
+                      info.get(t.team_id)!.roster_year && `רוב הסגל: ${info.get(t.team_id)!.roster_year}`,
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                )}
               </span>
               {programs.map((p) => (
-                <Button key={p.id} variant="secondary" size="sm" onClick={() => void adopt(t, p.id)}>
+                <Button key={p.id} variant="secondary" size="sm" onClick={() => void adopt(t, p.id, p.name)}>
                   ל{p.name}
                 </Button>
               ))}
