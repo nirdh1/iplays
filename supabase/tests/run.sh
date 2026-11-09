@@ -88,6 +88,11 @@ run supabase/migrations/20261103000000_guardian_removal.sql
 echo "== live match tests"
 run supabase/migrations/20261102600000_live_match_session.sql
 run supabase/tests/test_live_match.sql
+echo "== goal alerts"
+run supabase/migrations/20261109300000_goal_alerts.sql
+run supabase/tests/test_goal_alerts.sql
+run supabase/rollback/20261109300000_goal_alerts.down.sql
+run supabase/migrations/20261109300000_goal_alerts.sql
 echo "== rollback live match, re-apply"
 run supabase/rollback/20261102600000_live_match_session.down.sql
 psql -q -d $DB -tc "select 'after live rollback: ' || count(*) || ' reports kept' from match_reports"
@@ -158,6 +163,7 @@ run supabase/rollback/20261101996000_family_members.down.sql
 run supabase/rollback/20261101995000_inbox_notifications.down.sql
 echo "== rollback team fund, match events, rides"
 run supabase/rollback/20261101990000_team_fund.down.sql
+run supabase/rollback/20261109300000_goal_alerts.down.sql
 run supabase/rollback/20261102600000_live_match_session.down.sql
 run supabase/rollback/20261101971000_match_events.down.sql
 run supabase/rollback/20261101970000_rides.down.sql
