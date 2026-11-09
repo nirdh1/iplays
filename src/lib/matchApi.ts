@@ -318,9 +318,20 @@ export type Side = 'home' | 'away';
 
 export type EventKind2 = 'goal' | 'yellow' | 'red';
 
+export type GoalType = 'free_kick' | 'penalty' | 'header' | 'own_goal' | 'other';
+export const goalTypeLabel: Record<GoalType, string> = {
+  free_kick: 'בעיטה חופשית',
+  penalty: 'פנדל',
+  header: 'נגיחה',
+  own_goal: 'שער עצמי',
+  other: 'אחר',
+};
+
 export interface MatchEvent {
   id: string;
   kind?: EventKind2;
+  /** set after 20261109300000_goal_alerts.sql */
+  goal_type?: GoalType | null;
   period?: number | null;
   clock_seconds?: number | null;
   side: Side;
@@ -392,6 +403,11 @@ export async function reportGoal(matchId: string, side: Side, shirt?: number | n
 
 export async function setGoalScorer(eventId: string, shirt: number | null) {
   const { error } = await db().rpc('set_match_goal_scorer', { p_event: eventId, p_shirt: shirt });
+  if (error) throw error;
+}
+
+export async function setGoalType(eventId: string, type: GoalType | null) {
+  const { error } = await db().rpc('set_match_goal_type', { p_event: eventId, p_type: type });
   if (error) throw error;
 }
 

@@ -39,10 +39,13 @@ import {
   reportGoal,
   reviewReport,
   setGoalScorer,
+  setGoalType,
+  goalTypeLabel,
   submitReport,
   subscribeMatchEvents,
   updateReport,
   type EventKind2,
+  type GoalType,
   type LiveState,
   type Match,
   type MatchEvent,
@@ -402,6 +405,7 @@ export function LiveMatch({
                     <span className="ip-tl-text">
                       {kindWord(kind, basket, e.points)} ל{sideName(e.side)}
                       {who && ` · ${who}`}
+                      {e.goal_type && e.goal_type !== 'other' && ` · ${goalTypeLabel[e.goal_type]}`}
                       {basket && kind === 'goal' && <span className="ip-tl-pts">+{e.points}</span>}
                     </span>
                     <span className="ip-tl-meta">
@@ -411,7 +415,7 @@ export function LiveMatch({
                       <span className="ip-live-actions">
                         {canFill && (
                           <button type="button" className="ip-link-btn" onClick={() => setDetails({ type: 'event', event: e })}>
-                            {e.shirt_number == null ? 'הוספת שחקן' : 'שינוי שחקן'}
+                            {!basket && kind === 'goal' ? 'פרטי הגול' : e.shirt_number == null ? 'הוספת שחקן' : 'שינוי שחקן'}
                           </button>
                         )}
                         {canEditEvents && (
@@ -441,10 +445,13 @@ export function LiveMatch({
         byNumber={byNumber}
         mine={mine}
         onClose={() => setDetails(null)}
-        onSave={async (side, shirt, name) => {
+        goalTypes={!basket}
+        onSave={async (side, shirt, name, goalType) => {
           if (!details) return;
-          if (details.type === 'event') await setGoalScorer(details.event.id, shirt);
-          else await updateReport(details.id, side, shirt, name);
+          if (details.type === 'event') {
+            if (shirt !== details.event.shirt_number) await setGoalScorer(details.event.id, shirt);
+            if (goalType !== undefined && goalType !== (details.event.goal_type ?? null)) await setGoalType(details.event.id, goalType);
+          } else await updateReport(details.id, side, shirt, name);
           setDetails(null);
           await load();
         }}
@@ -777,6 +784,7 @@ function DetailsSheet({
   roster,
   byNumber,
   mine,
+  goalTypes,
   onClose,
   onSave,
 }: {
@@ -786,10 +794,12 @@ function DetailsSheet({
   roster: Player[];
   byNumber: Map<number, Player>;
   mine: Set<string>;
+  goalTypes: boolean;
   onClose: () => void;
-  onSave: (side: Side | null, shirt: number | null, name: string | null) => Promise<void>;
+  onSave: (side: Side | null, shirt: number | null, name: string | null, goalType?: GoalType | null) => Promise<void>;
 }) {
   const [num, setNum] = useState('');
+  const [gType, setGType] = useState<GoalType | null>(null);
   const [side, setSide] = useState<Side | null>(null);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -800,8 +810,11 @@ function DetailsSheet({
     setNum(target.type === 'event' && target.event.shirt_number != null ? String(target.event.shirt_number) : '');
     setSide(target.type === 'event' ? target.event.side : target.side);
     setName('');
+    setGType(target.type === 'event' ? target.event.goal_type ?? null : null);
     setError(null);
   }, [target]);
+  const showTypes = goalTypes && target?.type === 'event' && (target.event.kind ?? 'goal') === 'goal';
+  const typeChanged = showTypes && target?.type === 'event' && gType !== (target.event.goal_type ?? null);
 
   const isReport = target?.type === 'report';
   const ours = side === ourSide || (side === null && num !== '' && byNumber.has(Number(num)));
@@ -810,7 +823,7 @@ function DetailsSheet({
     setBusy(true);
     setError(null);
     try {
-      await onSave(side, clear || num === '' ? null : Number(num), name.trim() || null);
+      await onSave(side, clear || num === '' ? null : Number(num), name.trim() || null, showTypes ? gType : undefined);
     } catch (e) {
       setError(errText(e));
     } finally {
@@ -824,6 +837,18 @@ function DetailsSheet({
       <div className="ip-report">
         {isReport && <SidePicker side={side} setSide={setSide} sideName={sideName} allowUnknown />}
         <PlayerPicker num={num} setNum={setNum} ours={ours} roster={roster} byNumber={byNumber} mine={mine} />
+        {showTypes && (
+          <fieldset>
+            <legend>איך נכבש? (לא חובה)</legend>
+            <div className="ip-player-chips">
+              {(['free_kick', 'penalty', 'header', 'own_goal'] as GoalType[]).map((t) => (
+                <button key={t} type="button" className={gType === t ? 'is-on' : ''} aria-pressed={gType === t} onClick={() => setGType(gType === t ? null : t)}>
+                  {goalTypeLabel[t]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
         {isReport && (
           <fieldset>
             <legend>שם השחקן/ית (לא חובה)</legend>
@@ -831,7 +856,7 @@ function DetailsSheet({
           </fieldset>
         )}
         {error && <p className="ip-error" role="alert">{error}</p>}
-        <Button variant="primary" block icon="check" disabled={busy || (!isReport && num === '')} onClick={() => void save()}>
+        <Button variant="primary" block icon="check" disabled={busy || (!isReport && num === '' && !typeChanged)} onClick={() => void save()}>
           {busy ? 'שומרים…' : 'שמירה'}
         </Button>
         {target?.type === 'event' && target.event.shirt_number != null ? (
