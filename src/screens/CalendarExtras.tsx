@@ -16,7 +16,7 @@ import { sportProfile } from '../lib/sports';
 
 type Kid = Player & { team: MyTeam };
 
-export function AddTrainingButton({ teams, kids, onAdded }: { teams: MyTeam[]; kids: Kid[]; onAdded: () => void }) {
+export function AddTrainingButton({ teams, kids, onAdded, label = 'הוספת אימון ליומן', variant = 'secondary', logDone }: { teams: MyTeam[]; kids: Kid[]; onAdded: () => void; label?: string; variant?: 'primary' | 'secondary'; logDone?: boolean }) {
   const [pick, setPick] = useState(false);
   const [team, setTeam] = useState<MyTeam | null>(null);
   const [roster, setRoster] = useState<RosterRef[]>([]);
@@ -38,8 +38,8 @@ export function AddTrainingButton({ teams, kids, onAdded }: { teams: MyTeam[]; k
   return (
     <>
       <div className="ip-btn-row">
-        <Button variant="secondary" icon="plus" onClick={start}>
-          הוספת אימון ליומן
+        <Button variant={variant} icon="plus" onClick={start}>
+          {label}
         </Button>
       </div>
       <BottomSheet open={pick} onClose={() => setPick(false)} title="לאיזו קבוצה?">
@@ -69,6 +69,7 @@ export function AddTrainingButton({ teams, kids, onAdded }: { teams: MyTeam[]; k
         roster={roster}
         myPlayerIds={myIds}
         initialType={team && !isStaffRole(team.role) && myIds.length ? 'personal' : undefined}
+        logDone={logDone}
         onClose={() => setTeam(null)}
         onSave={async (input) => {
           if (!team) return;

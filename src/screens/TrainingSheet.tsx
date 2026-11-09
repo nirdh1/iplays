@@ -47,6 +47,7 @@ export function TrainingSheet({
   myPlayerIds,
   allowTeam = true,
   initialType,
+  logDone,
 }: {
   open: boolean;
   onClose: () => void;
@@ -58,6 +59,8 @@ export function TrainingSheet({
   myPlayerIds: string[];
   allowTeam?: boolean;
   initialType?: TypeId;
+  /** logging a training that already happened (derby card): today, past dates allowed */
+  logDone?: boolean;
 }) {
   const myGk = roster.some((p) => myPlayerIds.includes(p.id) && isGoalkeeperPosition(p.position));
   const types = useMemo<TypeId[]>(() => {
@@ -69,7 +72,7 @@ export function TrainingSheet({
     return list;
   }, [allowTeam, roster.length, staff, myPlayerIds.length, myGk]);
 
-  const blank = () => ({ date: addDays(todayYmd(), 1), time: '17:00', duration_min: 90, title: '', location: '', note: '', repeatWeeks: 1 });
+  const blank = () => ({ date: logDone ? todayYmd() : addDays(todayYmd(), 1), time: logDone ? `${String(Math.max(0, new Date().getHours() - 1)).padStart(2, '0')}:00` : '17:00', duration_min: 90, title: '', location: '', note: '', repeatWeeks: 1 });
   const [type, setType] = useState<TypeId>('team');
   const [f, setF] = useState(blank);
   const [players, setPlayers] = useState<string[]>([]);
@@ -85,6 +88,12 @@ export function TrainingSheet({
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  // the roster loads after the sheet opens: pick the asked-for type once it is offered
+  const typesKey = types.join(',');
+  useEffect(() => {
+    if (open && initialType && types.includes(initialType)) setType(initialType);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typesKey]);
 
   const def = typeDef[type];
   const picking = def.audience === 'players';
@@ -144,7 +153,7 @@ export function TrainingSheet({
 
         <div className="ip-field-row">
           <Field label="תאריך">
-            <input type="date" className="ip-input" min={todayYmd()} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} required />
+            <input type="date" className="ip-input" min={logDone ? undefined : todayYmd()} max={logDone ? todayYmd() : undefined} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} required />
           </Field>
           <Field label="שעה">
             <input type="time" className="ip-input" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} required />
