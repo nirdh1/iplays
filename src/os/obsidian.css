@@ -368,3 +368,17 @@ button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text
 .os-video iframe { width: 100%; max-width: 720px; aspect-ratio: 16 / 9; border: 0; border-radius: 0.5rem; background: #000; }
 .os-video-row { display: flex; justify-content: center; margin-top: 6px; }
 .os-state__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* wide tables (dashboard results): scroll sideways on phones instead of hiding columns */
+.os-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 12px; }
+.os-wtable { width: 100%; min-width: 640px; border-collapse: collapse; }
+.os-wtable th, .os-wtable td { text-align: start; padding: 10px 8px; border-bottom: 1px solid var(--os-outline-2); vertical-align: top; white-space: nowrap; }
+.os-wtable td:first-child { white-space: normal; min-width: 160px; }
+.os-wtable th { color: var(--os-text-2); font-weight: 500; font-size: 12px; }
+.os-wdl { display: inline-flex; gap: 3px; }
+.os-wdl span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.os-wdl__W { background: color-mix(in srgb, var(--os-primary) 25%, transparent); color: var(--os-primary); }
+.os-wdl__D { background: var(--os-outline-2); color: var(--os-text-2); }
+.os-wdl__L { background: color-mix(in srgb, var(--os-tertiary) 25%, transparent); color: var(--os-tertiary); }
+.os-main, .os-stack, .os-stack > *, .os-card { min-width: 0; }
+.os-scroll { max-width: 100%; }
