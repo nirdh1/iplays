@@ -309,7 +309,7 @@ export function QuickLinks({ openCount }: { openCount: number | null }) {
         מגמות וגרפים
       </button>
       <a href="#os/library">ספריית תרגילים</a>
-      <a href="#club/search">שיוך קבוצות</a>
+      <a href="#os/setup">שיוך קבוצות</a>
     </nav>
   );
 }

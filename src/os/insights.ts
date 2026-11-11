@@ -240,21 +240,21 @@ export function setupSteps(dash: Dash, results: TeamResult[], areaOfName: (name:
   const steps: SetupStep[] = [];
   steps.push({
     id: 'teams', label: 'לשייך את קבוצות המועדון', cta: 'לחיפוש ושיוך',
-    href: '#club/search', done: teams.length >= 2,
+    href: '#os/setup', done: teams.length >= 2,
     detail: teams.length === 0 ? 'עדיין אין קבוצות משויכות' : `משויכות ${teams.length} קבוצות`,
   });
   const areas = [...new Set(teams.map((t) => areaOfName(t.name)).filter((a): a is string => !!a))];
   if (areas.length > 0 || teams.length === 0) {
     steps.push({
       id: 'areas', label: 'קבוצות מכמה אזורים (צפון, דרום) לתחרות', cta: 'לשיוך קבוצות',
-      href: '#club/search', done: areas.length >= 2,
+      href: '#os/setup', done: areas.length >= 2,
       detail: areas.length ? `יש קבוצות מ: ${areas.join(', ')}` : 'אין עדיין קבוצות עם אזור בשם',
     });
   }
   const withCoach = results.filter((r) => r.app_coaches.length > 0).length;
   steps.push({
-    id: 'coaches', label: 'המאמנים מחוברים לאפליקציה', cta: 'לפאנל המועדון',
-    href: '#club', done: teams.length > 0 && withCoach >= teams.length,
+    id: 'coaches', label: 'המאמנים מחוברים לאפליקציה', cta: 'להזמנת מאמנים',
+    href: '#os/setup/coaches', done: teams.length > 0 && withCoach >= teams.length,
     detail: teams.length ? `${withCoach} מתוך ${teams.length} קבוצות עם מאמן רשום` : 'אין קבוצות',
   });
   const held = teams.reduce((s, t) => s + t.held, 0);

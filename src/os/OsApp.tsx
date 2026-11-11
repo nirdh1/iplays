@@ -17,6 +17,7 @@ import { PlansScreen } from './PlansScreen';
 import { TrainingDayScreen } from './TrainingDayScreen';
 import { DashboardScreen } from './DashboardScreen';
 import { InterventionsScreen } from './InterventionsScreen';
+import { SetupScreen } from './SetupScreen';
 import './obsidian.css';
 
 function readOsHash() {
@@ -25,7 +26,7 @@ function readOsHash() {
 }
 
 /** Screens that work without a staff team (club owner / manager / any staff). */
-const teamFreeScreens = new Set(['library', 'dashboard', 'interventions', 'status']);
+const teamFreeScreens = new Set(['library', 'dashboard', 'interventions', 'status', 'setup']);
 
 const TEAM_KEY = 'iplays.os.team';
 function readTeamChoice(): string | null {
@@ -120,7 +121,7 @@ export function OsApp() {
     ? ['dashboard', 'interventions', 'library']
     : managerOnly
       ? ['dashboard', 'interventions', 'teams', 'library']
-      : modules.map((m) => m.id).filter((id) => id !== 'status');
+      : modules.map((m) => m.id).filter((id) => id !== 'status' && id !== 'setup');
   // No staff team (e.g. a club owner): open on the director dashboard instead of an empty roster.
   const active = findModule(section) ?? (noTeam || managerOnly ? findModule('dashboard') ?? modules[0] : modules[0]);
   const go = (id: string) => {
@@ -209,6 +210,8 @@ export function OsApp() {
               <DashboardScreen />
             ) : active.id === 'interventions' ? (
               <InterventionsScreen id={param} />
+            ) : active.id === 'setup' ? (
+              <SetupScreen focus={param} />
             ) : active.id === 'status' ? (
               <StatusScreen />
             ) : (

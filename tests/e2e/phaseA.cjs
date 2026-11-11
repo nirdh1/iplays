@@ -203,6 +203,58 @@ async function go(page, hash, wait = 2500) {
     await m.page.screenshot({ path: 'shots/phaseA2-oneteam-390.png', fullPage: true });
     await m.ctx.close();
   }
+  // ---- club setup: adopt free catalog teams + coach invite link, from inside the Club OS
+  {
+    const F1 = '00000000-0000-4000-8000-0000000000f1';
+    const S1 = '00000000-0000-4000-8000-0000000000a1', S2 = '00000000-0000-4000-8000-0000000000a2';
+    await q("delete from invites where team_id in ($1,$2,'00000000-0000-4000-8000-0000000000f3')", [S1, S2]);
+    await q('delete from teams where id in ($1,$2)', [S1, S2]);
+    for (const [id, name] of [[S1, 'ילדים טרום ב׳ – בדוי דרום'], [S2, 'ילדים א׳ – בדוי דרום']])
+      await q("insert into teams (id, name, club, season, sport, league, age_group, opened_by, created_by) values ($1, $2, '', '2026/27', 'football', '', '', 'staff', '00000000-0000-4000-8000-0000000000d1')", [id, name]);
+    const { ctx, page, errors } = await ctxFor(b, F1, { width: 1280, height: 1000 });
+    await go(page, '#os/dashboard', 4000);
+    await page.locator('.os-setup').getByRole('link', { name: 'לחיפוש ושיוך' }).click();
+    await page.waitForTimeout(2500);
+    check('setup: guide link opens setup screen', (await page.evaluate(() => location.hash)) === '#os/setup' && (await page.locator('h1').textContent()) === 'הקמת המועדון');
+    check('setup: menu stays short', (await page.locator('.os-side .os-nav').count()) === 4);
+    await page.fill('#setup-teams input[type=text], #setup-teams input:not([type])', 'בדוי דרום');
+    await page.locator('#setup-teams').getByRole('button', { name: 'חיפוש' }).click();
+    await page.waitForTimeout(2000);
+    const rows = await page.locator('.os-adopt li').count();
+    check('setup: free catalog teams listed', rows === 2, `${rows}`);
+    check('setup: area chip', (await page.locator('.os-adopt .os-chip').first().textContent()) === 'דרום');
+    page.once('dialog', (d) => d.accept());
+    await page.locator('.os-adopt li').first().locator('input').check();
+    await page.locator('.os-adopt__go button').click();
+    await page.waitForTimeout(3000);
+    const linked = await q('select count(*)::int n from teams where club_id = $1', ['00000000-0000-4000-8000-0000000000f2']);
+    check('setup: one team adopted (DB)', linked[0].n === 2, `${linked[0].n}`);
+    check('setup: adopted team shows as linked', /2 משויכות/.test(await page.textContent('#setup-teams')) && (await page.locator('.os-adopt li').count()) === 1);
+    await page.locator('#setup-coaches li').first().getByRole('button', { name: 'קישור הזמנה למאמן' }).click();
+    await page.waitForTimeout(1500);
+    const link = await page.locator('#setup-coaches input').first().inputValue();
+    const inv = await q("select count(*)::int n from invites where role = 'coach' and team_id in (select id from teams where club_id = $1)", ['00000000-0000-4000-8000-0000000000f2']);
+    check('setup: coach invite link created', /#join\/\w+/.test(link) && inv[0].n === 1, link);
+    check('setup: whatsapp share', /wa\.me/.test(await page.locator('#setup-coaches a').first().getAttribute('href')));
+    await page.screenshot({ path: 'shots/phaseA3-setup-1280.png', fullPage: true });
+    await go(page, '#os/dashboard', 4000);
+    const dbody = await page.textContent('body');
+    check('setup: cockpit now has two areas', !/כרגע משויכות רק קבוצות מצפון/.test(dbody) && /משויכות 2 קבוצות/.test(dbody), (dbody.match(/משויכות[^.]{0,20}/) || [''])[0]);
+    check('setup: no page errors', errors.length === 0, errors.join(' | '));
+    await ctx.close();
+    const m = await ctxFor(b, F1, { width: 390, height: 844 });
+    await go(m.page, '#os/setup', 4000);
+    check('setup phone: no horizontal scroll', await m.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    await m.page.screenshot({ path: 'shots/phaseA3-setup-390.png', fullPage: true });
+    await m.ctx.close();
+    // a coach cannot adopt (server refuses); restore the fixture
+    const c = await ctxFor(b, COACH, { width: 1280, height: 900 });
+    await go(c.page, '#os/setup', 3000);
+    check('setup: coach without club role sees a note', /מיועדת להנהלת המועדון/.test(await c.page.textContent('body')));
+    await c.ctx.close();
+    await q("delete from invites where team_id in ($1,$2,'00000000-0000-4000-8000-0000000000f3')", [S1, S2]);
+    await q('delete from teams where id in ($1,$2)', [S1, S2]);
+  }
   // ---- coach keeps the full coach menu
   {
     const { ctx, page } = await ctxFor(b, COACH, { width: 1280, height: 900 });

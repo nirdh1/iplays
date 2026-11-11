@@ -152,7 +152,7 @@ export function DashboardScreen() {
       {dash.teams.length === 0 && (
         <p className="os-muted">
           עדיין אין קבוצות משויכות למועדון.{' '}
-          <a className="os-back" href="#club/search">
+          <a className="os-back" href="#os/setup">
             חיפוש ושיוך קבוצות
           </a>
         </p>
@@ -710,7 +710,7 @@ function AreaDuel({ results, work, trends, days }: { results: TeamResult[]; work
             : 'התחרות משווה בין אזורים לפי המילה בשם הקבוצה (צפון, דרום, מרכז). עדיין אין קבוצות משויכות עם אזור בשם.'}
         </p>
         <p className="os-muted os-small">כשיהיו שני אזורים יופיעו כאן: ניקוד בין האזורים, נוכחות, מערכים, דוחות, שיפור בנוכחות ושיפור בתוצאות. ההורים והילדים יראו גם כרטיס דרבי עם אימונים אישיים.</p>
-        <a className="os-btn" href="#club/search">
+        <a className="os-btn" href="#os/setup">
           לשיוך קבוצות
         </a>
       </section>
