@@ -9,13 +9,14 @@ import { useEffect, useState } from 'react';
 import { friendlyError } from '../lib/api';
 import type { Insight, SetupStep } from './insights';
 import {
+  METRIC_HE,
+  OUTCOME_HE,
   STATUS_HE,
   israelDate,
   isOpen,
   listInterventions,
   openIntervention,
   ownerOptions,
-  todaySessions,
   type Intervention,
   type OwnerOption,
   type TodaySession,
@@ -25,52 +26,86 @@ import { ErrorNote, Loading, NoData, SourceTag } from './StateView';
 const LEVEL_HE = { critical: 'דחוף', warn: 'לטיפול השבוע', chance: 'הזדמנות' };
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
 
+/** A small pitch drawing (lines only): the Stitch pitch card without invented player dots. */
+function PitchLines() {
+  return (
+    <svg className="os-pitch__lines" viewBox="0 0 300 180" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="6" y="6" width="288" height="168" rx="4" />
+      <line x1="150" y1="6" x2="150" y2="174" />
+      <circle cx="150" cy="90" r="26" />
+      <circle cx="150" cy="90" r="2" className="is-fill" />
+      <rect x="6" y="52" width="34" height="76" />
+      <rect x="260" y="52" width="34" height="76" />
+    </svg>
+  );
+}
+
+export type PitchState = 'ended' | 'now' | 'planned';
+export function pitchState(s: TodaySession, now = Date.now()): PitchState {
+  const start = new Date(s.starts_at).getTime();
+  const end = start + s.duration_min * 60000;
+  return now > end ? 'ended' : now >= start ? 'now' : 'planned';
+}
+const STATE_HE: Record<PitchState, string> = { ended: 'הסתיים לפי היומן', now: 'בשעות האימון · לא מאומת', planned: 'מתוכנן' };
+
 /** Area A. Only what the calendar says; never a "live" state without a check-in. */
-export function TodayPitches({ club }: { club: string }) {
-  const [rows, setRows] = useState<TodaySession[] | null | undefined>(undefined);
-  useEffect(() => {
-    let live = true;
-    setRows(undefined);
-    todaySessions(club)
-      .then((d) => live && setRows(d ?? null))
-      .catch(() => live && setRows(null));
-    return () => {
-      live = false;
-    };
-  }, [club]);
+export function TodayPitches({ rows, coachOf }: { rows: TodaySession[] | null | undefined; coachOf: Map<string, string | null> }) {
   const now = Date.now();
   return (
-    <section className="os-card os-cockpit__live" aria-labelledby="ck-live">
-      <div className="os-card__head">
-        <h2 id="ck-live">מגרשים היום</h2>
-        <span className="os-badge os-badge--planned">מתוכנן בלבד</span>
+    <section className="os-area os-cockpit__live" aria-labelledby="ck-live">
+      <div className="os-area__head">
+        <div>
+          <span className="os-eyebrow">אזור A · מגרשים היום</span>
+          <h2 id="ck-live">מה קורה היום במגרשים?</h2>
+        </div>
+        <span className="os-badge os-badge--planned">מתוכנן בלבד · לפי היומן</span>
       </div>
-      <p className="os-muted os-small">
-        לפי היומן. מצב חי (מי על המגרש עכשיו, מאמן שהגיע) יתווסף עם צ'ק־אין מאמנים ומפת מגרשים בשלב C.
-      </p>
       {rows === undefined ? (
         <Loading />
       ) : rows === null ? (
         <NoData>אין נתוני יומן זמינים</NoData>
       ) : rows.length === 0 ? (
-        <NoData>אין אימונים ביומן להיום</NoData>
+        <div className="os-pitch os-pitch--empty">
+          <div className="os-pitch__field">
+            <PitchLines />
+            <div className="os-pitch__overlay">
+              <strong>אין אימונים ביומן להיום</strong>
+              <small>אימון שיוזן ביומן של קבוצה במועדון יופיע כאן כמגרש</small>
+            </div>
+          </div>
+        </div>
       ) : (
-        <ul className="os-today">
+        <ul className="os-today os-pitches">
           {rows.map((s) => {
-            const start = new Date(s.starts_at).getTime();
-            const end = start + s.duration_min * 60000;
-            const when = now > end ? 'הסתיים לפי היומן' : now >= start ? 'בשעות האימון לפי היומן' : `מתוכנן ${hhmm(s.starts_at)}`;
+            const st = pitchState(s, now);
+            const end = new Date(new Date(s.starts_at).getTime() + s.duration_min * 60000).toISOString();
+            const coach = coachOf.get(s.team_id);
             return (
-              <li key={s.session_id}>
-                <span className="os-today__time">{hhmm(s.starts_at)}</span>
-                <span className="os-today__team">
-                  <strong>{s.team_name}</strong>
-                  <small>{s.location || 'מגרש לא צוין'}</small>
-                </span>
-                <span className="os-today__state">
-                  <span className="os-chip os-chip--off">{when}</span>
-                  {!s.has_plan && <span className="os-chip os-chip--warn">בלי מערך</span>}
-                </span>
+              <li key={s.session_id} className={`os-pitch is-${st}`}>
+                <div className="os-pitch__head">
+                  <span className="os-pitch__dot" aria-hidden="true" />
+                  <span className="os-today__team">
+                    <strong>{s.location || 'מגרש לא צוין'}</strong>
+                    <small>
+                      {s.team_name}
+                      {coach ? ` · מאמן: ${coach}` : ''}
+                    </small>
+                  </span>
+                  <span className="os-today__state">
+                    <span className="os-chip os-chip--off">{st === 'planned' ? `${STATE_HE.planned} ${hhmm(s.starts_at)}` : STATE_HE[st]}</span>
+                  </span>
+                </div>
+                <div className="os-pitch__field">
+                  <PitchLines />
+                  <div className="os-pitch__overlay">
+                    <span className="os-today__time">{hhmm(s.starts_at)}</span>
+                    <small>עד {hhmm(end)} · {s.duration_min} דק׳</small>
+                  </div>
+                </div>
+                <div className="os-pitch__foot">
+                  {s.has_plan ? <span className="os-chip os-chip--done">מערך משויך</span> : <span className="os-chip os-chip--warn">בלי מערך</span>}
+                  <small className="os-muted">מצב חי (מי על המגרש, מאמן שהגיע) יגיע עם צ'ק־אין מאמנים</small>
+                </div>
               </li>
             );
           })}
@@ -80,9 +115,76 @@ export function TodayPitches({ club }: { club: string }) {
   );
 }
 
+/** Area C, impact: what the club's interventions changed (server-measured before / after). */
+export function ImpactCard({ list }: { list: Intervention[] | null | undefined }) {
+  const all = list ?? [];
+  const open = all.filter((i) => isOpen(i.status));
+  const closed = all.filter((i) => i.status === 'closed');
+  const improved = closed.filter((i) => i.outcome === 'improved').length;
+  const shown = [...open, ...closed].slice(0, 4);
+  return (
+    <section className="os-card os-impact" aria-labelledby="ck-impact">
+      <div className="os-card__head">
+        <h2 id="ck-impact">מדידת השפעה של החלטות</h2>
+        <SourceTag source="db" />
+      </div>
+      {list === undefined ? (
+        <Loading />
+      ) : list === null ? (
+        <NoData>ההתערבויות לא זמינות</NoData>
+      ) : all.length === 0 ? (
+        <p className="os-muted">עוד לא נפתחו התערבויות. כל החלטה שתיפתח ממרכז ההחלטות תימדד כאן: מדד לפני, מדד עכשיו, ותוצאה.</p>
+      ) : (
+        <>
+          <div className="os-impact__kpis">
+            <div>
+              <strong>{open.length}</strong>
+              <small>פתוחות</small>
+            </div>
+            <div>
+              <strong>{closed.length}</strong>
+              <small>נסגרו</small>
+            </div>
+            <div>
+              <strong className="is-good">{improved}</strong>
+              <small>השתפרו</small>
+            </div>
+          </div>
+          <ul className="os-impact__list">
+            {shown.map((i) => {
+              const unit = METRIC_HE[i.metric]?.unit ?? '';
+              const fmt = (v: number | null) => (v === null ? '–' : `${Math.round(v * 10) / 10}${unit}`);
+              const d = i.baseline_value !== null && i.current_value !== null ? i.current_value - i.baseline_value : null;
+              return (
+                <li key={i.id}>
+                  <a href={`#os/interventions/${i.id}`}>
+                    <span className="os-impact__text">
+                      <strong>{i.title}</strong>
+                      <small>
+                        {i.team_name ?? 'כל המועדון'} · {i.status === 'closed' && i.outcome ? OUTCOME_HE[i.outcome] : STATUS_HE[i.status]}
+                      </small>
+                    </span>
+                    <span className={`os-impact__delta${d !== null && d > 0 ? ' is-up' : d !== null && d < 0 ? ' is-down' : ''}`}>
+                      {fmt(i.baseline_value)} → {fmt(i.current_value)}
+                    </span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
 /** Area B. */
-export function DecisionHub({ club, insights, canManage }: { club: string; insights: Insight[]; canManage: boolean }) {
+export function DecisionHub({ club, insights, canManage, onList }: { club: string; insights: Insight[]; canManage: boolean; onList?: (l: Intervention[] | null | undefined) => void }) {
   const [list, setList] = useState<Intervention[] | null | undefined>(undefined);
+  useEffect(() => {
+    onList?.(list);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list]);
   const [opening, setOpening] = useState<Insight | null>(null);
   const reload = () =>
     listInterventions(club)
@@ -99,38 +201,50 @@ export function DecisionHub({ club, insights, canManage }: { club: string; insig
   const checking = open.filter((i) => i.status === 'checking').length;
 
   return (
-    <section className="os-card os-cockpit__hub" aria-labelledby="ck-hub">
-      <div className="os-card__head">
-        <h2 id="ck-hub">מרכז החלטות</h2>
+    <section className="os-area os-cockpit__hub" aria-labelledby="ck-hub">
+      <div className="os-area__head">
+        <div>
+          <span className="os-eyebrow">אזור B · מרכז החלטות</span>
+          <h2 id="ck-hub">מרכז פעולה ניהולי · {insights.length || 'אין'} החלטות</h2>
+          <small className="os-muted">פחות נתונים, יותר החלטות: תובנה ← פעולה ← תוצאה</small>
+        </div>
         <SourceTag source="db" />
       </div>
       {insights.length === 0 ? (
         <p className="os-muted">אין תובנות פתוחות. כל הקבוצות מסמנות נוכחות, מגישות דוחות ומתכננות אימונים.</p>
       ) : (
-        <div className="os-dash__actions">
+        <div className="os-dcards">
           {insights.map((x, i) => {
             const linked = openByKey.get(x.key);
             return (
-              <article key={x.key} className={`os-dash__action os-insight is-${x.level}`} data-insight={x.key}>
-                <span className="os-dash__level">
-                  {i + 1}. {LEVEL_HE[x.level]}
-                </span>
-                <h3>{x.title}</h3>
-                <dl className="os-insight__dl">
-                  <dt>מה קרה</dt>
-                  <dd>{x.what}</dd>
-                  <dt>למה זה חשוב</dt>
-                  <dd>{x.why}</dd>
-                  <dt>מה לעשות</dt>
-                  <dd>{x.todo}</dd>
-                </dl>
-                <div className="os-row os-insight__actions">
+              <article key={x.key} className={`os-dcard os-insight is-${x.level}`} data-insight={x.key}>
+                <header className="os-dcard__head">
+                  <span className={`os-dcard__level is-${x.level}`}>
+                    {i + 1} · {LEVEL_HE[x.level]}
+                  </span>
+                  <h3>{x.title}</h3>
+                </header>
+                <div className="os-dcard__cols">
+                  <div>
+                    <span className="os-eyebrow">מה קרה?</span>
+                    <p>{x.what}</p>
+                  </div>
+                  <div>
+                    <span className="os-eyebrow">למה זה משנה?</span>
+                    <p>{x.why}</p>
+                  </div>
+                </div>
+                <div className="os-dcard__todo">
+                  <span className="os-eyebrow">פעולה מומלצת</span>
+                  <p>{x.todo}</p>
+                </div>
+                <div className="os-dcard__actions">
                   {linked ? (
-                    <a className="os-btn" href={`#os/interventions/${linked.id}`}>
+                    <a className="os-btn os-btn--big" href={`#os/interventions/${linked.id}`}>
                       התערבות פתוחה · {STATUS_HE[linked.status]}
                     </a>
                   ) : canManage ? (
-                    <button type="button" className="os-btn" onClick={() => setOpening(x)} disabled={list === undefined}>
+                    <button type="button" className="os-btn os-btn--big" onClick={() => setOpening(x)} disabled={list === undefined}>
                       פתיחת התערבות
                     </button>
                   ) : null}
@@ -263,14 +377,15 @@ function OpenSheet({ club, insight, onClose, onDone }: { club: string; insight: 
 export function SetupGuide({ steps }: { steps: SetupStep[] }) {
   const done = steps.filter((s) => s.done).length;
   if (done === steps.length) return null;
+  // Open while most of the picture is missing; afterwards a slim, expandable bar.
   return (
-    <section className="os-card os-setup" aria-labelledby="ck-setup">
-      <div className="os-card__head">
+    <details className="os-card os-setup" open={done < steps.length / 2}>
+      <summary className="os-card__head">
         <h2 id="ck-setup">מה חסר כדי לראות את התמונה המלאה</h2>
         <span className="os-setup__count">
           {done} מתוך {steps.length}
         </span>
-      </div>
+      </summary>
       <span className="os-bar" aria-hidden="true">
         <span style={{ width: `${Math.max(4, (100 * done) / steps.length)}%` }} />
       </span>
@@ -292,7 +407,7 @@ export function SetupGuide({ steps }: { steps: SetupStep[] }) {
           </li>
         ))}
       </ol>
-    </section>
+    </details>
   );
 }
 
@@ -305,11 +420,14 @@ export function QuickLinks({ openCount }: { openCount: number | null }) {
       <button type="button" onClick={() => scrollTo('ck-duel')}>
         תחרות בין האזורים
       </button>
+      <button type="button" onClick={() => scrollTo('ck-rivals')}>
+        מול מועדונים אחרים
+      </button>
       <button type="button" onClick={() => scrollTo('ck-trends')}>
         מגמות וגרפים
       </button>
       <a href="#os/library">ספריית תרגילים</a>
-      <a href="#club/search">שיוך קבוצות</a>
+      <a href="#os/setup">שיוך קבוצות</a>
     </nav>
   );
 }
