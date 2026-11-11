@@ -1,5 +1,5 @@
 // Unit tests for the cockpit insights. Run: node scripts/run-os-tests.mjs
-import { allInsights, delta, insightKey, topInsights, trend, type Dash, type TeamResult, type TeamRow, type Trends } from './insights';
+import { allInsights, delta, insightKey, setupSteps, topInsights, trend, type Dash, type TeamResult, type TeamRow, type Trends } from './insights';
 
 let failed = 0;
 const eq = (name: string, got: unknown, want: unknown) => {
@@ -75,5 +75,19 @@ const top = topInsights(many);
 eq('top 3 size', top.length, 3);
 eq('top 3 keeps the chance last', top.map((i) => i.level), ['critical', 'critical', 'chance']);
 eq('top without chance', topInsights(ins).map((i) => i.kind), ['missing_marks', 'missing_reports', 'no_plan']);
+
+// setup guide: from real numbers only
+const area = (n: string) => (n.includes('צפון') ? 'צפון' : n.includes('דרום') ? 'דרום' : null);
+const one = setupSteps(dash([row('a', { name: 'טרום ב צפון', held: 2, held_marked: 0, missing_reports: 2, upcoming: 0, upcoming_no_plan: 0 })]), [result('a')], area);
+eq('one team: steps', one.map((s) => `${s.id}:${s.done}`), ['teams:false', 'areas:false', 'coaches:false', 'attendance:false', 'plans:false', 'reports:false']);
+eq('one team: area detail', one[1].detail, 'יש קבוצות מ: צפון');
+eq('one team: attendance detail', one[3].detail, '0 מתוך 2 אימונים סומנו');
+const full = setupSteps(
+  dash([row('a', { name: 'צפון' }), row('b', { name: 'דרום' })]),
+  [result('a', { app_coaches: ['x'] }), result('b', { app_coaches: ['y'] })], area);
+eq('full club: all done', full.every((s) => s.done), true);
+const noArea = setupSteps(dash([row('a'), row('b')]), [], area);
+eq('no area words: no area step', noArea.some((s) => s.id === 'areas'), false);
+eq('empty club: nothing done', setupSteps(dash([]), [], area).filter((s) => s.done).length, 0);
 
 if (failed) process.exit(1);

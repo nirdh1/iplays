@@ -217,3 +217,65 @@ export function topInsights(all: Insight[]): Insight[] {
   const top = all.filter((a) => a !== chance).slice(0, chance ? 2 : 3);
   return chance ? [...top, chance] : top;
 }
+
+/* ---------- setup guide ---------- */
+
+export interface SetupStep {
+  id: 'teams' | 'areas' | 'coaches' | 'attendance' | 'plans' | 'reports';
+  label: string;
+  /** what is there now, in numbers */
+  detail: string;
+  done: boolean;
+  href: string;
+  cta: string;
+}
+
+/**
+ * What the club still needs so the cockpit shows the full picture
+ * (user 2026-11-11: "אין דשבורד שמציג מה שדיברנו"). Each step is computed from
+ * the same real numbers as the cockpit; nothing is assumed.
+ */
+export function setupSteps(dash: Dash, results: TeamResult[], areaOfName: (name: string) => string | null): SetupStep[] {
+  const teams = dash.teams;
+  const steps: SetupStep[] = [];
+  steps.push({
+    id: 'teams', label: 'לשייך את קבוצות המועדון', cta: 'לחיפוש ושיוך',
+    href: '#club/search', done: teams.length >= 2,
+    detail: teams.length === 0 ? 'עדיין אין קבוצות משויכות' : `משויכות ${teams.length} קבוצות`,
+  });
+  const areas = [...new Set(teams.map((t) => areaOfName(t.name)).filter((a): a is string => !!a))];
+  if (areas.length > 0 || teams.length === 0) {
+    steps.push({
+      id: 'areas', label: 'קבוצות מכמה אזורים (צפון, דרום) לתחרות', cta: 'לשיוך קבוצות',
+      href: '#club/search', done: areas.length >= 2,
+      detail: areas.length ? `יש קבוצות מ: ${areas.join(', ')}` : 'אין עדיין קבוצות עם אזור בשם',
+    });
+  }
+  const withCoach = results.filter((r) => r.app_coaches.length > 0).length;
+  steps.push({
+    id: 'coaches', label: 'המאמנים מחוברים לאפליקציה', cta: 'לפאנל המועדון',
+    href: '#club', done: teams.length > 0 && withCoach >= teams.length,
+    detail: teams.length ? `${withCoach} מתוך ${teams.length} קבוצות עם מאמן רשום` : 'אין קבוצות',
+  });
+  const held = teams.reduce((s, t) => s + t.held, 0);
+  const marked = teams.reduce((s, t) => s + t.held_marked, 0);
+  steps.push({
+    id: 'attendance', label: 'המאמנים מסמנים נוכחות', cta: 'ליומן',
+    href: '#os/calendar', done: held > 0 && marked === held,
+    detail: held === 0 ? `לא התקיימו אימונים ב־${dash.days} הימים האחרונים` : `${marked} מתוך ${held} אימונים סומנו`,
+  });
+  const upcoming = teams.reduce((s, t) => s + t.upcoming, 0);
+  const noPlan = teams.reduce((s, t) => s + t.upcoming_no_plan, 0);
+  steps.push({
+    id: 'plans', label: 'לכל אימון קרוב יש מערך', cta: 'למערכי אימון',
+    href: '#os/plans', done: upcoming > 0 && noPlan === 0,
+    detail: upcoming === 0 ? 'אין אימונים ביומן לשבוע הקרוב' : `${upcoming - noPlan} מתוך ${upcoming} עם מערך`,
+  });
+  const missing = teams.reduce((s, t) => s + t.missing_reports, 0);
+  steps.push({
+    id: 'reports', label: 'דוח של דקה אחרי כל אימון', cta: 'ליום האימון',
+    href: '#os/day', done: held > 0 && missing === 0,
+    detail: held === 0 ? 'אין עדיין אימונים לדווח עליהם' : `${held - missing} מתוך ${held} עם דוח`,
+  });
+  return steps;
+}

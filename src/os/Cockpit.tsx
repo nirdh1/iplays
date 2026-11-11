@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { friendlyError } from '../lib/api';
-import type { Insight } from './insights';
+import type { Insight, SetupStep } from './insights';
 import {
   STATUS_HE,
   israelDate,
@@ -256,5 +256,60 @@ function OpenSheet({ club, insight, onClose, onDone }: { club: string; insight: 
         </form>
       </div>
     </div>
+  );
+}
+
+/** "What's missing for the full picture": real steps, each with its link. Hidden once all are done. */
+export function SetupGuide({ steps }: { steps: SetupStep[] }) {
+  const done = steps.filter((s) => s.done).length;
+  if (done === steps.length) return null;
+  return (
+    <section className="os-card os-setup" aria-labelledby="ck-setup">
+      <div className="os-card__head">
+        <h2 id="ck-setup">מה חסר כדי לראות את התמונה המלאה</h2>
+        <span className="os-setup__count">
+          {done} מתוך {steps.length}
+        </span>
+      </div>
+      <span className="os-bar" aria-hidden="true">
+        <span style={{ width: `${Math.max(4, (100 * done) / steps.length)}%` }} />
+      </span>
+      <ol className="os-setup__list">
+        {steps.map((s) => (
+          <li key={s.id} className={s.done ? 'is-done' : ''}>
+            <span className="os-setup__mark" aria-hidden="true">
+              {s.done ? '✓' : ''}
+            </span>
+            <span className="os-setup__text">
+              <strong>{s.label}</strong>
+              <small>{s.detail}</small>
+            </span>
+            {!s.done && (
+              <a className="os-btn os-btn--ghost os-btn--sm" href={s.href}>
+                {s.cta}
+              </a>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** Quick ways from the cockpit to the rest of the professional side. */
+export function QuickLinks({ openCount }: { openCount: number | null }) {
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  return (
+    <nav className="os-quick" aria-label="קיצורים">
+      <a href="#os/interventions">התערבויות{openCount ? ` (${openCount})` : ''}</a>
+      <button type="button" onClick={() => scrollTo('ck-duel')}>
+        תחרות בין האזורים
+      </button>
+      <button type="button" onClick={() => scrollTo('ck-trends')}>
+        מגמות וגרפים
+      </button>
+      <a href="#os/library">ספריית תרגילים</a>
+      <a href="#club/search">שיוך קבוצות</a>
+    </nav>
   );
 }

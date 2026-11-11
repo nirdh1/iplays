@@ -179,6 +179,38 @@ async function go(page, hash, wait = 2500) {
     check('empty: no page errors', errors.length === 0, errors.join(' | '));
     await ctx.close();
   }
+
+  // ---- one-team club (like production now): setup guide, duel placeholder, short manager menu
+  {
+    const { ctx, page, errors } = await ctxFor(b, '00000000-0000-4000-8000-0000000000f1', { width: 1280, height: 1000 });
+    await go(page, '#os/dashboard', 4000);
+    const body = await page.textContent('body');
+    check('one team: setup guide shown', /מה חסר כדי לראות את התמונה המלאה/.test(body) && /0 מתוך 2 אימונים סומנו/.test(body));
+    check('one team: duel placeholder', /תחרות בין האזורים/.test(body) && /כרגע משויכות רק קבוצות מצפון/.test(body));
+    check('one team: coach compare shown or explained', /השוואת מאמנים/.test(body));
+    const nav = await page.locator('.os-side .os-nav span').allTextContents();
+    check('one team: short manager menu', JSON.stringify(nav) === JSON.stringify(['קוקפיט מנהל', 'התערבויות', 'קבוצות וסגל', 'ספריית תרגילים']), nav.join(' | '));
+    check('one team: no MVP day labels', !/יום \d/.test(await page.locator('.os-side').textContent()));
+    await page.locator('.os-quick').getByRole('button', { name: 'תחרות בין האזורים' }).click();
+    await page.waitForTimeout(800);
+    check('quick link scrolls to duel', await page.evaluate(() => { const r = document.getElementById('ck-duel').getBoundingClientRect(); return r.top < window.innerHeight && r.bottom > 0; }));
+    await page.screenshot({ path: 'shots/phaseA2-oneteam-1280.png', fullPage: true });
+    check('one team: no page errors', errors.length === 0, errors.join(' | '));
+    await ctx.close();
+    const m = await ctxFor(b, '00000000-0000-4000-8000-0000000000f1', { width: 390, height: 844 });
+    await go(m.page, '#os/dashboard', 4000);
+    check('one team phone: no horizontal scroll', await m.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    await m.page.screenshot({ path: 'shots/phaseA2-oneteam-390.png', fullPage: true });
+    await m.ctx.close();
+  }
+  // ---- coach keeps the full coach menu
+  {
+    const { ctx, page } = await ctxFor(b, COACH, { width: 1280, height: 900 });
+    await go(page, '#os/home', 3000);
+    const nav = await page.locator('.os-side .os-nav span').allTextContents();
+    check('coach: full menu without status', nav.includes('יום האימון') && nav.includes('יומן ונוכחות') && !nav.includes('מה עובד'), nav.join(' | '));
+    await ctx.close();
+  }
   // ---- navigation: side nav has the interventions entry
   {
     const { ctx, page } = await ctxFor(b, OWNER, { width: 1280, height: 900 });

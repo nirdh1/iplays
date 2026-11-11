@@ -3,9 +3,9 @@ import { friendlyError } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { AREAS, areaOf } from './areas';
 import { ErrorNote, Loading, NoData, SourceTag } from './StateView';
-import { DecisionHub, TodayPitches } from './Cockpit';
+import { DecisionHub, QuickLinks, SetupGuide, TodayPitches } from './Cockpit';
 import { envLabel } from './env';
-import { allInsights, avg, delta, formPpg, heldWeeks, pctOf, topInsights, trend, type Dash, type TeamResult, type TeamRow, type Trends } from './insights';
+import { allInsights, setupSteps, avg, delta, formPpg, heldWeeks, pctOf, topInsights, trend, type Dash, type TeamResult, type TeamRow, type Trends } from './insights';
 
 interface DrillRow {
   team_id: string;
@@ -131,13 +131,16 @@ export function DashboardScreen() {
         </div>
       </header>
 
+      <QuickLinks openCount={null} />
+      <SetupGuide steps={setupSteps(dash, results ?? [], areaOf)} />
+
       <div className="os-cockpit">
         <DecisionHub club={club!} insights={insights} canManage={canManage === true} />
         <TodayPitches club={club!} />
       </div>
 
-      <section className="os-cockpit__trends" aria-labelledby="ck-trends">
-        <h2 id="ck-trends" className="os-cockpit__title">מגמות ותוצאות</h2>
+      <section className="os-cockpit__trends" id="ck-trends" aria-labelledby="ck-trends-h">
+        <h2 id="ck-trends-h" className="os-cockpit__title">מגמות ותוצאות</h2>
         <Pulse dash={dash} trends={trends} />
       </section>
       <AreaDuel results={results ?? []} work={dash.teams} trends={trends ?? null} days={dash.days} />
@@ -445,7 +448,13 @@ function TeamCards({ results, work, trends, days }: { results: TeamResult[] | nu
 
 function CoachBars({ rows, loading }: { rows: CoachRow[]; loading: boolean }) {
   if (loading) return null;
-  if (!rows.length) return null;
+  if (!rows.length)
+    return (
+      <section className="os-card">
+        <h2>השוואת מאמנים</h2>
+        <p className="os-muted">תופיע כשיהיו קבוצות משויכות עם מאמן (רשום באפליקציה או מאתר ההתאחדות).</p>
+      </section>
+    );
   const metrics: { key: keyof CoachRow; label: string; max: number; fmt: (v: number) => string }[] = [
     { key: 'ppg', label: 'נקודות למשחק', max: 3, fmt: (v) => v.toFixed(1) },
     { key: 'attendance', label: 'נוכחות', max: 100, fmt: (v) => `${v}%` },
@@ -687,7 +696,26 @@ function areaRows(results: TeamResult[], work: TeamRow[], trends: Trends | null)
  */
 function AreaDuel({ results, work, trends, days }: { results: TeamResult[]; work: TeamRow[]; trends: Trends | null; days: number }) {
   const rows = areaRows(results, work, trends);
-  if (rows.length < 2) return null;
+  if (rows.length < 2) {
+    const other = AREAS.filter((a) => a !== rows[0]?.area).slice(0, 2).join(' או ');
+    return (
+      <section className="os-card os-duel" id="ck-duel">
+        <div className="os-card__head">
+          <h2>תחרות בין האזורים</h2>
+          <span className="os-badge os-badge--planned">ממתין לקבוצות</span>
+        </div>
+        <p>
+          {rows.length === 1
+            ? `כרגע משויכות רק קבוצות מ${rows[0].area}. כדי שתתחיל תחרות צריך לשייך למועדון גם קבוצות מ${other}, באותו שנתון.`
+            : 'התחרות משווה בין אזורים לפי המילה בשם הקבוצה (צפון, דרום, מרכז). עדיין אין קבוצות משויכות עם אזור בשם.'}
+        </p>
+        <p className="os-muted os-small">כשיהיו שני אזורים יופיעו כאן: ניקוד בין האזורים, נוכחות, מערכים, דוחות, שיפור בנוכחות ושיפור בתוצאות. ההורים והילדים יראו גם כרטיס דרבי עם אימונים אישיים.</p>
+        <a className="os-btn" href="#club/search">
+          לשיוך קבוצות
+        </a>
+      </section>
+    );
+  }
   const metrics: { key: keyof AreaRow; label: string; fmt: (v: number) => string; max: number }[] = [
     { key: 'attendance', label: `נוכחות (${days} ימים)`, fmt: (v) => `${v}%`, max: 100 },
     { key: 'plan', label: 'אימונים עם מערך', fmt: (v) => `${v}%`, max: 100 },
@@ -709,7 +737,7 @@ function AreaDuel({ results, work, trends, days }: { results: TeamResult[]; work
   const top = order[0];
   const tie = order.length > 1 && points.get(order[0].area) === points.get(order[1].area);
   return (
-    <section className="os-card os-duel">
+    <section className="os-card os-duel" id="ck-duel">
       <div className="os-card__head">
         <h2>{rows.map((r) => r.area).join(' מול ')}</h2>
         <SourceTag source="db" />

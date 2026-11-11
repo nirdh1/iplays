@@ -554,3 +554,24 @@ button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text
 .os-iv__manage summary { cursor: pointer; color: var(--os-secondary); font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .os-ivlog { list-style: none; margin: 8px 0 0; padding: 0; }
 .os-ivlog li { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--os-outline-2); }
+
+/* cockpit: setup guide + quick links (2026-11-11) */
+.os-quick { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.os-quick a, .os-quick button {
+  flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--os-outline-2); background: var(--os-surface); color: var(--os-text); font: inherit; font-size: 14px;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.os-quick a:hover, .os-quick button:hover { border-color: var(--os-primary); }
+.os-setup { border-color: color-mix(in srgb, var(--os-secondary) 45%, transparent); }
+.os-setup__count { font-weight: 700; color: var(--os-secondary); }
+.os-setup .os-bar { margin: 6px 0 4px; }
+.os-setup__list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+.os-setup__list li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--os-outline-2); }
+.os-setup__list li:last-child { border-bottom: 0; }
+.os-setup__mark { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; border: 2px solid var(--os-outline-2); font-size: 13px; font-weight: 700; }
+.os-setup__list li.is-done .os-setup__mark { background: var(--os-primary); border-color: var(--os-primary); color: var(--os-on-primary); }
+.os-setup__list li.is-done strong { color: var(--os-text-2); font-weight: 500; }
+.os-setup__text { display: grid; min-width: 0; }
+.os-setup__text small { color: var(--os-text-2); }
+@media (max-width: 599px) { .os-setup__list li { grid-template-columns: 28px minmax(0, 1fr); } .os-setup__list li .os-btn { grid-column: 2; justify-self: start; } }
