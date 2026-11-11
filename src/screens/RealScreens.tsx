@@ -4,6 +4,7 @@
  * them. A user without a team sees an empty state with a search button and,
  * until they belong to a real team, a link to the sample view.
  */
+import { DerbyHomeCard } from './DerbyCard';
 import { useCallback, useEffect, useState } from 'react';
 import { InitialsAvatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
@@ -224,6 +225,9 @@ export function RealHomeScreen({ onShowSample }: { onShowSample: () => void }) {
           <LiveNowSection teams={teams} />
           {kids && kids.length === 1 && <ChildHero k={kids[0]} />}
           <NextUp teams={teams} />
+          {teams.map((t) => (
+            <DerbyHomeCard key={`derby-${t.id}`} team={t} kids={kids ?? []} />
+          ))}
           {teams.map((t) => (
             <LeagueHomeCard key={`league-${t.id}`} teamId={t.id} teamName={teams.length > 1 ? t.name : undefined} ourName={t.name} />
           ))}

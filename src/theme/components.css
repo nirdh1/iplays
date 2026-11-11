@@ -2946,3 +2946,22 @@ select.ip-input {
   text-align: center;
   font-size: 0.85rem;
 }
+
+/* Derby card (north vs south, same birth year) */
+.ip-derby { display: flex; flex-direction: column; gap: var(--ip-s3, 12px); }
+.ip-derby-headline { margin: 0; font-weight: 700; font-size: 16px; line-height: 1.5; }
+.ip-derby-areas { display: flex; flex-direction: column; gap: 14px; }
+.ip-derby-area { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--ip-surface-2, rgba(11, 31, 59, 0.04)); border: 2px solid transparent; }
+.ip-derby-area.is-us { border-color: var(--ip-lime, #7cf23d); }
+.ip-derby-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ip-derby-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ip-derby-bar { display: flex; block-size: 14px; border-radius: 999px; overflow: hidden; background: rgba(11, 31, 59, 0.08); }
+.ip-derby-bar-team { background: var(--ip-navy, #0b1f3b); }
+.ip-derby-bar-personal { background: #f08a24; }
+.ip-derby-sub { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--ip-muted, #5b6b80); }
+.ip-derby-legend { display: flex; gap: 14px; list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--ip-muted, #5b6b80); }
+.ip-derby-legend li::before { content: ''; display: inline-block; inline-size: 12px; block-size: 12px; border-radius: 3px; margin-inline-end: 6px; vertical-align: -1px; }
+.ip-derby-legend .is-team::before { background: var(--ip-navy, #0b1f3b); }
+.ip-derby-legend .is-personal::before { background: #f08a24; }
+.ip-derby-note { margin: 0; font-size: 12px; }
+.ip-derby-mine { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(240, 138, 36, 0.12); font-weight: 600; }
