@@ -189,7 +189,7 @@ async function go(page, hash, wait = 2500) {
     check('one team: duel placeholder', /תחרות בין האזורים/.test(body) && /כרגע משויכות רק קבוצות מצפון/.test(body));
     check('one team: coach compare shown or explained', /השוואת מאמנים/.test(body));
     const nav = await page.locator('.os-side .os-nav span').allTextContents();
-    check('one team: short manager menu', JSON.stringify(nav) === JSON.stringify(['קוקפיט מנהל', 'התערבויות', 'קבוצות וסגל', 'ספריית תרגילים']), nav.join(' | '));
+    check('one team: short manager menu', JSON.stringify(nav) === JSON.stringify(['קוקפיט מנהל', 'התערבויות', 'אתגר המועדון', 'קבוצות וסגל', 'ספריית תרגילים']), nav.join(' | '));
     check('one team: no MVP day labels', !/יום \d/.test(await page.locator('.os-side').textContent()));
     await page.locator('.os-quick').getByRole('button', { name: 'תחרות בין האזורים' }).click();
     await page.waitForTimeout(800);
@@ -216,7 +216,7 @@ async function go(page, hash, wait = 2500) {
     await page.locator('.os-setup').getByRole('link', { name: 'לחיפוש ושיוך' }).click();
     await page.waitForTimeout(2500);
     check('setup: guide link opens setup screen', (await page.evaluate(() => location.hash)) === '#os/setup' && (await page.locator('h1').textContent()) === 'הקמת המועדון');
-    check('setup: menu stays short', (await page.locator('.os-side .os-nav').count()) === 4);
+    check('setup: menu stays short', (await page.locator('.os-side .os-nav').count()) === 5);
     await page.fill('#setup-teams input[type=text], #setup-teams input:not([type])', 'בדוי דרום');
     await page.locator('#setup-teams').getByRole('button', { name: 'חיפוש' }).click();
     await page.waitForTimeout(2000);
@@ -285,6 +285,30 @@ async function go(page, hash, wait = 2500) {
     check('rivals: unlinked team says so', /לא מקושרת לליגה בהתאחדות/.test(await o.page.textContent('#ck-rivals')));
     check('rivals phone: no horizontal scroll', await o.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
     await o.ctx.close();
+  }
+  // ---- club challenge screen (Stitch head-to-head arena), demo club has north + south
+  {
+    const { ctx, page, errors } = await ctxFor(b, OWNER, { width: 1280, height: 1000 });
+    await go(page, '#os/dashboard', 3000);
+    await page.locator('.os-side').getByRole('button', { name: 'אתגר המועדון' }).click();
+    await page.waitForTimeout(3500);
+    const body = await page.textContent('main');
+    check('challenge: opens from menu', (await page.locator('h1').textContent()) === 'אתגר המועדון' && /זירת ראש בראש/.test(body));
+    check('challenge: VS between areas', (await page.locator('.os-challenge .os-duel__vs').count()) === 1 && /צפון/.test(body) && /דרום/.test(body));
+    check('challenge: no ranking of children', /אין דירוג אישי של ילדים/.test(body));
+    check('challenge: league section', /המועדון מול מועדונים אחרים/.test(body));
+    await page.screenshot({ path: 'shots/v3-challenge-1280.png', fullPage: true });
+    check('challenge: no page errors', errors.length === 0, errors.join(' | '));
+    await ctx.close();
+    const m = await ctxFor(b, OWNER, { width: 390, height: 844 });
+    await go(m.page, '#os/challenge', 4000);
+    check('challenge phone: no horizontal scroll', await m.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    await m.page.screenshot({ path: 'shots/v3-challenge-390.png', fullPage: true });
+    await m.ctx.close();
+    const c = await ctxFor(b, COACH, { width: 1280, height: 900 });
+    await go(c.page, '#os/home', 3000);
+    check('challenge: not in coach menu', !(await c.page.locator('.os-side .os-nav span').allTextContents()).includes('אתגר המועדון'));
+    await c.ctx.close();
   }
   // ---- coach keeps the full coach menu
   {

@@ -15,7 +15,7 @@ import { PlayerScreen } from './PlayerScreen';
 import { LibraryScreen } from './LibraryScreen';
 import { PlansScreen } from './PlansScreen';
 import { TrainingDayScreen } from './TrainingDayScreen';
-import { DashboardScreen } from './DashboardScreen';
+import { ChallengeScreen, DashboardScreen } from './DashboardScreen';
 import { InterventionsScreen } from './InterventionsScreen';
 import { SetupScreen } from './SetupScreen';
 import './obsidian.css';
@@ -26,7 +26,7 @@ function readOsHash() {
 }
 
 /** Screens that work without a staff team (club owner / manager / any staff). */
-const teamFreeScreens = new Set(['library', 'dashboard', 'interventions', 'status', 'setup']);
+const teamFreeScreens = new Set(['library', 'dashboard', 'interventions', 'status', 'setup', 'challenge']);
 
 const TEAM_KEY = 'iplays.os.team';
 function readTeamChoice(): string | null {
@@ -118,10 +118,10 @@ export function OsApp() {
   // A club owner/admin who does not coach a team: a short, management menu (user 2026-11-11).
   const managerOnly = !noTeam && ownTeams.length === 0;
   const navIds = noTeam
-    ? ['dashboard', 'interventions', 'library']
+    ? ['dashboard', 'interventions', 'challenge', 'library']
     : managerOnly
-      ? ['dashboard', 'interventions', 'teams', 'library']
-      : modules.map((m) => m.id).filter((id) => id !== 'status' && id !== 'setup');
+      ? ['dashboard', 'interventions', 'challenge', 'teams', 'library']
+      : modules.map((m) => m.id).filter((id) => id !== 'status' && id !== 'setup' && id !== 'challenge');
   // No staff team (e.g. a club owner): open on the director dashboard instead of an empty roster.
   const active = findModule(section) ?? (noTeam || managerOnly ? findModule('dashboard') ?? modules[0] : modules[0]);
   const go = (id: string) => {
@@ -210,6 +210,8 @@ export function OsApp() {
               <DashboardScreen />
             ) : active.id === 'interventions' ? (
               <InterventionsScreen id={param} />
+            ) : active.id === 'challenge' ? (
+              <ChallengeScreen />
             ) : active.id === 'setup' ? (
               <SetupScreen focus={param} />
             ) : active.id === 'status' ? (

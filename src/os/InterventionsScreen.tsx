@@ -38,6 +38,14 @@ export function InterventionsScreen({ id }: { id?: string }) {
 
 type Filter = 'open' | 'done' | 'all';
 
+/** The life-cycle stages as a pipeline (Stitch "מעקב החלטות"): how many interventions sit in each. */
+const PIPE: { status: Intervention['status']; label: string; sub: string; tone: string }[] = [
+  { status: 'open', label: 'קבלת החלטה', sub: 'הוחלט, טרם התחיל', tone: 'warn' },
+  { status: 'in_progress', label: 'ביצוע פעולה', sub: 'בביצוע', tone: 'chance' },
+  { status: 'checking', label: 'בדיקת תוצאה', sub: 'מדידה מול הבסיס', tone: 'info' },
+  { status: 'closed', label: 'הושלמו', sub: 'נסגרו עם מסקנה', tone: 'good' },
+];
+
 function InterventionList() {
   const [list, setList] = useState<Intervention[] | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
@@ -49,23 +57,67 @@ function InterventionList() {
   }, []);
   if (error) return <ErrorNote message={error} />;
   if (list === undefined) return <Loading />;
-  const shown = (list ?? []).filter((i) => (filter === 'all' ? true : filter === 'open' ? isOpen(i.status) : !isOpen(i.status)));
-  const clubs = new Set((list ?? []).map((i) => i.club_id));
+  const all = list ?? [];
+  const shown = all.filter((i) => (filter === 'all' ? true : filter === 'open' ? isOpen(i.status) : !isOpen(i.status)));
+  const clubs = new Set(all.map((i) => i.club_id));
+  const open = all.filter((i) => isOpen(i.status));
+  const closed = all.filter((i) => i.status === 'closed');
+  const improved = closed.filter((i) => i.outcome === 'improved').length;
+  const count = (f: Filter) => all.filter((i) => (f === 'all' ? true : f === 'open' ? isOpen(i.status) : !isOpen(i.status))).length;
   return (
-    <div className="os-stack">
+    <div className="os-stack os-ivs">
+      <header className="os-area__head">
+        <div>
+          <span className="os-eyebrow">מעקב החלטות · DECISION ROI</span>
+          <h2>מעקב החלטות ושיפור מועדוני</h2>
+          <small className="os-muted">פחות נתונים, יותר החלטות ותוצאות: מעקב התערבויות מקצועיות, יישום בשטח ומדידת שינוי לאורך זמן</small>
+        </div>
+        <a className="os-btn os-btn--ghost" href="#os/dashboard">
+          חזרה לקוקפיט
+        </a>
+      </header>
+
+      <ol className="os-pipe" aria-label="שלבי ההתערבויות">
+        {PIPE.map((p, k) => (
+          <li key={p.status} className={`is-${p.tone}`}>
+            <span className="os-pipe__step">שלב {k + 1}</span>
+            <strong>{all.filter((i) => i.status === p.status).length}</strong>
+            <span className="os-pipe__label">{p.label}</span>
+            <small>{p.sub}</small>
+          </li>
+        ))}
+      </ol>
+
+      <div className="os-ivkpis">
+        <div>
+          <small>התערבויות פתוחות</small>
+          <strong>{open.length}</strong>
+        </div>
+        <div className={open.some((i) => i.overdue) ? 'is-alert' : ''}>
+          <small>עברו את תאריך היעד</small>
+          <strong>{open.filter((i) => i.overdue).length}</strong>
+        </div>
+        <div>
+          <small>נסגרו עם מסקנה</small>
+          <strong>{closed.length}</strong>
+        </div>
+        <div className="is-good">
+          <small>שיעור שיפור בסגורות</small>
+          <strong>{closed.length ? `${Math.round((100 * improved) / closed.length)}%` : '–'}</strong>
+        </div>
+      </div>
+
       <div className="os-row os-row--between">
+        <h3 className="os-ivs__title">{shown.length} התערבויות</h3>
         <div className="os-seg" role="group" aria-label="סינון">
           {(['open', 'done', 'all'] as Filter[]).map((f) => (
             <button key={f} type="button" aria-pressed={filter === f} className={filter === f ? 'is-on is-present' : ''} onClick={() => setFilter(f)}>
-              {f === 'open' ? 'פתוחות' : f === 'done' ? 'נסגרו' : 'הכל'}
+              {f === 'open' ? 'פתוחות' : f === 'done' ? 'נסגרו' : 'הכל'} ({count(f)})
             </button>
           ))}
         </div>
-        <a className="os-btn os-btn--ghost" href="#os/dashboard">
-          לקוקפיט
-        </a>
       </div>
-      {(list ?? []).length === 0 ? (
+      {all.length === 0 ? (
         <NoData>
           עדיין אין התערבויות. פותחים התערבות מתוך תובנה במרכז ההחלטות בקוקפיט, או שעדיין לא הוקצתה לך אחת.
         </NoData>
@@ -73,28 +125,68 @@ function InterventionList() {
         <NoData>{filter === 'open' ? 'אין התערבויות פתוחות' : 'אין התערבויות שנסגרו'}</NoData>
       ) : (
         <ul className="os-ivlist">
-          {shown.map((i) => (
-            <li key={i.id}>
-              <a href={`#os/interventions/${i.id}`} className={`os-ivcard is-${i.status}${i.overdue ? ' is-overdue' : ''}`}>
-                <span className="os-ivcard__top">
-                  <span className={`os-chip os-iv-status is-${i.status}`}>{STATUS_HE[i.status]}</span>
-                  {i.overdue && <span className="os-chip os-chip--warn">באיחור</span>}
-                  <span className="os-muted os-small">
-                    {i.team_name ?? 'כל המועדון'}
-                    {clubs.size > 1 && i.club_name ? ` · ${i.club_name}` : ''}
+          {shown.map((i) => {
+            const m = METRIC_HE[i.metric];
+            const b = i.baseline_value;
+            const c = i.current_value ?? null;
+            const d = b !== null && c !== null ? c - b : null;
+            const good = d !== null && (m?.higherIsBetter ? d > 0 : d < 0);
+            const bad = d !== null && d !== 0 && !good;
+            return (
+              <li key={i.id}>
+                <a href={`#os/interventions/${i.id}`} className={`os-ivcard is-${i.status}${i.overdue ? ' is-overdue' : ''}`}>
+                  <span className="os-ivcard__top">
+                    <span className={`os-chip os-iv-status is-${i.status}`}>{STATUS_HE[i.status]}</span>
+                    {i.overdue && <span className="os-chip os-chip--warn">באיחור</span>}
+                    {i.outcome && <span className="os-chip">{OUTCOME_HE[i.outcome]}</span>}
+                    <span className="os-muted os-small">
+                      {i.team_name ?? 'כל המועדון'}
+                      {clubs.size > 1 && i.club_name ? ` · ${i.club_name}` : ''}
+                    </span>
                   </span>
-                </span>
-                <strong>{i.title}</strong>
-                <span className="os-ivcard__meta">
-                  <span>אחראי: {i.owner_name ?? 'לא נקבע'}</span>
-                  {i.due_on && <span>יעד: {fmtDate(i.due_on)}</span>}
-                  <span>
-                    {fmtMetric(i.metric, i.baseline_value)} ← {fmtMetric(i.metric, i.current_value ?? null)}
+                  <strong className="os-ivcard__title">{i.title}</strong>
+                  <span className="os-ivcard__body">
+                    <span className="os-ivcard__cols">
+                      <span>
+                        <span className="os-eyebrow">הבעיה שזוהתה</span>
+                        <span className="os-ivcard__text">{i.why || '—'}</span>
+                      </span>
+                      <span>
+                        <span className="os-eyebrow">ההחלטה וההנחיה</span>
+                        <span className="os-ivcard__text">{i.action_plan || '—'}</span>
+                      </span>
+                      <span>
+                        <span className="os-eyebrow">אחראי ויעד</span>
+                        <span className="os-ivcard__text">
+                          {i.owner_name ?? 'לא נקבע'}
+                          {i.due_on ? ` · יעד ${fmtDate(i.due_on)}` : ''}
+                        </span>
+                      </span>
+                    </span>
+                    <span className={`os-ivcard__ba${good ? ' is-good' : bad ? ' is-bad' : ''}`}>
+                      <span className="os-muted os-small">{m?.label ?? 'מדד'}</span>
+                      <span className="os-ivcard__nums">
+                        <span>
+                          <small>לפני</small>
+                          <b>{fmtMetric(i.metric, b)}</b>
+                        </span>
+                        <span aria-hidden="true">←</span>
+                        <span>
+                          <small>עכשיו</small>
+                          <b className="is-now">{fmtMetric(i.metric, c)}</b>
+                        </span>
+                      </span>
+                      {m?.unit === '%' && c !== null && (
+                        <span className="os-bar" aria-hidden="true">
+                          <span style={{ width: `${Math.max(2, Math.min(100, c))}%` }} />
+                        </span>
+                      )}
+                    </span>
                   </span>
-                </span>
-              </a>
-            </li>
-          ))}
+                </a>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

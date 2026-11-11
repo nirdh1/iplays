@@ -110,7 +110,7 @@ export function SetupScreen({ focus }: { focus?: string }) {
         </a>
       </header>
 
-      <ol className="os-steps" aria-label="שלבים">
+      <ol className="os-setupsteps" aria-label="שלבים">
         <li className={teams.length >= 2 ? 'is-done' : 'is-now'}>
           <strong>1. קבוצות</strong>
           <small>{data ? `${teams.length} משויכות` : '…'}</small>

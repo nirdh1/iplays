@@ -10,7 +10,7 @@ export type ModuleStatus = 'live' | 'partial' | 'planned';
 export interface OsModule {
   id: string;
   label: string;
-  icon: 'home' | 'team' | 'calendar' | 'career' | 'grid' | 'card' | 'whistle' | 'shield' | 'check' | 'flag';
+  icon: 'home' | 'team' | 'calendar' | 'career' | 'grid' | 'card' | 'whistle' | 'shield' | 'check' | 'flag' | 'trophy';
   status: ModuleStatus;
   /** MVP day it is planned for (1-5) */
   day: number;
@@ -29,6 +29,7 @@ export const modules: OsModule[] = [
   { id: 'day', label: 'יום האימון', icon: 'whistle', status: 'live', day: 5, summary: 'האימון של היום והמערך המשויך, טיימר שלבים ותחנות עם סבבים וקבוצות, נוכחות, ודוח בדקה (בוצע/שונה/דולג, דירוג, הערה).' },
   { id: 'dashboard', label: 'קוקפיט מנהל', icon: 'shield', status: 'partial', day: 5, summary: 'קוקפיט החלטות בשלושה אזורים: מרכז החלטות (3 תובנות מנתונים אמיתיים, כל אחת עם "מה קרה / למה / מה לעשות" והתערבות אחת), מגרשים היום (לפי היומן בלבד), ומגמות ותוצאות. להנהלת המועדון בלבד.', missing: ['מצב חי של מגרשים וצ\'ק־אין מאמנים (שלב C)', 'מתודולוגיה ותוכנית מול ביצוע', 'כשירות ומגבלות'] },
   { id: 'interventions', label: 'התערבויות', icon: 'flag', status: 'live', day: 5, summary: 'החלטות ניהוליות מתוך תובנות: אחראי, תאריך יעד, מדד בסיס ומדד עדכני שהמערכת מודדת, יומן פעולות, ובדיקת תוצאה עם מסקנה מקצועית. מנהל המועדון רואה הכל; מאמן רואה רק של הקבוצה שלו או מה שהוקצה לו.' },
+  { id: 'challenge', label: 'אתגר המועדון', icon: 'trophy', status: 'live', day: 5, summary: 'זירת ראש בראש: האזורים במועדון זה מול זה (נוכחות, מערכים, דוחות, שיפור), והמועדון מול מועדונים אחרים לפי טבלאות הליגה.' },
   { id: 'setup', label: 'הקמת המועדון', icon: 'team', status: 'live', day: 5, summary: 'מסלול ראשון למנהל: שיוך קבוצות המועדון מהקטלוג (חיפוש לפי שם המועדון, בחירה מרובה) והזמנת מאמן לכל קבוצה בקישור.' },
   { id: 'status', label: 'מה עובד', icon: 'check', status: 'live', day: 1, summary: 'מצב כל מסך ב-MVP.' },
 ];

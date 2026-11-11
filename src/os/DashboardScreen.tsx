@@ -832,3 +832,70 @@ function AreaDuel({ results, work, trends, days }: { results: TeamResult[]; work
     </section>
   );
 }
+
+/**
+ * "אתגר המועדון" (Stitch head-to-head arena): the club's areas against each other,
+ * and the club against other clubs in its leagues. Same real data as the cockpit.
+ */
+export function ChallengeScreen() {
+  const [clubs, setClubs] = useState<{ club_id: string; name: string }[] | null>(null);
+  const [club, setClub] = useState<string | null>(null);
+  const [days, setDays] = useState(30);
+  const [dash, setDash] = useState<Dash | null | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
+  const results = useRpc<TeamResult[]>('club_team_results', club ? { p_club: club } : null, (d) => (d as { teams: TeamResult[] }).teams ?? []);
+  const trends = useRpc<Trends>('club_trends', club ? { p_club: club, p_weeks: 8 } : null);
+  useEffect(() => {
+    db()
+      .rpc('my_dashboard_clubs')
+      .then(({ data, error }) => {
+        if (error) return setError(friendlyError(error));
+        const list = (data ?? []) as { club_id: string; name: string }[];
+        setClubs(list);
+        setClub(list[0]?.club_id ?? null);
+      });
+  }, []);
+  useEffect(() => {
+    if (!club) return;
+    setDash(undefined);
+    db()
+      .rpc('club_dashboard', { p_club: club, p_days: days })
+      .then(({ data, error }) => (error ? setError(friendlyError(error)) : setDash(data as Dash | null)));
+  }, [club, days]);
+
+  if (error) return <ErrorNote message={error} />;
+  if (!clubs) return <Loading />;
+  if (!clubs.length)
+    return (
+      <section className="os-state">
+        <h2>אתגר המועדון מיועד להנהלת המועדון</h2>
+        <p className="os-muted">החשבון הזה לא מוגדר כבעלים או מנהל של מועדון.</p>
+      </section>
+    );
+  if (dash === undefined) return <Loading />;
+  if (!dash) return <NoData>אין לך הרשאה לנתוני המועדון הזה</NoData>;
+  const name = clubs.find((c) => c.club_id === club)?.name ?? '';
+  return (
+    <div className="os-stack os-challenge">
+      <header className="os-challenge__hero">
+        <span className="os-pill">
+          <i className="os-pill__dot" aria-hidden="true" />
+          משחק הוגן ומאמץ קבוצתי משותף
+        </span>
+        <h2>אתגר המועדון · זירת ראש בראש</h2>
+        <p className="os-muted">
+          {name}. הניקוד מבוסס על נוכחות, מערכים, דוחות ושיפור. אין דירוג אישי של ילדים.
+        </p>
+        <div className="os-seg" role="group" aria-label="תקופה">
+          {[7, 30].map((d) => (
+            <button key={d} type="button" aria-pressed={days === d} className={days === d ? 'is-on is-present' : ''} onClick={() => setDays(d)}>
+              {d} ימים
+            </button>
+          ))}
+        </div>
+      </header>
+      <AreaDuel results={results ?? []} work={dash.teams} trends={trends ?? null} days={dash.days} />
+      <LeagueRivals teams={dash.teams} />
+    </div>
+  );
+}
