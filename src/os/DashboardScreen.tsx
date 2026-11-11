@@ -3,62 +3,10 @@ import { friendlyError } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { AREAS, areaOf } from './areas';
 import { ErrorNote, Loading, NoData, SourceTag } from './StateView';
+import { DecisionHub, TodayPitches } from './Cockpit';
+import { envLabel } from './env';
+import { allInsights, avg, delta, formPpg, heldWeeks, pctOf, topInsights, trend, type Dash, type TeamResult, type TeamRow, type Trends } from './insights';
 
-/** club_dashboard(): supabase/migrations/20261106400000_training_reports_dashboard.sql */
-interface TeamRow {
-  team_id: string;
-  name: string;
-  held: number;
-  held_marked: number;
-  marked_cells: number;
-  came: number;
-  attendance_pct: number | null;
-  missing_reports: number;
-  upcoming: number;
-  upcoming_no_plan: number;
-  held_no_plan: number;
-}
-interface Dash {
-  days: number;
-  generated_at: string;
-  teams: TeamRow[];
-  totals: { held: number; marked_cells: number; attendance_pct: number | null; missing_reports: number; upcoming: number; upcoming_no_plan: number; new_club_exercises: number };
-}
-
-/** club_team_results(): supabase/migrations/20261109200000_club_team_results.sql */
-interface TeamResult {
-  team_id: string;
-  name: string;
-  linked: boolean;
-  league_name: string | null;
-  has_results: boolean;
-  league_teams: number;
-  last_result_at: string | null;
-  pos: number | null;
-  played: number | null;
-  won: number | null;
-  drawn: number | null;
-  lost: number | null;
-  goals_for: number | null;
-  goals_against: number | null;
-  points: number | null;
-  form: string;
-  ifa_coach: string | null;
-  app_coaches: string[];
-}
-
-/** club_trends() / club_drill_usage(): supabase/migrations/20261109400000_club_trends_drills.sql */
-interface Week {
-  start: string;
-  held: number;
-  attendance_pct: number | null;
-  plan_pct: number | null;
-  report_pct?: number | null;
-}
-interface Trends {
-  weeks: Week[];
-  teams: { team_id: string; name: string; weeks: Week[] }[];
-}
 interface DrillRow {
   team_id: string;
   exercise_id: string;
@@ -101,9 +49,10 @@ function useRpc<T>(fn: string, args: Record<string, unknown> | null, pick?: (d: 
 }
 
 /**
- * Club director dashboard (user 2026-11-09: purposeful, professional, graphic).
- * Answers three questions: are the teams progressing, where is the problem,
- * what do I do now. Real numbers only; alerts can't be hidden.
+ * Club director cockpit (user 2026-11-09: purposeful, professional, graphic;
+ * phase A 2026-11-11: Stitch's three areas). B: decision hub, three insights
+ * each linked to one intervention. A: today's pitches, planned only until
+ * phase C. C: trends and results. Real numbers only; alerts can't be hidden.
  */
 export function DashboardScreen() {
   const [clubs, setClubs] = useState<{ club_id: string; name: string }[] | null>(null);
@@ -114,6 +63,7 @@ export function DashboardScreen() {
   const results = useRpc<TeamResult[]>('club_team_results', club ? { p_club: club } : null, (d) => (d as { teams: TeamResult[] }).teams ?? []);
   const trends = useRpc<Trends>('club_trends', club ? { p_club: club, p_weeks: 8 } : null);
   const drills = useRpc<Drills>('club_drill_usage', club ? { p_club: club, p_days: 90 } : null);
+  const canManage = useRpc<boolean>('can_manage_interventions', club ? { p_club: club } : null);
 
   useEffect(() => {
     db()
@@ -148,13 +98,15 @@ export function DashboardScreen() {
   const coachOfTeam = new Map((results ?? []).map((r) => [r.team_id, coachOf(r)]));
   const coaches = coachRows(results ?? [], dash.teams);
   const transfer = drillTransfer(coaches, drills ?? null, coachOfTeam);
-  const actions = buildActions(dash, results ?? [], trends ?? null, transfer);
+  const insights = topInsights(allInsights(dash, results ?? [], trends ?? null, transfer));
 
   return (
     <div className="os-stack os-dash">
       <header className="os-dash__head">
         <div>
-          <span className="os-dash__eyebrow">דשבורד מנהל מקצועי</span>
+          <span className="os-dash__eyebrow">
+            קוקפיט החלטות {envLabel && <SourceTag source="synthetic" />}
+          </span>
           {clubs.length > 1 ? (
             <label className="os-teampick">
               <span className="os-muted">מועדון</span>
@@ -179,31 +131,15 @@ export function DashboardScreen() {
         </div>
       </header>
 
-      <Pulse dash={dash} trends={trends} />
+      <div className="os-cockpit">
+        <DecisionHub club={club!} insights={insights} canManage={canManage === true} />
+        <TodayPitches club={club!} />
+      </div>
 
-      <section className="os-card">
-        <div className="os-card__head">
-          <h2>מה לעשות עכשיו</h2>
-          <SourceTag source="db" />
-        </div>
-        {actions.length === 0 ? (
-          <p className="os-muted">אין פעולות פתוחות. כל הקבוצות מסמנות נוכחות, מגישות דוחות ומתכננות אימונים.</p>
-        ) : (
-          <div className="os-dash__actions">
-            {actions.slice(0, 3).map((x, i) => (
-              <article key={i} className={`os-dash__action is-${x.level}`}>
-                <span className="os-dash__level">{x.level === 'critical' ? 'דחוף' : x.level === 'warn' ? 'לטיפול השבוע' : 'הזדמנות'}</span>
-                <h3>{x.title}</h3>
-                <p>{x.body}</p>
-                <a className="os-btn" href={x.href}>
-                  {x.cta}
-                </a>
-              </article>
-            ))}
-          </div>
-        )}
+      <section className="os-cockpit__trends" aria-labelledby="ck-trends">
+        <h2 id="ck-trends" className="os-cockpit__title">מגמות ותוצאות</h2>
+        <Pulse dash={dash} trends={trends} />
       </section>
-
       <AreaDuel results={results ?? []} work={dash.teams} trends={trends ?? null} days={dash.days} />
       <TeamCards results={results} work={dash.teams} trends={trends} days={dash.days} />
       <CoachBars rows={coaches} loading={results === undefined} />
@@ -229,43 +165,12 @@ export function DashboardScreen() {
 /* ---------- numbers ---------- */
 
 const FORM_HE: Record<string, string> = { W: 'נ', D: 'ת', L: 'ה' };
-const FORM_PTS: Record<string, number> = { W: 3, D: 1, L: 0 };
-
-function formPpg(form: string): number | null {
-  return form ? [...form].reduce((s, c) => s + (FORM_PTS[c] ?? 0), 0) / form.length : null;
-}
-/** Last-5 points per game against the season's: up / down / steady. */
-function trend(r: TeamResult): 'up' | 'down' | 'flat' | null {
-  const season = r.played ? r.points! / r.played : null;
-  const recent = formPpg(r.form);
-  if (season === null || recent === null || (r.played ?? 0) < 4) return null;
-  if (recent - season >= 0.4) return 'up';
-  if (season - recent >= 0.4) return 'down';
-  return 'flat';
-}
 const TREND_LABEL = { up: 'במגמת עלייה', down: 'במגמת ירידה', flat: 'יציב' };
 const TREND_MARK = { up: '↑', down: '↓', flat: '→' };
 function coachOf(r: TeamResult): string {
   return r.app_coaches[0] || r.ifa_coach || 'ללא מאמן';
 }
-const pctOf = (a: number, b: number) => (b > 0 ? Math.round((100 * a) / b) : null);
 const planPct = (w: TeamRow | undefined) => (w && w.held > 0 ? pctOf(w.held - w.held_no_plan, w.held) : null);
-const avg = (xs: (number | null | undefined)[]) => {
-  const v = xs.filter((x): x is number => typeof x === 'number');
-  return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
-};
-/** Last N weeks that had trainings, newest last. */
-function heldWeeks(ws: Week[]) {
-  return ws.filter((w) => w.held > 0);
-}
-/** Change between the average of the last 2 active weeks and the 2 before them. */
-function delta(ws: Week[], key: 'attendance_pct' | 'plan_pct' | 'report_pct'): number | null {
-  const h = heldWeeks(ws);
-  if (h.length < 3) return null;
-  const now = avg(h.slice(-2).map((w) => w[key]));
-  const before = avg(h.slice(-4, -2).map((w) => w[key]));
-  return now === null || before === null ? null : Math.round(now - before);
-}
 function level(v: number | null, good = 80, ok = 60): 'good' | 'ok' | 'low' | 'none' {
   if (v === null) return 'none';
   return v >= good ? 'good' : v >= ok ? 'ok' : 'low';
@@ -341,41 +246,6 @@ function drillTransfer(coaches: CoachRow[], drills: Drills | null, coachOfTeam: 
   }
   const list = [...tally.values()].sort((a, b) => b.sessions - a.sessions).slice(0, 3);
   return { from, to, drills: list };
-}
-
-interface Action {
-  level: 'critical' | 'warn' | 'chance';
-  title: string;
-  body: string;
-  cta: string;
-  href: string;
-}
-function buildActions(dash: Dash, results: TeamResult[], trends: Trends | null, transfer: TransferPlan | null): Action[] {
-  const out: Action[] = [];
-  const noMarks = dash.teams.filter((x) => x.held > x.held_marked);
-  if (noMarks.length) {
-    const n = noMarks.reduce((s, x) => s + x.held - x.held_marked, 0);
-    out.push({ level: 'critical', title: `נוכחות לא סומנה ב־${n} אימונים`, body: `בלי סימון אי אפשר לדעת מי מגיע ומי נושר. קבוצות: ${noMarks.map((x) => x.name).join(', ')}.`, cta: 'ללוח האימונים', href: '#os/calendar' });
-  }
-  // a team whose attendance dropped 10+ points over the last weeks
-  const drops = (trends?.teams ?? [])
-    .map((t) => ({ t, d: delta(t.weeks, 'attendance_pct') }))
-    .filter((x) => x.d !== null && x.d <= -10)
-    .sort((a, b) => a.d! - b.d!);
-  if (drops.length) out.push({ level: 'critical', title: `הנוכחות ב${drops[0].t.name} יורדת`, body: `ירידה של ${-drops[0].d!} נקודות בשבועיים האחרונים לעומת השבועיים שלפניהם. כדאי לדבר עם המאמן לפני שילדים נושרים.`, cta: 'לפרטי הקבוצה', href: '#os/calendar' });
-  const falling = results.filter((r) => trend(r) === 'down');
-  if (falling.length) out.push({ level: 'warn', title: `${falling[0].name} במגמת ירידה במשחקים`, body: `ב־5 המשחקים האחרונים פחות נקודות למשחק מאשר בעונה כולה. ${falling.length > 1 ? `עוד ${falling.length - 1} קבוצות באותו מצב.` : ''}`, cta: 'למאזנים', href: '#os/dashboard' });
-  if (transfer && transfer.drills.length) out.push({ level: 'chance', title: `להעביר תרגילים מ${transfer.from.name} ל${transfer.to.name}`, body: `${transfer.drills.length} תרגילים ש${transfer.from.name} משתמש בהם הכי הרבה ו${transfer.to.name} עוד לא ניסה. פרטים למטה.`, cta: 'לתרגילים', href: `#os/library/${transfer.drills[0].exercise_id}` });
-  const byMissing = [...dash.teams].filter((x) => x.missing_reports > 0).sort((a, b) => b.missing_reports - a.missing_reports);
-  if (byMissing.length) out.push({ level: 'warn', title: `${dash.totals.missing_reports} אימונים בלי דוח`, body: `דוח של דקה בסוף אימון הוא מה שמראה למנהל מה עובד. הכי הרבה חסרים: ${byMissing[0].name} (${byMissing[0].missing_reports}).`, cta: 'למצב אימון', href: '#os/day' });
-  const noPlan = dash.teams.filter((x) => x.upcoming_no_plan > 0).sort((a, b) => b.upcoming_no_plan - a.upcoming_no_plan);
-  if (noPlan.length) out.push({ level: 'warn', title: `${dash.totals.upcoming_no_plan} אימונים קרובים בלי מערך`, body: `אימון בלי מערך הוא אימון מאולתר. הכי הרבה: ${noPlan[0].name} (${noPlan[0].upcoming_no_plan}).`, cta: 'לבניית מערך', href: '#os/plans' });
-  const rank = { critical: 0, warn: 1, chance: 2 };
-  // keep one opportunity in the top 3 when there is one
-  const sorted = out.sort((a, b) => rank[a.level] - rank[b.level]);
-  const chance = sorted.find((a) => a.level === 'chance');
-  const top = sorted.filter((a) => a !== chance).slice(0, chance ? 2 : 3);
-  return chance ? [...top, chance] : top;
 }
 
 /* ---------- graphics ---------- */

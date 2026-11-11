@@ -16,6 +16,7 @@ import { LibraryScreen } from './LibraryScreen';
 import { PlansScreen } from './PlansScreen';
 import { TrainingDayScreen } from './TrainingDayScreen';
 import { DashboardScreen } from './DashboardScreen';
+import { InterventionsScreen } from './InterventionsScreen';
 import './obsidian.css';
 
 function readOsHash() {
@@ -24,7 +25,7 @@ function readOsHash() {
 }
 
 /** Screens that work without a staff team (club owner / manager / any staff). */
-const teamFreeScreens = new Set(['library', 'dashboard', 'status']);
+const teamFreeScreens = new Set(['library', 'dashboard', 'interventions', 'status']);
 
 const TEAM_KEY = 'iplays.os.team';
 function readTeamChoice(): string | null {
@@ -173,7 +174,7 @@ export function OsApp() {
                   {envLabel && ' ב-Staging: הרץ את staging_make_me_staff עם האימייל שלך.'}
                 </p>
                 <div className="os-state__actions">
-                  <a className="os-btn" href="#os/dashboard">דשבורד מנהל</a>
+                  <a className="os-btn" href="#os/dashboard">קוקפיט מנהל</a>
                   <a className="os-btn" href="#os/library">ספריית תרגילים</a>
                 </div>
               </section>
@@ -193,6 +194,8 @@ export function OsApp() {
               <TrainingDayScreen key={`${team!.id}/${param ?? ''}`} team={team!} sessionId={param} />
             ) : active.id === 'dashboard' ? (
               <DashboardScreen />
+            ) : active.id === 'interventions' ? (
+              <InterventionsScreen id={param} />
             ) : active.id === 'status' ? (
               <StatusScreen />
             ) : (
@@ -209,7 +212,7 @@ export function OsApp() {
 
       <nav className="os-bottom" aria-label="ניווט Club OS">
         {modules
-          .filter((m) => (noTeam ? ['dashboard', 'library', 'status'] : ['teams', 'home', 'calendar', 'plans', 'library']).includes(m.id))
+          .filter((m) => (noTeam ? ['dashboard', 'interventions', 'library', 'status'] : ['teams', 'home', 'calendar', 'plans', 'library']).includes(m.id))
           .map((m) => (
             <NavItem key={m.id} m={m} active={m.id === active.id} onClick={() => go(m.id)} compact />
           ))}
