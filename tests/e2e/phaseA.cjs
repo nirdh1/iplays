@@ -58,7 +58,7 @@ async function go(page, hash, wait = 2500) {
     const cards = await page.locator('.os-insight').count();
     check(`${tag} owner: 1-3 insights`, cards >= 1 && cards <= 3, `${cards}`);
     const key = await page.locator('.os-insight').first().getAttribute('data-insight');
-    check(`${tag} owner: what/why/todo`, (await page.locator('.os-insight').first().textContent()).match(/מה קרה.*למה זה חשוב.*מה לעשות/) !== null);
+    check(`${tag} owner: what/why/todo`, (await page.locator('.os-insight').first().textContent()).match(/מה קרה.*למה זה משנה.*פעולה מומלצת/) !== null);
     await page.locator('.os-insight').first().getByRole('button', { name: 'פתיחת התערבות' }).click();
     await page.waitForTimeout(800);
     check(`${tag} owner: open sheet`, await page.getByRole('dialog', { name: 'פתיחת התערבות' }).isVisible());

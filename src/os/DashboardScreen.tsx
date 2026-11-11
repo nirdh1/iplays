@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { friendlyError } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import { Icon } from '../components/Icon';
 import { AREAS, areaOf } from './areas';
 import { ErrorNote, Loading, NoData, SourceTag } from './StateView';
-import { DecisionHub, QuickLinks, SetupGuide, TodayPitches } from './Cockpit';
+import { DecisionHub, ImpactCard, QuickLinks, SetupGuide, TodayPitches, pitchState } from './Cockpit';
+import { isOpen, type Intervention, type TodaySession } from './interventionsApi';
 import { LeagueRivals } from './LeagueRivals';
 import { envLabel } from './env';
 import { allInsights, setupSteps, avg, delta, formPpg, heldWeeks, pctOf, topInsights, trend, type Dash, type TeamResult, type TeamRow, type Trends } from './insights';
@@ -65,6 +67,8 @@ export function DashboardScreen() {
   const trends = useRpc<Trends>('club_trends', club ? { p_club: club, p_weeks: 8 } : null);
   const drills = useRpc<Drills>('club_drill_usage', club ? { p_club: club, p_days: 90 } : null);
   const canManage = useRpc<boolean>('can_manage_interventions', club ? { p_club: club } : null);
+  const today = useRpc<TodaySession[]>('club_today_sessions', club ? { p_club: club } : null);
+  const [ivList, setIvList] = useState<Intervention[] | null | undefined>(undefined);
 
   useEffect(() => {
     db()
@@ -101,50 +105,81 @@ export function DashboardScreen() {
   const transfer = drillTransfer(coaches, drills ?? null, coachOfTeam);
   const insights = topInsights(allInsights(dash, results ?? [], trends ?? null, transfer));
 
+  const urgent = insights.filter((x) => x.level === 'critical').length;
+  const openIv = (ivList ?? []).filter((i) => isOpen(i.status));
+  const nowTraining = (today ?? []).filter((t) => pitchState(t) === 'now').length;
+  const teamCoach = new Map((results ?? []).map((r) => [r.team_id, r.app_coaches?.[0] ?? r.ifa_coach ?? null]));
+  const dateLine = new Date().toLocaleString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
+
   return (
     <div className="os-stack os-dash">
-      <header className="os-dash__head">
-        <div>
-          <span className="os-dash__eyebrow">
-            קוקפיט החלטות {envLabel && <SourceTag source="synthetic" />}
-          </span>
-          {clubs.length > 1 ? (
-            <label className="os-teampick">
-              <span className="os-muted">מועדון</span>
-              <select value={club ?? ''} onChange={(e) => setClub(e.target.value)}>
-                {clubs.map((c) => (
-                  <option key={c.club_id} value={c.club_id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <h2 className="os-dash__title">{clubs[0].name}</h2>
-          )}
+      <header className="os-strip">
+        <div className="os-strip__title">
+          <span className="os-strip__dot" aria-hidden="true" />
+          <div>
+            <span className="os-dash__eyebrow">
+              קוקפיט החלטות מנהל מועדון {envLabel && <SourceTag source="synthetic" />}
+            </span>
+            {clubs.length > 1 ? (
+              <label className="os-teampick">
+                <span className="os-muted">מועדון</span>
+                <select value={club ?? ''} onChange={(e) => setClub(e.target.value)}>
+                  {clubs.map((c) => (
+                    <option key={c.club_id} value={c.club_id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <h2 className="os-dash__title">{clubs[0].name}</h2>
+            )}
+            <small className="os-muted">{dateLine}</small>
+          </div>
         </div>
-        <div className="os-seg" role="group" aria-label="תקופה">
-          {[7, 30].map((d) => (
-            <button key={d} type="button" aria-pressed={days === d} className={days === d ? 'is-on is-present' : ''} onClick={() => setDays(d)}>
-              {d} ימים
-            </button>
-          ))}
+        <div className="os-strip__pills">
+          <span className="os-pill">
+            <i className="os-pill__dot" aria-hidden="true" />
+            {today === undefined ? 'אימונים היום…' : `${(today ?? []).length} אימונים היום ביומן${nowTraining ? ` · ${nowTraining} בשעות אימון` : ''}`}
+          </span>
+          {urgent > 0 && <span className="os-pill os-pill--alert">{urgent} תובנות דחופות</span>}
+          <a className="os-pill" href="#os/interventions">
+            {ivList === undefined ? 'התערבויות…' : `${openIv.length} התערבויות פתוחות`}
+          </a>
+          <div className="os-seg" role="group" aria-label="תקופה">
+            {[7, 30].map((d) => (
+              <button key={d} type="button" aria-pressed={days === d} className={days === d ? 'is-on is-present' : ''} onClick={() => setDays(d)}>
+                {d} ימים
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <QuickLinks openCount={null} />
+      <QuickLinks openCount={ivList ? openIv.length : null} />
       <SetupGuide steps={setupSteps(dash, results ?? [], areaOf)} />
 
+      <TodayPitches rows={today} coachOf={teamCoach} />
+
       <div className="os-cockpit">
-        <DecisionHub club={club!} insights={insights} canManage={canManage === true} />
-        <TodayPitches club={club!} />
+        <DecisionHub club={club!} insights={insights} canManage={canManage === true} onList={setIvList} />
+        <section className="os-area os-cockpit__c" aria-labelledby="ck-c">
+          <div className="os-area__head">
+            <div>
+              <span className="os-eyebrow">אזור C · שיפור ואיכות</span>
+              <h2 id="ck-c">מגמות שיפור ואיכות מועדונית</h2>
+              <small className="os-muted">האם ההחלטות משפרות את המועדון לאורך זמן</small>
+            </div>
+          </div>
+          <AreaDuel results={results ?? []} work={dash.teams} trends={trends ?? null} days={dash.days} />
+          <ImpactCard list={ivList} />
+        </section>
       </div>
 
       <section className="os-cockpit__trends" id="ck-trends" aria-labelledby="ck-trends-h">
         <h2 id="ck-trends-h" className="os-cockpit__title">מגמות ותוצאות</h2>
         <Pulse dash={dash} trends={trends} />
       </section>
-      <AreaDuel results={results ?? []} work={dash.teams} trends={trends ?? null} days={dash.days} />
       <LeagueRivals teams={dash.teams} />
       <TeamCards results={results} work={dash.teams} trends={trends} days={dash.days} />
       <CoachBars rows={coaches} loading={results === undefined} />
@@ -745,14 +780,33 @@ function AreaDuel({ results, work, trends, days }: { results: TeamResult[]; work
         <SourceTag source="db" />
       </div>
       <div className="os-duel__score" aria-live="polite">
-        {order.map((r, i) => (
+        {order.flatMap((r, i) => [
+          i > 0 ? (
+            <span key={`vs-${r.area}`} className="os-duel__vs" aria-hidden="true">
+              VS
+            </span>
+          ) : null,
           <div key={r.area} className={`os-duel__side${!tie && i === 0 ? ' is-lead' : ''}`}>
+            <span className="os-duel__shield" aria-hidden="true">
+              <Icon name="shield" size={22} />
+            </span>
             <span className="os-duel__area">{r.area}</span>
             <strong>{points.get(r.area) ?? 0}</strong>
-            <span className="os-muted os-small">{r.teams} קבוצות</span>
-          </div>
-        ))}
+            <span className="os-muted os-small">נקודות · {r.teams} קבוצות</span>
+          </div>,
+        ])}
       </div>
+      {(() => {
+        const total = order.reduce((n, r) => n + (points.get(r.area) ?? 0), 0);
+        if (!total || order.length !== 2) return null;
+        const first = Math.round((100 * (points.get(order[0].area) ?? 0)) / total);
+        return (
+          <div className="os-duel__split" aria-label={`${order[0].area} ${first}%, ${order[1].area} ${100 - first}%`}>
+            <span style={{ width: `${first}%` }} />
+            <span style={{ width: `${100 - first}%` }} />
+          </div>
+        );
+      })()}
       <p className="os-duel__verdict">{tie ? 'תיקו כרגע. כל מדד שישתפר השבוע יכריע.' : `${top.area} מוביל השבוע`}</p>
       <div className="os-duel__metrics">
         {metrics.map((m, mi) => (

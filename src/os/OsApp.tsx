@@ -164,7 +164,7 @@ export function OsApp() {
             <button type="button" className="os-theme-btn" onClick={toggleTheme} aria-pressed={theme === 'light'}>
               {theme === 'dark' ? 'תצוגה בהירה' : 'תצוגה כהה'}
             </button>
-            {staffTeams.length > 0 && (
+            {staffTeams.length > 0 && !teamFreeScreens.has(active.id) && (
               <label className="os-teampick">
                 <span className="os-muted">קבוצה</span>
                 <select value={team?.id} onChange={(e) => pickTeam(e.target.value)}>
