@@ -602,3 +602,18 @@ button.os-ex-card { width: 100%; padding: 0; color: inherit; font: inherit; text
 .os-invites__link { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; flex: 1 1 260px; justify-content: flex-end; }
 .os-invites__link input { flex: 1 1 160px; min-width: 0; min-height: 40px; border-radius: 8px; background: var(--os-surface-high); color: var(--os-text); border: 1px solid var(--os-outline-2); padding: 0 8px; font-size: 12px; }
 @media (max-width: 560px) { .os-steps { grid-template-columns: 1fr; } }
+
+/* Club against other clubs (league tables) */
+.os-rivals__grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-top: 8px; }
+.os-rivals__team { background: var(--os-surface); border: 1px solid var(--os-outline-2); border-radius: var(--os-radius); padding: 12px; min-width: 0; }
+.os-rivals__team header { display: grid; gap: 2px; margin-bottom: 6px; }
+.os-rivals__team header small { color: var(--os-text-2); font-size: 12px; }
+.os-rivals__pos { margin: 0 0 6px; font-size: 14px; }
+.os-rivals__pos b { font-size: 20px; color: var(--os-primary); }
+.os-rivals__pos span { color: var(--os-text-2); font-size: 12px; }
+.os-rivals__table { inline-size: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.os-rivals__table th { text-align: start; color: var(--os-text-2); font-weight: 600; font-size: 11px; padding: 4px; }
+.os-rivals__table th:first-child, .os-rivals__table td:first-child { inline-size: 28px; }
+.os-rivals__table th:nth-child(3), .os-rivals__table th:nth-child(4), .os-rivals__table td:nth-child(3), .os-rivals__table td:nth-child(4) { inline-size: 40px; text-align: center; }
+.os-rivals__table td { padding: 5px 4px; border-top: 1px solid var(--os-outline-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.os-rivals__table tr.is-us td { background: rgba(0, 255, 135, 0.1); color: var(--os-primary); font-weight: 700; }

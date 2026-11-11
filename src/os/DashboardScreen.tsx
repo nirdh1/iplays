@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { AREAS, areaOf } from './areas';
 import { ErrorNote, Loading, NoData, SourceTag } from './StateView';
 import { DecisionHub, QuickLinks, SetupGuide, TodayPitches } from './Cockpit';
+import { LeagueRivals } from './LeagueRivals';
 import { envLabel } from './env';
 import { allInsights, setupSteps, avg, delta, formPpg, heldWeeks, pctOf, topInsights, trend, type Dash, type TeamResult, type TeamRow, type Trends } from './insights';
 
@@ -144,6 +145,7 @@ export function DashboardScreen() {
         <Pulse dash={dash} trends={trends} />
       </section>
       <AreaDuel results={results ?? []} work={dash.teams} trends={trends ?? null} days={dash.days} />
+      <LeagueRivals teams={dash.teams} />
       <TeamCards results={results} work={dash.teams} trends={trends} days={dash.days} />
       <CoachBars rows={coaches} loading={results === undefined} />
       <TrendChart trends={trends} />

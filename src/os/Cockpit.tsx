@@ -305,6 +305,9 @@ export function QuickLinks({ openCount }: { openCount: number | null }) {
       <button type="button" onClick={() => scrollTo('ck-duel')}>
         תחרות בין האזורים
       </button>
+      <button type="button" onClick={() => scrollTo('ck-rivals')}>
+        מול מועדונים אחרים
+      </button>
       <button type="button" onClick={() => scrollTo('ck-trends')}>
         מגמות וגרפים
       </button>

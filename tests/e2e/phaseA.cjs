@@ -255,6 +255,37 @@ async function go(page, hash, wait = 2500) {
     await q("delete from invites where team_id in ($1,$2,'00000000-0000-4000-8000-0000000000f3')", [S1, S2]);
     await q('delete from teams where id in ($1,$2)', [S1, S2]);
   }
+  // ---- club vs other clubs: real league table from IFA games (local fixture, removed after)
+  {
+    const F3 = '00000000-0000-4000-8000-0000000000f3';
+    await q('delete from ifa_games where ifa_season_id = 99');
+    await q('delete from ifa_teams where ifa_season_id = 99');
+    await q("insert into ifa_teams (ifa_season_id, ifa_team_id, name, ifa_league_id, team_id) values (99, 1, 'בדוי צפון', 9901, $1), (99, 2, 'מכבי בדוי', 9901, null), (99, 3, 'בית״ר בדוי', 9901, null), (99, 4, 'הכח בדוי', 9901, null)", [F3]);
+    const games = [[2, 1, 3, 1], [1, 3, 2, 0], [4, 1, 0, 0], [2, 3, 1, 1], [3, 4, 2, 2], [2, 4, 4, 0]];
+    for (const [h, a, hs, as] of games)
+      await q("insert into ifa_games (ifa_season_id, ifa_league_id, home_ifa_team_id, away_ifa_team_id, home_score, away_score, status, game_date) values (99, 9901, $1, $2, $3, $4, 'played', current_date - 7)", [h, a, hs, as]);
+    const { ctx, page, errors } = await ctxFor(b, '00000000-0000-4000-8000-0000000000f1', { width: 1280, height: 1000 });
+    await go(page, '#os/dashboard', 4500);
+    const sec = await page.textContent('#ck-rivals');
+    check('rivals: section shown', /המועדון מול מועדונים אחרים/.test(sec));
+    check('rivals: our position', /מקום\s*2\s*מתוך 4/.test(sec), sec.slice(0, 200));
+    check('rivals: our row highlighted', (await page.locator('#ck-rivals tr.is-us td').nth(1).textContent()) === 'בדוי צפון');
+    check('rivals: club summary', /1 מתוך 1 קבוצות עם תוצאות נמצאות בחצי העליון/.test(sec));
+    await page.locator('.os-quick').getByRole('button', { name: 'מול מועדונים אחרים' }).click();
+    await page.waitForTimeout(800);
+    check('rivals: quick link scrolls', await page.evaluate(() => { const r = document.getElementById('ck-rivals').getBoundingClientRect(); return r.top < window.innerHeight && r.bottom > 0; }));
+    await page.locator('#ck-rivals').screenshot({ path: 'shots/phaseA4-rivals-1280.png' });
+    check('rivals: no page errors', errors.length === 0, errors.join(' | '));
+    await ctx.close();
+    await q('delete from ifa_games where ifa_season_id = 99');
+    await q('delete from ifa_teams where ifa_season_id = 99');
+    // without a linked league: an honest note, no numbers
+    const o = await ctxFor(b, OWNER, { width: 390, height: 844 });
+    await go(o.page, '#os/dashboard', 4500);
+    check('rivals: unlinked team says so', /לא מקושרת לליגה בהתאחדות/.test(await o.page.textContent('#ck-rivals')));
+    check('rivals phone: no horizontal scroll', await o.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    await o.ctx.close();
+  }
   // ---- coach keeps the full coach menu
   {
     const { ctx, page } = await ctxFor(b, COACH, { width: 1280, height: 900 });
