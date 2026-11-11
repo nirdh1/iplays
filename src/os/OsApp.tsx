@@ -114,8 +114,15 @@ export function OsApp() {
   };
 
   const noTeam = staffTeams.length === 0;
+  // A club owner/admin who does not coach a team: a short, management menu (user 2026-11-11).
+  const managerOnly = !noTeam && ownTeams.length === 0;
+  const navIds = noTeam
+    ? ['dashboard', 'interventions', 'library']
+    : managerOnly
+      ? ['dashboard', 'interventions', 'teams', 'library']
+      : modules.map((m) => m.id).filter((id) => id !== 'status');
   // No staff team (e.g. a club owner): open on the director dashboard instead of an empty roster.
-  const active = findModule(section) ?? (noTeam ? findModule('dashboard') ?? modules[0] : modules[0]);
+  const active = findModule(section) ?? (noTeam || managerOnly ? findModule('dashboard') ?? modules[0] : modules[0]);
   const go = (id: string) => {
     window.location.hash = `os/${id}`;
     window.scrollTo({ top: 0 });
@@ -133,9 +140,15 @@ export function OsApp() {
           <div className="os-brand">
             iPlays <span>Club OS</span>
           </div>
-          {modules.map((m) => (
-            <NavItem key={m.id} m={m} active={m.id === active.id} onClick={() => go(m.id)} />
-          ))}
+          {modules
+            .filter((m) => navIds.includes(m.id))
+            .sort((a, b) => navIds.indexOf(a.id) - navIds.indexOf(b.id))
+            .map((m) => (
+              <NavItem key={m.id} m={m} active={m.id === active.id} onClick={() => go(m.id)} />
+            ))}
+          <a className="os-side__v1" href="#os/status">
+            מה עובד ומה עוד לא
+          </a>
           <a className="os-side__v1" href="#home">
             חזרה ל-iPlays הרגיל
           </a>
@@ -202,17 +215,14 @@ export function OsApp() {
               <NotBuilt module={active} />
             )}
           </main>
-          {active.id !== 'status' && (
-            <a className="os-phone-only os-back" href="#os/status">
-              מה עובד ומה עוד לא
-            </a>
-          )}
+
         </div>
       </div>
 
       <nav className="os-bottom" aria-label="ניווט Club OS">
         {modules
-          .filter((m) => (noTeam ? ['dashboard', 'interventions', 'library', 'status'] : ['teams', 'home', 'calendar', 'plans', 'library']).includes(m.id))
+          .filter((m) => (noTeam || managerOnly ? navIds : ['teams', 'home', 'calendar', 'plans', 'library']).includes(m.id))
+          .sort((a, b) => navIds.indexOf(a.id) - navIds.indexOf(b.id))
           .map((m) => (
             <NavItem key={m.id} m={m} active={m.id === active.id} onClick={() => go(m.id)} compact />
           ))}
@@ -226,7 +236,6 @@ function NavItem({ m, active, onClick, compact }: { m: OsModule; active: boolean
     <button type="button" className={`os-nav${active ? ' is-active' : ''}${m.status === 'planned' ? ' is-planned' : ''}`} onClick={onClick} aria-current={active ? 'page' : undefined}>
       <Icon name={m.icon} size={compact ? 22 : 18} />
       <span>{m.label}</span>
-      {!compact && m.status !== 'live' && <small>יום {m.day}</small>}
     </button>
   );
 }
